@@ -4,22 +4,94 @@ A Discord bot for creating music raid campaigns on the Audius platform. Users ca
 
 ## Features
 
-- **OAuth Integration**: Users can link their Audius accounts to Discord
-- **Music Raids**: Admins can start raids for specific tracks
-- **Real-time Tracking**: Bot monitors user listening activity on Audius
-- **Token Rewards**: Users earn tokens for qualified listening sessions
-- **Leaderboards**: Track top raiders by token count
-- **Progress Monitoring**: Real-time raid progress updates
+### 🔐 Authentication & Profiles
+- **OAuth Integration**: Secure Audius account linking with CSRF protection
+- **Profile Display**: Rich embeds with profile pictures, cover photos, and bios
+- **User Lookup**: Search and view any public Audius user profile
+- **Account Management**: View personal stats, token balance, and raid history
+
+### 🎵 Music & Discovery
+- **Track Search**: Find tracks on Audius platform with detailed results
+- **Music Raids**: Admins can create targeted listening campaigns
+- **Real-time Tracking**: Monitor user listening activity via Audius API
+- **Progress Updates**: Live raid progress with visual progress bars
+
+### 🏆 Gamification & Rewards
+- **Token System**: Earn tokens for qualified listening sessions (60+ seconds)
+- **Leaderboards**: Rank top raiders by token count and participation
+- **Interactive Rewards**: Click-to-claim rewards system
+- **Progress Monitoring**: Personal DMs with listening progress updates
+
+### 🤖 Bot Intelligence
+- **Smart Monitoring**: Detects when users start/stop playing raid tracks
+- **Auto-qualification**: Automatically qualifies users after minimum listen time
+- **Raid Completion**: Auto-completes raids when goals are reached
+- **Error Recovery**: Robust error handling with user-friendly messages
 
 ## Commands
 
 ### User Commands
-- `/login` - Connect your Audius account to Discord
-- `/account` - View your Audius profile and token balance
-- `/leaderboard` - View top 10 raiders by token count
+- `/login` - Connect your Audius account to Discord via OAuth
+- `/account` - View your connected Audius profile, stats, and raid token balance
+- `/leaderboard` - Display top 10 raiders ranked by token count
+- `/search <query>` - Search for tracks on Audius platform
+- `/lookup <username>` - Look up any Audius user's public profile and stats
 
 ### Admin Commands
-- `/raid <track> <goal> <reward> [channel] [duration]` - Start a music raid
+- `/raid <track> <goal> <reward> [channel] [duration]` - Create a new music raid campaign
+
+## Command Details
+
+### `/login`
+- Generates a secure OAuth URL for Audius account linking
+- Creates temporary session with CSRF protection
+- Sends confirmation DM upon successful connection
+- Enables participation in raids and token earning
+
+### `/account`
+- Shows your Audius profile picture and cover photo
+- Displays social stats (followers, following)
+- Shows content stats (tracks, playlists)
+- Shows raid token balance and participation history
+- Interactive buttons for exploring followers, following, and wallets
+- Links to your Audius profile
+
+### `/leaderboard`
+- Ranks top 10 users by raid token count
+- Shows total raids participated for each user
+- Updates automatically every 5 minutes
+- Displays Discord usernames with Audius handles
+
+### `/search <query>`
+- Searches Audius platform for tracks matching your query
+- Returns up to 10 results with track details
+- Shows artist, duration, play count, and artwork
+- Provides direct links to tracks on Audius
+- Useful for finding tracks to raid
+
+### `/lookup <username>`
+- Look up any public Audius user profile by username/handle
+- Shows profile picture, cover photo, and bio
+- Displays social stats, content stats, and engagement metrics
+- Shows AUDIO token balance (if public)
+- Interactive buttons to explore their tracks, followers, and following
+- Links to their Audius profile
+- Works with any Audius username (with or without @)
+
+### `/raid <track> <goal> <reward> [channel] [duration]`
+*Admin only command*
+- **track**: Audius track URL or ID
+- **goal**: Number of qualified listeners needed
+- **reward**: Token amount each qualified user receives
+- **channel**: Discord channel to post raid (defaults to current)
+- **duration**: Raid duration in minutes (defaults to 60)
+
+Creates an interactive raid message with:
+- Track artwork and details
+- Real-time progress bar
+- "Join Raid" button for participation
+- "Claim Rewards" button (enabled when raid completes)
+- Live stream count updates
 
 ## Setup
 
