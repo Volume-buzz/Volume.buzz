@@ -20,7 +20,7 @@
 # Private Node Modules
 node_modules/
 creds.js
- 
+prisma-docs/
 # Private Files
 *.json
 *.csv
