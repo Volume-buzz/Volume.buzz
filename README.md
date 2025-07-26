@@ -109,7 +109,11 @@ Creates an interactive raid message with:
      - OAuth callback URL
 
 3. **Database Setup**
-   - Database tables are automatically created
+   ```bash
+   npx prisma db push  # Sync schema to database
+   npx prisma generate # Generate Prisma client
+   ```
+   - Database tables are automatically created via Prisma
    - Initial admin is added from environment variable
 
 4. **Deploy with PM2**
@@ -125,7 +129,7 @@ Creates an interactive raid message with:
 - `DISCORD_CLIENT_ID` - Discord application client ID
 - `GUILD_ID` - Discord server ID for command deployment
 - `ADMIN_DISCORD_ID` - Initial admin Discord user ID
-- `DATABASE_URL` - PostgreSQL connection string
+- `DATABASE_URL` - Prisma Postgres connection string
 - `AUDIUS_API_KEY` - Audius developer API key
 - `AUDIUS_API_SECRET` - Audius developer API secret
 - `OAUTH_CALLBACK_URL` - OAuth callback URL (https://yourdomain.com/oauth/callback)
@@ -143,11 +147,12 @@ Creates an interactive raid message with:
 
 ## Technical Details
 
-- **Database**: PostgreSQL with connection pooling
+- **Database**: Prisma ORM with PostgreSQL and type-safe queries
 - **OAuth**: Secure Audius account linking with state verification
 - **Monitoring**: Cron jobs track listening progress every 30 seconds
 - **Real-time Updates**: Discord messages update with live raid progress
 - **Error Handling**: Comprehensive error handling and user feedback
+- **Type Safety**: Auto-generated TypeScript types from Prisma schema
 
 ## API Integration
 

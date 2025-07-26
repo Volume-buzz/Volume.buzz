@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  discord_id               String  @id @map("discord_id")
+  audius_user_id          String? @map("audius_user_id")
+  audius_handle           String? @map("audius_handle")
+  audius_name             String? @map("audius_name")
+  tokens_balance          Int     @default(0) @map("tokens_balance")
+  total_raids_participated Int     @default(0) @map("total_raids_participated")
+  total_rewards_claimed   Int     @default(0) @map("total_rewards_claimed")
+  created_at              DateTime @default(now()) @map("created_at")
+  last_updated            DateTime @default(now()) @updatedAt @map("last_updated")
+
+  raid_participants RaidParticipant[]
+
+  @@map("users")
+}
+
+model Admin {
+  discord_id String   @id @map("discord_id")
+  added_by   String?  @map("added_by")
+  added_at   DateTime @default(now()) @map("added_at")
+
+  @@map("admins")
+}
+
+model Raid {
+  id                       Int       @id @default(autoincrement())
+  track_id                String    @map("track_id")
+  track_url               String    @map("track_url")
+  track_title             String?   @map("track_title")
+  track_artist            String?   @map("track_artist")
+  track_artwork_url       String?   @map("track_artwork_url")
+  streams_goal            Int       @map("streams_goal")
+  current_streams         Int       @default(0) @map("current_streams")
+  reward_amount           Int       @map("reward_amount")
+  channel_id              String    @map("channel_id")
+  guild_id                String    @map("guild_id")
+  creator_id              String    @map("creator_id")
+  duration_minutes        Int       @default(60) @map("duration_minutes")
+  status                  String    @default("active") @map("status")
+  message_id              String?   @map("message_id")
+  created_at              DateTime  @default(now()) @map("created_at")
+  expires_at              DateTime? @map("expires_at")
+  completed_at            DateTime? @map("completed_at")
+  first_finisher_discord_id String? @map("first_finisher_discord_id")
+  first_finisher_handle   String?   @map("first_finisher_handle")
+  first_finisher_time     DateTime? @map("first_finisher_time")
+
+  participants RaidParticipant[]
+
+  @@map("raids")
+}
+
+model RaidParticipant {
+  id                   Int       @id @default(autoincrement())
+  raid_id              Int?      @map("raid_id")
+  discord_id           String    @map("discord_id")
+  audius_user_id      String?   @map("audius_user_id")
+  listen_start_time   DateTime? @map("listen_start_time")
+  total_listen_duration Int      @default(0) @map("total_listen_duration")
+  qualified           Boolean   @default(false) @map("qualified")
+  claimed_reward      Boolean   @default(false) @map("claimed_reward")
+  claimed_at          DateTime? @map("claimed_at")
+  created_at          DateTime  @default(now()) @map("created_at")
+  is_listening        Boolean   @default(false) @map("is_listening")
+  last_check          DateTime? @map("last_check")
+  qualified_at        DateTime? @map("qualified_at")
+  last_dm_sent        DateTime? @map("last_dm_sent") @db.Timestamp(6)
+
+  raid Raid? @relation(fields: [raid_id], references: [id], onDelete: Cascade)
+  user User  @relation(fields: [discord_id], references: [discord_id])
+
+  @@unique([raid_id, discord_id])
+  @@map("raid_participants")
+}
+
+model OAuthSession {
+  state      String   @id @map("state")
+  discord_id String   @map("discord_id")
+  expires_at DateTime @map("expires_at")
+  created_at DateTime @default(now()) @map("created_at")
+
+  @@map("oauth_sessions")
+} 

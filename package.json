@@ -6,25 +6,34 @@
   "scripts": {
     "start": "node src/bot.js",
     "dev": "nodemon src/bot.js",
-    "deploy": "pm2 start ecosystem.config.js"
+    "deploy": "pm2 start ecosystem.config.js",
+    "db:push": "npx prisma db push",
+    "db:generate": "npx prisma generate",
+    "db:studio": "npx prisma studio"
   },
-  "keywords": ["discord", "audius", "music", "bot"],
+  "keywords": [
+    "discord",
+    "audius",
+    "music",
+    "bot"
+  ],
   "author": "SlashRaid",
   "license": "MIT",
   "dependencies": {
-    "discord.js": "^14.14.1",
     "@audius/sdk": "^9.1.0",
-    "web3": "^4.3.0",
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "pg": "^8.11.3",
-    "node-cron": "^3.0.3",
+    "@prisma/client": "^6.12.0",
     "axios": "^1.6.2",
+    "cors": "^2.8.5",
     "crypto": "^1.0.1",
-    "uuid": "^9.0.1"
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "node-cron": "^3.0.3",
+    "prisma": "^6.12.0",
+    "uuid": "^9.0.1",
+    "web3": "^4.3.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
   }
-} 
+}
