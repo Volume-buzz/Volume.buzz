@@ -115,6 +115,7 @@ Creates an interactive raid message with:
    ```
    - Database tables are automatically created via Prisma
    - Initial admin is added from environment variable
+   - Supports both Prisma Postgres and Railway PostgreSQL
 
 4. **Deploy with PM2**
    ```bash
@@ -129,13 +130,27 @@ Creates an interactive raid message with:
 - `DISCORD_CLIENT_ID` - Discord application client ID
 - `GUILD_ID` - Discord server ID for command deployment
 - `ADMIN_DISCORD_ID` - Initial admin Discord user ID
-- `DATABASE_URL` - Prisma Postgres connection string
+- `DATABASE_URL` - PostgreSQL connection string (supports both Prisma Postgres and Railway PostgreSQL)
 - `AUDIUS_API_KEY` - Audius developer API key
 - `AUDIUS_API_SECRET` - Audius developer API secret
 - `OAUTH_CALLBACK_URL` - OAuth callback URL (https://yourdomain.com/oauth/callback)
 - `PORT` - Server port (default: 3000)
 - `DEFAULT_RAID_DURATION` - Default raid duration in minutes (default: 60)
 - `MINIMUM_LISTEN_TIME` - Minimum listen time to qualify in seconds (default: 30)
+
+### Database Options
+
+#### Railway PostgreSQL
+To use Railway PostgreSQL, set your `DATABASE_URL` to:
+```
+DATABASE_URL="postgresql://username:password@hostname:port/database"
+```
+
+#### Prisma Postgres
+To use Prisma Postgres, set your `DATABASE_URL` to:
+```
+DATABASE_URL="prisma+postgres://accelerate.prisma-data.net/?api_key=your_api_key"
+```
 
 ## How It Works
 
