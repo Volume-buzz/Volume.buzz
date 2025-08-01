@@ -5,12 +5,13 @@
   "main": "src/bot.js",
   "scripts": {
     "start": "node src/bot.js",
+    "start:railway": "npx prisma db push && node src/bot.js",
     "dev": "nodemon src/bot.js",
     "deploy": "pm2 start ecosystem.config.js",
     "db:push": "npx prisma db push",
     "db:generate": "npx prisma generate",
     "db:studio": "npx prisma studio",
-    "postinstall": "npx prisma generate && npx prisma db push"
+    "postinstall": "npx prisma generate"
   },
   "keywords": [
     "discord",
