@@ -1,11 +1,13 @@
-[phases.setup]
-nixPkgs = ['nodejs_18']
+providers = ["node"]
 
-[phases.install]
-cmds = ['npm install']
+[variables]
+NODE_ENV = "production"
+
+[phases.setup]
+nixPkgs = ["nodejs-20_x", "npm"]
 
 [phases.build]
-cmds = ['npx prisma generate']
+cmd = "npm ci && npx prisma generate"
 
-[start]
-cmd = 'npm run start:railway'
+[phases.start]
+cmd = "npm run start:railway"
