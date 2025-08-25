@@ -1,8 +1,8 @@
-[providers]
-node = "18"
+[phases.install]
+cmds = ['npm ci']
 
 [phases.build]
-cmds = ['npm ci', 'npx prisma generate']
+cmds = ['npx prisma generate']
 
 [start]
 cmd = 'npm run start:railway'
