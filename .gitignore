@@ -23,6 +23,8 @@ creds.js
 prisma-docs/
 # Private Files
 *.json
+!package.json
+!package-lock.json
 *.csv
 *.csv.gz
 *.tsv
