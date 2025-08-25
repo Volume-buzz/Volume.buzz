@@ -9,13 +9,3 @@ cmds = ['npx prisma generate']
 
 [start]
 cmd = 'npm run start:railway'
-nixPkgs = ['nodejs_18', 'npm']
-
-[phases.install]
-cmds = ['npm ci']
-
-[phases.build]
-cmds = ['npx prisma generate']
-
-[start]
-cmd = 'npm run start:railway'
