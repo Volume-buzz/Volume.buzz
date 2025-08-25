@@ -2,11 +2,15 @@
   "name": "audius-discord-bot",
   "version": "1.0.0",
   "description": "Discord bot for Audius music raid campaigns",
-  "main": "src/bot.js",
+  "main": "src/app.js",
   "scripts": {
-    "start": "node src/bot.js",
-    "start:railway": "npx prisma db push && node src/bot.js",
-    "dev": "nodemon src/bot.js",
+    "start": "node src/app.js",
+    "start:bot": "node src/bot.js",
+    "start:api": "node src/server.js",
+    "start:railway": "npx prisma db push --accept-data-loss && npx prisma generate && node src/app.js",
+    "dev": "nodemon src/app.js",
+    "dev:bot": "nodemon src/bot.js",
+    "dev:api": "nodemon src/server.js",
     "deploy": "pm2 start ecosystem.config.js",
     "db:push": "npx prisma db push",
     "db:generate": "npx prisma generate",
@@ -36,6 +40,10 @@
     "web3": "^4.3.0"
   },
   "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
+
     "nodemon": "^3.0.2"
   }
 }
