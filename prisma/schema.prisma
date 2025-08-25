@@ -8,13 +8,10 @@ datasource db {
 }
 
 model User {
-  id                       String? @default(uuid()) @map("id")
   discord_id               String  @id @map("discord_id")
   audius_user_id          String? @map("audius_user_id")
   audius_handle           String? @map("audius_handle")
   audius_name             String? @map("audius_name")
-  discord_username        String? @map("discord_username")
-  role                    UserRole @default(FAN) @map("role")
   tokens_balance          Int     @default(0) @map("tokens_balance")
   total_raids_participated Int     @default(0) @map("total_raids_participated")
   total_rewards_claimed   Int     @default(0) @map("total_rewards_claimed")
@@ -22,19 +19,8 @@ model User {
   last_updated            DateTime @default(now()) @updatedAt @map("last_updated")
 
   raid_participants RaidParticipant[]
-  wallets           Wallet[] @relation("UserWallets")
-  artist_deposits   ArtistDeposit[] @relation("ArtistDeposits")
-  raids_created     Raid[] @relation("RaidCreator")
-  reward_accruals   RewardAccrual[] @relation("UserRewards")
-  withdrawals       Withdrawal[] @relation("UserWithdrawals")
 
   @@map("users")
-}
-
-enum UserRole {
-  FAN
-  ARTIST
-  SUPER_ADMIN
 }
 
 model Admin {
@@ -55,37 +41,22 @@ model Raid {
   streams_goal            Int       @map("streams_goal")
   current_streams         Int       @default(0) @map("current_streams")
   reward_amount           Int       @map("reward_amount")
-  token_mint              String?   @default("SOL") @map("token_mint")
-  reward_per_completion   String?   @default("0") @map("reward_per_completion") // Decimal as string
-  budget_cap              String?   @default("0") @map("budget_cap") // Decimal as string
   channel_id              String    @map("channel_id")
   guild_id                String    @map("guild_id")
   creator_id              String    @map("creator_id")
-  artist_discord_id       String?   @map("artist_discord_id")
   duration_minutes        Int       @default(60) @map("duration_minutes")
-  status                  RaidStatus @default(ACTIVE) @map("status")
+  status                  String    @default("active") @map("status")
   message_id              String?   @map("message_id")
   created_at              DateTime  @default(now()) @map("created_at")
-  start_at                DateTime  @default(now()) @map("start_at")
-  end_at                  DateTime? @map("end_at")
   expires_at              DateTime? @map("expires_at")
   completed_at            DateTime? @map("completed_at")
   first_finisher_discord_id String? @map("first_finisher_discord_id")
   first_finisher_handle   String?   @map("first_finisher_handle")
   first_finisher_time     DateTime? @map("first_finisher_time")
 
-  participants    RaidParticipant[]
-  creator         User?            @relation("RaidCreator", fields: [artist_discord_id], references: [discord_id])
-  reward_accruals RewardAccrual[]
+  participants RaidParticipant[]
 
   @@map("raids")
-}
-
-enum RaidStatus {
-  ACTIVE
-  COMPLETED
-  CANCELLED
-  EXPIRED
 }
 
 model RaidParticipant {
@@ -118,151 +89,4 @@ model OAuthSession {
   created_at DateTime @default(now()) @map("created_at")
 
   @@map("oauth_sessions")
-}
-
-model Wallet {
-  id                    String   @id @default(uuid()) @map("id")
-  user_discord_id       String   @map("user_discord_id")
-  public_key            String   @unique @map("public_key")
-  encrypted_private_key String   @map("encrypted_private_key")
-  is_artist_wallet      Boolean  @default(false) @map("is_artist_wallet")
-  created_at            DateTime @default(now()) @map("created_at")
-  exported_at           DateTime? @map("exported_at")
-
-  user User @relation("UserWallets", fields: [user_discord_id], references: [discord_id], onDelete: Cascade)
-
-  @@map("wallets")
-}
-
-model Token {
-  id                 String  @id @default(uuid()) @map("id")
-  mint               String  @unique @map("mint")
-  symbol             String  @map("symbol")
-  decimals           Int     @map("decimals")
-  logo_url           String? @map("logo_url")
-  enabled            Boolean @default(true) @map("enabled")
-  default_for_rewards Boolean @default(false) @map("default_for_rewards")
-  created_at         DateTime @default(now()) @map("created_at")
-
-  artist_deposits ArtistDeposit[]
-  reward_accruals RewardAccrual[]
-  settlements     Settlement[]
-
-  @@map("tokens")
-}
-
-model ArtistDeposit {
-  id                  String        @id @default(uuid()) @map("id")
-  artist_discord_id   String        @map("artist_discord_id")
-  token_mint          String        @map("token_mint")
-  amount              String        @map("amount") // Decimal as string
-  tx_signature        String        @unique @map("tx_signature")
-  status              DepositStatus @default(PENDING) @map("status")
-  created_at          DateTime      @default(now()) @map("created_at")
-  confirmed_at        DateTime?     @map("confirmed_at")
-
-  artist User  @relation("ArtistDeposits", fields: [artist_discord_id], references: [discord_id], onDelete: Cascade)
-  token  Token @relation(fields: [token_mint], references: [mint])
-
-  @@map("artist_deposits")
-}
-
-enum DepositStatus {
-  PENDING
-  CONFIRMED
-  FAILED
-}
-
-model RewardAccrual {
-  id                String          @id @default(uuid()) @map("id")
-  user_discord_id   String          @map("user_discord_id")
-  raid_id           Int             @map("raid_id")
-  token_mint        String          @map("token_mint")
-  amount            String          @map("amount") // Decimal as string
-  status            AccrualStatus   @default(PENDING) @map("status")
-  created_at        DateTime        @default(now()) @map("created_at")
-  settled_at        DateTime?       @map("settled_at")
-
-  user  User  @relation("UserRewards", fields: [user_discord_id], references: [discord_id], onDelete: Cascade)
-  raid  Raid  @relation(fields: [raid_id], references: [id], onDelete: Cascade)
-  token Token @relation(fields: [token_mint], references: [mint])
-
-  @@map("reward_accruals")
-}
-
-enum AccrualStatus {
-  PENDING
-  SETTLED
-  FAILED
-}
-
-model Settlement {
-  id                String           @id @default(uuid()) @map("id")
-  batch_id          String           @map("batch_id")
-  user_discord_id   String           @map("user_discord_id")
-  token_mint        String           @map("token_mint")
-  amount            String           @map("amount") // Decimal as string
-  tx_signature      String?          @map("tx_signature")
-  status            SettlementStatus @default(PENDING) @map("status")
-  created_at        DateTime         @default(now()) @map("created_at")
-  settled_at        DateTime?        @map("settled_at")
-
-  token Token @relation(fields: [token_mint], references: [mint])
-
-  @@map("settlements")
-}
-
-enum SettlementStatus {
-  PENDING
-  PROCESSING
-  COMPLETED
-  FAILED
-}
-
-model Withdrawal {
-  id                   String           @id @default(uuid()) @map("id")
-  user_discord_id      String           @map("user_discord_id")
-  to_address           String           @map("to_address")
-  requested_amount_sol String           @map("requested_amount_sol") // Decimal as string
-  route                WithdrawalRoute  @default(SOL) @map("route")
-  fee                  String?          @map("fee") // Decimal as string
-  tx_signature         String?          @map("tx_signature")
-  status               WithdrawalStatus @default(PENDING) @map("status")
-  created_at           DateTime         @default(now()) @map("created_at")
-  completed_at         DateTime?        @map("completed_at")
-
-  user User @relation("UserWithdrawals", fields: [user_discord_id], references: [discord_id], onDelete: Cascade)
-
-  @@map("withdrawals")
-}
-
-enum WithdrawalRoute {
-  SOL
-  TOKENS
-}
-
-enum WithdrawalStatus {
-  PENDING
-  PROCESSING
-  COMPLETED
-  FAILED
-  CANCELLED
-}
-
-model WebhookEvent {
-  id         String            @id @default(uuid()) @map("id")
-  type       String            @map("type")
-  wallet     String            @map("wallet")
-  payload    Json              @map("payload")
-  status     WebhookEventStatus @default(PENDING) @map("status")
-  created_at DateTime          @default(now()) @map("created_at")
-  processed_at DateTime?       @map("processed_at")
-
-  @@map("webhook_events")
-}
-
-enum WebhookEventStatus {
-  PENDING
-  PROCESSED
-  FAILED
 } 
