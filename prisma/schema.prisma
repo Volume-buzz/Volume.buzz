@@ -103,6 +103,7 @@ model RaidParticipant {
   last_check          DateTime? @map("last_check")
   qualified_at        DateTime? @map("qualified_at")
   last_dm_sent        DateTime? @map("last_dm_sent") @db.Timestamp(6)
+  dm_message_id       String?   @map("dm_message_id")
 
   raid Raid? @relation(fields: [raid_id], references: [id], onDelete: Cascade)
   user User  @relation(fields: [discord_id], references: [discord_id])
