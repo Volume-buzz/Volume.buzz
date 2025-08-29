@@ -59,6 +59,16 @@ class PrismaDatabase {
     });
   }
 
+  static async updateUser(discordId: string, updates: Partial<User>): Promise<User> {
+    return await prisma.user.update({
+      where: { discord_id: discordId },
+      data: {
+        ...updates,
+        last_updated: new Date()
+      }
+    });
+  }
+
   static async updateUserTokens(discordId: string, tokens: number): Promise<User> {
     return await prisma.user.update({
       where: { discord_id: discordId },
@@ -79,6 +89,43 @@ class PrismaDatabase {
         audius_user_id: null,
         audius_handle: null,
         audius_name: null,
+        last_updated: new Date()
+      }
+    });
+  }
+
+  static async deleteSpotifyAccount(discordId: string): Promise<User> {
+    // Clear Spotify account data while preserving other data
+    return await prisma.user.update({
+      where: { discord_id: discordId },
+      data: {
+        spotify_user_id: null,
+        spotify_display_name: null,
+        spotify_email: null,
+        spotify_is_premium: false,
+        spotify_access_token: null,
+        spotify_refresh_token: null,
+        spotify_token_expires_at: null,
+        last_updated: new Date()
+      }
+    });
+  }
+
+  static async deleteAllAccounts(discordId: string): Promise<User> {
+    // Clear both Audius and Spotify account data
+    return await prisma.user.update({
+      where: { discord_id: discordId },
+      data: {
+        audius_user_id: null,
+        audius_handle: null,
+        audius_name: null,
+        spotify_user_id: null,
+        spotify_display_name: null,
+        spotify_email: null,
+        spotify_is_premium: false,
+        spotify_access_token: null,
+        spotify_refresh_token: null,
+        spotify_token_expires_at: null,
         last_updated: new Date()
       }
     });
@@ -138,6 +185,9 @@ class PrismaDatabase {
     trackTitle: string;
     trackArtist: string;
     trackArtworkUrl?: string;
+    platform: 'AUDIUS' | 'SPOTIFY';
+    premiumOnly?: boolean;
+    requiredListenTime?: number;
     streamsGoal: number;
     rewardAmount: number;
     rewardTokenMint?: string;
@@ -155,9 +205,12 @@ class PrismaDatabase {
         track_title: raidData.trackTitle,
         track_artist: raidData.trackArtist,
         track_artwork_url: raidData.trackArtworkUrl,
+        platform: raidData.platform,
+        premium_only: raidData.premiumOnly || false,
+        required_listen_time: raidData.requiredListenTime || 30,
         streams_goal: raidData.streamsGoal,
         reward_amount: raidData.rewardAmount,
-        // reward_token_mint field removed as it doesn't exist in current schema
+        token_mint: raidData.rewardTokenMint || 'SOL',
         channel_id: raidData.channelId,
         guild_id: raidData.guildId,
         creator_id: raidData.creatorId,
@@ -238,7 +291,7 @@ class PrismaDatabase {
   }
 
   // Participant methods
-  static async addRaidParticipant(raidId: number | string, discordId: string, audiusUserId: string): Promise<RaidParticipant> {
+  static async addRaidParticipant(raidId: number | string, discordId: string, platformUserId?: string): Promise<RaidParticipant> {
     return await prisma.raidParticipant.upsert({
       where: {
         raid_id_discord_id: {
@@ -254,11 +307,30 @@ class PrismaDatabase {
       create: {
         raid_id: parseInt(raidId.toString()),
         discord_id: discordId,
-        audius_user_id: audiusUserId,
+        audius_user_id: platformUserId,
         listen_start_time: new Date(),
         last_check: new Date(),
         is_listening: true,
         total_listen_duration: 0
+      }
+    });
+  }
+
+  static async updateRaidParticipant(
+    raidId: number | string, 
+    discordId: string, 
+    updates: Partial<RaidParticipant>
+  ): Promise<RaidParticipant> {
+    return await prisma.raidParticipant.update({
+      where: {
+        raid_id_discord_id: {
+          raid_id: parseInt(raidId.toString()),
+          discord_id: discordId
+        }
+      },
+      data: {
+        ...updates,
+        last_check: new Date()
       }
     });
   }
@@ -631,14 +703,18 @@ class PrismaDatabase {
   }
 
   // OAuth session methods
-  static async createOAuthSession(state: string, discordId: string): Promise<OAuthSession> {
-    const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
-    
+  static async createOAuthSession(sessionData: {
+    state: string;
+    discordId: string;
+    platform: 'AUDIUS' | 'SPOTIFY';
+    expiresAt: Date;
+  }): Promise<OAuthSession> {
     return await prisma.oAuthSession.create({
       data: {
-        state: state,
-        discord_id: discordId,
-        expires_at: expiresAt
+        state: sessionData.state,
+        discord_id: sessionData.discordId,
+        platform: sessionData.platform,
+        expires_at: sessionData.expiresAt
       }
     });
   }

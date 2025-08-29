@@ -48,6 +48,13 @@ const config = {
     apiKey: process.env.AUDIUS_API_KEY
   },
 
+  // Spotify
+  spotify: {
+    clientId: process.env.SPOTIFY_CLIENT_ID || '',
+    clientSecret: process.env.SPOTIFY_CLIENT_SECRET || '',
+    redirectUri: process.env.SPOTIFY_REDIRECT_URI || 'http://localhost:3000/oauth/spotify/callback'
+  },
+
   // Solana
   solana: {
     network: (process.env.SOLANA_NETWORK as 'mainnet' | 'devnet' | 'testnet') || 'mainnet',
@@ -181,7 +188,9 @@ const requiredEnvVars: Array<keyof typeof process.env> = [
   'DISCORD_CLIENT_ID',
   'HELIUS_API_KEY',
   'ENCRYPTION_KEY',
-  'JWT_SECRET'
+  'JWT_SECRET',
+  'SPOTIFY_CLIENT_ID',
+  'SPOTIFY_CLIENT_SECRET'
 ];
 
 const missingVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
