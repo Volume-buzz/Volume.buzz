@@ -78,8 +78,12 @@ class SpotifyAuthService {
         display_name: data.body.display_name || data.body.id,
         email: data.body.email || '',
         country: data.body.country || 'US',
-        product: data.body.product || 'free',
-        images: data.body.images || [],
+        product: (data.body.product === 'premium' ? 'premium' : 'free') as 'premium' | 'free',
+        images: (data.body.images || []).map(img => ({
+          url: img.url,
+          height: img.height || 0,
+          width: img.width || 0
+        })),
         followers: data.body.followers || { total: 0 },
         external_urls: data.body.external_urls || { spotify: '' }
       };
@@ -122,8 +126,8 @@ class SpotifyAuthService {
         spotify_display_name: userProfile.display_name,
         spotify_email: userProfile.email,
         spotify_is_premium: userProfile.product === 'premium',
-        spotify_access_token: encryptedAccessToken,
-        spotify_refresh_token: encryptedRefreshToken,
+        spotify_access_token: encryptedAccessToken.toString(),
+        spotify_refresh_token: encryptedRefreshToken.toString(),
         spotify_token_expires_at: expiresAt
       });
 
@@ -152,7 +156,7 @@ class SpotifyAuthService {
       if (!expiresAt || (expiresAt.getTime() - bufferTime) <= now.getTime()) {
         console.log(`🔄 Refreshing Spotify token for user ${discordId}`);
         
-        const decryptedRefreshToken = this.encryptionService.decrypt(user.spotify_refresh_token);
+        const decryptedRefreshToken = this.encryptionService.decrypt(user.spotify_refresh_token as any);
         const newTokens = await this.refreshAccessToken(decryptedRefreshToken);
         
         // Get updated user profile to check for premium status changes
@@ -163,7 +167,7 @@ class SpotifyAuthService {
       }
 
       // Token is still valid
-      return this.encryptionService.decrypt(user.spotify_access_token);
+      return this.encryptionService.decrypt(user.spotify_access_token as any);
     } catch (error: any) {
       console.error(`Failed to get valid access token for user ${discordId}:`, error.message);
       return null;
@@ -225,7 +229,7 @@ class SpotifyAuthService {
   async validateState(state: string, discordId: string): Promise<boolean> {
     try {
       const session = await PrismaDatabase.getOAuthSession(state);
-      return session && session.discord_id === discordId && session.platform === 'SPOTIFY';
+      return !!(session && session.discord_id === discordId && session.platform === 'SPOTIFY');
     } catch (error) {
       console.error('Error validating OAuth state:', error);
       return false;

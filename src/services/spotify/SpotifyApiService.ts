@@ -30,7 +30,7 @@ class SpotifyApiService {
       await this.ensureClientCredentials();
       
       const searchResult = await this.spotifyApi.searchTracks(query, { limit });
-      return searchResult.body.tracks.items;
+      return (searchResult.body.tracks?.items || []) as SpotifyTrack[];
     } catch (error: any) {
       console.error('Error searching Spotify tracks:', error);
       throw new Error(`Spotify search failed: ${error.message}`);
@@ -45,7 +45,7 @@ class SpotifyApiService {
       await this.ensureClientCredentials();
       
       const trackData = await this.spotifyApi.getTrack(trackId);
-      return trackData.body;
+      return trackData.body as SpotifyTrack;
     } catch (error: any) {
       console.error(`Error getting Spotify track ${trackId}:`, error);
       throw new Error(`Failed to get track info: ${error.message}`);
@@ -85,7 +85,7 @@ class SpotifyApiService {
       duration_ms: spotifyTrack.duration_ms,
       platform: 'SPOTIFY',
       spotify_uri: spotifyTrack.uri,
-      preview_url: spotifyTrack.preview_url
+      preview_url: spotifyTrack.preview_url || undefined
     };
   }
 
@@ -102,11 +102,10 @@ class SpotifyApiService {
       this.spotifyApi.setAccessToken(accessToken);
       
       const currentlyPlaying = await this.spotifyApi.getMyCurrentPlayingTrack({
-        market: 'US',
-        additional_types: 'track'
+        market: 'US'
       });
 
-      return currentlyPlaying.body || null;
+      return (currentlyPlaying as any).body || null;
     } catch (error: any) {
       if (error.statusCode === 204) {
         // No content - user not playing anything
@@ -245,11 +244,10 @@ class SpotifyApiService {
 
       this.spotifyApi.setAccessToken(accessToken);
       const playbackState = await this.spotifyApi.getMyCurrentPlaybackState({
-        market: 'US',
-        additional_types: 'track'
+        market: 'US'
       });
 
-      return playbackState.body || null;
+      return (playbackState as any).body || null;
     } catch (error: any) {
       if (error.statusCode === 204) {
         return null; // No active playback
@@ -301,7 +299,7 @@ class SpotifyApiService {
       await this.ensureClientCredentials();
       
       const tracks = await this.spotifyApi.getTracks(trackIds);
-      return tracks.body.tracks.filter(track => track !== null);
+      return tracks.body.tracks.filter(track => track !== null) as SpotifyTrack[];
     } catch (error: any) {
       console.error('Error getting multiple tracks:', error);
       throw new Error(`Failed to get tracks: ${error.message}`);

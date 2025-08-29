@@ -40,7 +40,7 @@ class AudiusBot {
     // Initialize commands collection
     this.client.commands = new Collection<string, Command>();
     
-    this.oauthServer = new (OAuthServer as any)(this);
+    this.oauthServer = new OAuthServer(this);
     this.raidMonitor = new RaidMonitor(this.client);
 
     this.setupEventHandlers();
@@ -323,13 +323,13 @@ class AudiusBot {
 
     // Add user as participant with platform-specific user ID
     const platformUserId = raid.platform === 'SPOTIFY' ? user.spotify_user_id : user.audius_user_id;
-    await PrismaDatabase.addRaidParticipant(raidId, userId, platformUserId);
+    await PrismaDatabase.addRaidParticipant(raidId, userId, platformUserId || undefined);
 
     // Update user's raid participation count
     await PrismaDatabase.updateUserRaidParticipation(userId);
 
     // Start platform-specific tracking
-    await this.raidMonitor.addParticipant(userId, raidId, platformUserId);
+    await this.raidMonitor.addParticipant(userId, raidId, platformUserId || undefined);
 
     // Platform-specific messages
     const platformIcon = raid.platform === 'SPOTIFY' ? '🎶' : '🎵';
@@ -960,6 +960,13 @@ class AudiusBot {
     } catch (error) {
       console.error('Failed to send OAuth success DM:', error);
     }
+  }
+
+  /**
+   * Get Spotify services from raid monitor
+   */
+  public getSpotifyServices() {
+    return this.raidMonitor.getSpotifyServices();
   }
 
   private async deployCommands(): Promise<void> {

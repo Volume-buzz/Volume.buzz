@@ -346,15 +346,9 @@ class RaidMonitor {
               await this.spotifyTrackingService.sendProgressDM(discordUser, raid, session);
             }
           } else {
-            // Send Audius progress DM (using bot method)
-            if (this.client.bot && typeof this.client.bot.sendUserProgressDM === 'function') {
-              await this.client.bot.sendUserProgressDM(
-                discordUser, 
-                raid, 
-                participant.total_listen_duration, 
-                participant.is_listening
-              );
-            }
+            // Send Audius progress DM (placeholder - integrate with existing bot instance)
+            // TODO: Access bot instance through proper reference
+            console.log(`📧 Need to send Audius progress DM to ${participant.discord_id}`);
           }
 
           // Update last DM sent time

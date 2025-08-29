@@ -118,18 +118,21 @@ class SpotifyTrackingService {
         session.totalListenTime += timeSinceLastCheck;
         
         // Update database with current progress
+        const updateData: any = {
+          is_listening: true,
+          total_listen_duration: Math.floor(session.totalListenTime),
+          last_check: now,
+          qualified: session.totalListenTime >= session.requiredTime
+        };
+
+        if (session.totalListenTime >= session.requiredTime && !session.isListening) {
+          updateData.qualified_at = now;
+        }
+
         await PrismaDatabase.updateRaidParticipant(
           session.raidId, 
           session.userId, 
-          {
-            is_listening: true,
-            total_listen_duration: Math.floor(session.totalListenTime),
-            last_check: now,
-            qualified: session.totalListenTime >= session.requiredTime,
-            ...(session.totalListenTime >= session.requiredTime && !session.isListening && {
-              qualified_at: now
-            })
-          }
+          updateData
         );
 
         console.log(`🎵 User ${session.userId} listening to Spotify track (${Math.floor(session.totalListenTime)}s/${session.requiredTime}s)`);

@@ -29,8 +29,8 @@ const loginCommand: Command = {
       if (hasAudius && hasSpotify) {
         const embed = EmbedBuilder.createInfoEmbed(
           'Already Connected',
-          `🎵 **Audius:** @${user.audius_handle}\n` +
-          `🎶 **Spotify:** ${user.spotify_display_name} ${user.spotify_is_premium ? '👑' : '🆓'}\n\n` +
+          `🎵 **Audius:** @${user?.audius_handle}\n` +
+          `🎶 **Spotify:** ${user?.spotify_display_name} ${user?.spotify_is_premium ? '👑' : '🆓'}\n\n` +
           `You're already connected to both platforms! Use \`/logout\` if you want to change accounts.`
         );
 
@@ -68,7 +68,7 @@ const loginCommand: Command = {
           '• Participate in all Audius raids\n' +
           '• Earn crypto tokens for listening\n\n';
       } else {
-        description += `✅ **Audius** - Connected as @${user.audius_handle}\n\n`;
+        description += `✅ **Audius** - Connected as @${user?.audius_handle}\n\n`;
       }
 
       if (!hasSpotify) {
@@ -77,7 +77,7 @@ const loginCommand: Command = {
           '• Premium users get enhanced tracking\n' +
           '• Free users can join most raids\n\n';
       } else {
-        description += `✅ **Spotify** - Connected as ${user.spotify_display_name} ${user.spotify_is_premium ? '👑' : '🆓'}\n\n`;
+        description += `✅ **Spotify** - Connected as ${user?.spotify_display_name} ${user?.spotify_is_premium ? '👑' : '🆓'}\n\n`;
       }
 
       description += '*You can connect to both platforms for maximum raid opportunities!*';

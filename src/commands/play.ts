@@ -62,7 +62,7 @@ const playCommand: Command = {
         .setDescription('Channel to post the raid (defaults to current channel)')
         .setRequired(false)
         .addChannelTypes(ChannelType.GuildText)
-    ),
+    ) as SlashCommandBuilder,
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
@@ -90,10 +90,20 @@ const playCommand: Command = {
       const premiumOnly = interaction.options.getBoolean('premium') || false;
       const targetChannel = interaction.options.getChannel('channel') || interaction.channel;
 
-      if (!targetChannel || !targetChannel.isTextBased()) {
+      if (!targetChannel) {
         const embed = EmbedBuilder.createErrorEmbed(
           'Invalid Channel',
           'Please specify a valid text channel for the raid.'
+        );
+        await interaction.editReply({ embeds: [embed] });
+        return;
+      }
+
+      // Type guard for text-based channel
+      if (!('send' in targetChannel)) {
+        const embed = EmbedBuilder.createErrorEmbed(
+          'Invalid Channel Type',
+          'Please select a text channel for the raid.'
         );
         await interaction.editReply({ embeds: [embed] });
         return;

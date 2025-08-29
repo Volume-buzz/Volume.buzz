@@ -748,6 +748,12 @@ class PrismaDatabase {
     });
   }
 
+  static async deleteRaidParticipant(participantId: number): Promise<RaidParticipant> {
+    return await prisma.raidParticipant.delete({
+      where: { id: participantId }
+    });
+  }
+
   // Utility methods
   static async disconnect(): Promise<void> {
     await prisma.$disconnect();

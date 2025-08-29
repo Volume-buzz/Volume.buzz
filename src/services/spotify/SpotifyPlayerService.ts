@@ -561,7 +561,7 @@ class SpotifyPlayerService {
       await PrismaDatabase.updateRaidParticipant(raidId, discordId, {
         total_listen_duration: listenTime,
         is_listening: isPlaying,
-        qualified: listenTime >= (await PrismaDatabase.getRaid(raidId))?.required_listen_time,
+        qualified: listenTime >= ((await PrismaDatabase.getRaid(raidId))?.required_listen_time || 30),
         last_check: new Date()
       });
 

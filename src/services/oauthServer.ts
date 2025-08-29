@@ -105,7 +105,8 @@ class OAuthServer {
       });
 
       // Create Audius OAuth URL (you'll need to implement this based on your existing Audius OAuth)
-      const authUrl = `https://audius.co/oauth/auth?client_id=${config.audius.apiKey}&response_type=code&redirect_uri=${encodeURIComponent(config.spotify.redirectUri.replace('spotify', 'audius'))}&state=${state}&scope=read`;
+      const audiusCallbackUrl = config.spotify.redirectUri.replace('/auth/spotify/callback', '/auth/audius/callback');
+      const authUrl = `https://audius.co/oauth/auth?client_id=${config.audius.apiKey}&response_type=code&redirect_uri=${encodeURIComponent(audiusCallbackUrl)}&state=${state}&scope=read`;
       
       res.redirect(authUrl);
     } catch (error: any) {
@@ -381,7 +382,9 @@ class OAuthServer {
    * Generate OAuth URLs for Discord commands
    */
   generateAuthUrl(discordId: string, platform: Platform): string {
-    const baseUrl = `http://localhost:${config.api.port}`;
+    const baseUrl = config.api.nodeEnv === 'production' 
+      ? 'https://volume.epiclootlabs.com' 
+      : `http://localhost:${config.api.port}`;
     
     if (platform === 'SPOTIFY') {
       return `${baseUrl}/oauth/spotify/login/${discordId}`;
