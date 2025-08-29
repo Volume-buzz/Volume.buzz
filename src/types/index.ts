@@ -2,6 +2,9 @@
 
 import { ChatInputCommandInteraction, SlashCommandBuilder, ButtonInteraction, User as DiscordUser } from 'discord.js';
 
+// Platform types
+export type Platform = 'AUDIUS' | 'SPOTIFY';
+
 // Command interface
 export interface Command {
   data: SlashCommandBuilder;
@@ -27,6 +30,13 @@ export interface DatabaseUser {
   audius_user_id?: string;
   audius_handle?: string;
   audius_name?: string;
+  spotify_user_id?: string;
+  spotify_display_name?: string;
+  spotify_email?: string;
+  spotify_is_premium?: boolean;
+  spotify_access_token?: string;
+  spotify_refresh_token?: string;
+  spotify_token_expires_at?: Date;
   tokens_balance: number;
   total_raids_participated: number;
   total_rewards_claimed: number;
@@ -45,6 +55,9 @@ export interface Raid {
   track_title: string;
   track_artist: string;
   track_artwork_url?: string;
+  platform: Platform;
+  premium_only: boolean;
+  required_listen_time: number;
   streams_goal: number;
   current_streams: number;
   reward_amount: number;

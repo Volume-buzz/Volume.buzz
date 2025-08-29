@@ -13,6 +13,13 @@ model User {
   audius_user_id          String? @map("audius_user_id")
   audius_handle           String? @map("audius_handle")
   audius_name             String? @map("audius_name")
+  spotify_user_id         String? @map("spotify_user_id")
+  spotify_display_name    String? @map("spotify_display_name")
+  spotify_email           String? @map("spotify_email")
+  spotify_is_premium      Boolean @default(false) @map("spotify_is_premium")
+  spotify_access_token    String? @map("spotify_access_token")
+  spotify_refresh_token   String? @map("spotify_refresh_token")
+  spotify_token_expires_at DateTime? @map("spotify_token_expires_at")
   discord_username        String? @map("discord_username")
   role                    UserRole @default(FAN) @map("role")
   tokens_balance          Int     @default(0) @map("tokens_balance")
@@ -52,6 +59,9 @@ model Raid {
   track_title             String?   @map("track_title")
   track_artist            String?   @map("track_artist")
   track_artwork_url       String?   @map("track_artwork_url")
+  platform                Platform  @default(AUDIUS) @map("platform")
+  premium_only            Boolean   @default(false) @map("premium_only")
+  required_listen_time    Int       @default(30) @map("required_listen_time")
   streams_goal            Int       @map("streams_goal")
   current_streams         Int       @default(0) @map("current_streams")
   reward_amount           Int       @map("reward_amount")
@@ -79,6 +89,11 @@ model Raid {
   reward_accruals RewardAccrual[]
 
   @@map("raids")
+}
+
+enum Platform {
+  AUDIUS
+  SPOTIFY
 }
 
 enum RaidStatus {
@@ -115,6 +130,7 @@ model RaidParticipant {
 model OAuthSession {
   state      String   @id @map("state")
   discord_id String   @map("discord_id")
+  platform   Platform @default(AUDIUS) @map("platform")
   expires_at DateTime @map("expires_at")
   created_at DateTime @default(now()) @map("created_at")
 
