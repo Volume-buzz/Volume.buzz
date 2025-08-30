@@ -1,4 +1,4 @@
-import { PrismaClient, User, Raid, RaidParticipant, Admin, OAuthSession } from '@prisma/client';
+import { PrismaClient, User, Raid, RaidParticipant, Admin, OAuthSession, Wallet, Token, ArtistDeposit, Withdrawal } from '@prisma/client';
 import { DatabaseUser, Raid as RaidType, RaidParticipant as RaidParticipantType, UserRole } from '../types';
 
 // Initialize Prisma client with proper configuration
@@ -59,15 +59,7 @@ class PrismaDatabase {
     });
   }
 
-  static async updateUser(discordId: string, updates: Partial<User>): Promise<User> {
-    return await prisma.user.update({
-      where: { discord_id: discordId },
-      data: {
-        ...updates,
-        last_updated: new Date()
-      }
-    });
-  }
+  // Removed duplicate - see updateUser method below with better typing
 
   static async updateUserTokens(discordId: string, tokens: number): Promise<User> {
     return await prisma.user.update({
@@ -142,10 +134,29 @@ class PrismaDatabase {
 
   // Admin methods
   static async isAdmin(discordId: string): Promise<boolean> {
+    // Check both environment variables for admin IDs
+    const superAdminIds = process.env.SUPER_ADMIN_IDS?.split(',').map(id => id.trim()) || [];
+    const adminDiscordIds = process.env.ADMIN_DISCORD_ID?.split(',').map(id => id.trim()) || [];
+    
+    // Check if user is in either admin list
+    if (superAdminIds.includes(discordId) || adminDiscordIds.includes(discordId)) {
+      console.log(`✅ Admin access granted for Discord ID: ${discordId}`);
+      return true;
+    }
+    
+    // Then check admin table in database
     const admin = await prisma.admin.findUnique({
       where: { discord_id: discordId }
     });
-    return admin !== null;
+    
+    const isAdmin = admin !== null;
+    if (isAdmin) {
+      console.log(`✅ Admin access granted from database for Discord ID: ${discordId}`);
+    } else {
+      console.log(`❌ Admin access denied for Discord ID: ${discordId}`);
+    }
+    
+    return isAdmin;
   }
 
   static async addAdmin(discordId: string): Promise<Admin> {
@@ -160,21 +171,64 @@ class PrismaDatabase {
     });
   }
 
+  static async updateUserBalance(discordId: string, newBalance: number): Promise<User | null> {
+    try {
+      return await prisma.user.update({
+        where: { discord_id: discordId },
+        data: { tokens_balance: newBalance }
+      });
+    } catch (error) {
+      console.error('Error updating user balance:', error);
+      return null;
+    }
+  }
+
+  static async updateUser(discordId: string, updates: {
+    audiusUserId?: string;
+    audiusHandle?: string;
+    audiusName?: string;
+    spotifyUserId?: string;
+    spotifyDisplayName?: string;
+    spotifyEmail?: string;
+    spotifyIsPremium?: boolean;
+  }): Promise<User | null> {
+    try {
+      const updateData: any = {};
+      
+      if (updates.audiusUserId) updateData.audius_user_id = updates.audiusUserId;
+      if (updates.audiusHandle) updateData.audius_handle = updates.audiusHandle;
+      if (updates.audiusName) updateData.audius_name = updates.audiusName;
+      if (updates.spotifyUserId) updateData.spotify_user_id = updates.spotifyUserId;
+      if (updates.spotifyDisplayName) updateData.spotify_display_name = updates.spotifyDisplayName;
+      if (updates.spotifyEmail) updateData.spotify_email = updates.spotifyEmail;
+      if (updates.spotifyIsPremium !== undefined) updateData.spotify_is_premium = updates.spotifyIsPremium;
+
+      return await prisma.user.update({
+        where: { discord_id: discordId },
+        data: updateData
+      });
+    } catch (error) {
+      console.error('Error updating user:', error);
+      return null;
+    }
+  }
+
   static async initializeAdmins(): Promise<void> {
     try {
-      const adminIds = process.env.ADMIN_DISCORD_ID;
+      // Use SUPER_ADMIN_IDS from environment config
+      const adminIds = process.env.SUPER_ADMIN_IDS;
       if (adminIds) {
         const ids = adminIds.split(',').map(id => id.trim()).filter(id => id);
         
         for (const discordId of ids) {
           await this.addAdmin(discordId);
-          console.log(`✅ Admin initialized: ${discordId}`);
+          console.log(`✅ Super Admin initialized: ${discordId}`);
         }
         
-        console.log(`🔐 Initialized ${ids.length} admin(s)`);
+        console.log(`🔐 Initialized ${ids.length} super admin(s)`);
       }
     } catch (error) {
-      console.error('Error initializing admins:', error);
+      console.error('Error initializing super admins:', error);
     }
   }
 
@@ -748,9 +802,210 @@ class PrismaDatabase {
     });
   }
 
+  // Session mapping methods for random session IDs
+  static async createSessionMapping(sessionData: {
+    sessionId: string;
+    discordId: string;
+    platform: 'AUDIUS' | 'SPOTIFY';
+    expiresAt: Date;
+  }): Promise<OAuthSession> {
+    return await prisma.oAuthSession.create({
+      data: {
+        state: `session_${sessionData.sessionId}`, // Prefix to distinguish from OAuth states
+        discord_id: sessionData.discordId,
+        platform: sessionData.platform,
+        expires_at: sessionData.expiresAt
+      }
+    });
+  }
+
+  static async getSessionMapping(sessionId: string): Promise<OAuthSession | null> {
+    return await prisma.oAuthSession.findFirst({
+      where: {
+        state: `session_${sessionId}`,
+        expires_at: { gt: new Date() }
+      }
+    });
+  }
+
+  static async deleteSessionMapping(sessionId: string): Promise<boolean> {
+    try {
+      const result = await prisma.oAuthSession.deleteMany({
+        where: { state: `session_${sessionId}` }
+      });
+      return result.count > 0;
+    } catch (error) {
+      console.error('Error deleting session mapping:', error);
+      return false;
+    }
+  }
+
   static async deleteRaidParticipant(participantId: number): Promise<RaidParticipant> {
     return await prisma.raidParticipant.delete({
       where: { id: participantId }
+    });
+  }
+
+  // Wallet methods
+  static async createWallet(walletData: {
+    userDiscordId: string;
+    publicKey: string;
+    encryptedPrivateKey: string;
+    isArtistWallet: boolean;
+  }): Promise<Wallet> {
+    return await prisma.wallet.create({
+      data: {
+        user_discord_id: walletData.userDiscordId,
+        public_key: walletData.publicKey,
+        encrypted_private_key: walletData.encryptedPrivateKey,
+        is_artist_wallet: walletData.isArtistWallet
+      }
+    });
+  }
+
+  static async getUserWallet(discordId: string): Promise<Wallet | null> {
+    return await prisma.wallet.findFirst({
+      where: { user_discord_id: discordId }
+    });
+  }
+
+  static async getWalletByPublicKey(publicKey: string): Promise<Wallet | null> {
+    return await prisma.wallet.findFirst({
+      where: { public_key: publicKey }
+    });
+  }
+
+  static async markWalletAsExported(publicKey: string): Promise<void> {
+    await prisma.wallet.update({
+      where: { public_key: publicKey },
+      data: { exported_at: new Date() }
+    });
+  }
+
+  static async deleteWallet(publicKey: string): Promise<void> {
+    await prisma.wallet.delete({
+      where: { public_key: publicKey }
+    });
+  }
+
+  // Token methods
+  static async getTokenByMint(mint: string): Promise<Token | null> {
+    return await prisma.token.findFirst({
+      where: { mint }
+    });
+  }
+
+  static async getAllEnabledTokens(): Promise<Token[]> {
+    return await prisma.token.findMany({
+      where: { enabled: true },
+      orderBy: { symbol: 'asc' }
+    });
+  }
+
+  static async createToken(tokenData: {
+    mint: string;
+    symbol: string;
+    decimals: number;
+    logoUrl?: string;
+    enabled?: boolean;
+    defaultForRewards?: boolean;
+  }): Promise<Token> {
+    return await prisma.token.create({
+      data: {
+        mint: tokenData.mint,
+        symbol: tokenData.symbol,
+        decimals: tokenData.decimals,
+        logo_url: tokenData.logoUrl,
+        enabled: tokenData.enabled ?? true,
+        default_for_rewards: tokenData.defaultForRewards ?? false
+      }
+    });
+  }
+
+  // Deposit methods
+  static async createArtistDeposit(depositData: {
+    artistDiscordId: string;
+    tokenMint: string;
+    amount: string;
+    txSignature: string;
+    status: 'PENDING' | 'CONFIRMED' | 'FAILED';
+  }): Promise<ArtistDeposit> {
+    return await prisma.artistDeposit.create({
+      data: {
+        artist_discord_id: depositData.artistDiscordId,
+        token_mint: depositData.tokenMint,
+        amount: depositData.amount,
+        tx_signature: depositData.txSignature,
+        status: depositData.status
+      }
+    });
+  }
+
+  static async getDepositByTxSignature(txSignature: string): Promise<ArtistDeposit | null> {
+    return await prisma.artistDeposit.findFirst({
+      where: { tx_signature: txSignature }
+    });
+  }
+
+  static async getUserDeposits(discordId: string): Promise<ArtistDeposit[]> {
+    return await prisma.artistDeposit.findMany({
+      where: { artist_discord_id: discordId },
+      include: { token: true },
+      orderBy: { created_at: 'desc' }
+    });
+  }
+
+  static async getAllTokens(): Promise<Token[]> {
+    return await prisma.token.findMany({
+      orderBy: { symbol: 'asc' }
+    });
+  }
+
+  static async updateToken(mint: string, updates: {
+    enabled?: boolean;
+    symbol?: string;
+    decimals?: number;
+    logo_url?: string;
+    default_for_rewards?: boolean;
+  }): Promise<Token> {
+    return await prisma.token.update({
+      where: { mint },
+      data: updates
+    });
+  }
+
+  // Withdrawal methods
+  static async createWithdrawal(withdrawalData: {
+    userDiscordId: string;
+    toAddress: string;
+    requestedAmountSol: string;
+    route: 'SOL' | 'TOKENS';
+  }): Promise<Withdrawal> {
+    return await prisma.withdrawal.create({
+      data: {
+        user_discord_id: withdrawalData.userDiscordId,
+        to_address: withdrawalData.toAddress,
+        requested_amount_sol: withdrawalData.requestedAmountSol,
+        route: withdrawalData.route,
+        status: 'PENDING'
+      }
+    });
+  }
+
+  static async getPendingWithdrawals(discordId: string): Promise<Withdrawal[]> {
+    return await prisma.withdrawal.findMany({
+      where: { 
+        user_discord_id: discordId,
+        status: { in: ['PENDING', 'PROCESSING'] }
+      },
+      orderBy: { created_at: 'desc' }
+    });
+  }
+
+  static async getUserWithdrawals(discordId: string): Promise<Withdrawal[]> {
+    return await prisma.withdrawal.findMany({
+      where: { user_discord_id: discordId },
+      orderBy: { created_at: 'desc' }
     });
   }
 

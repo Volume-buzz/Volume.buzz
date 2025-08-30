@@ -7,7 +7,7 @@ export type Platform = 'AUDIUS' | 'SPOTIFY';
 
 // Command interface
 export interface Command {
-  data: SlashCommandBuilder;
+  data: SlashCommandBuilder | any; // Allow different SlashCommand builder types
   execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
 }
 

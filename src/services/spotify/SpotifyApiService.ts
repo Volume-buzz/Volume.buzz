@@ -16,9 +16,14 @@ class SpotifyApiService {
   private spotifyApi: SpotifyWebApi;
   private authService: SpotifyAuthService;
 
-  constructor(authService: SpotifyAuthService) {
+  constructor(authService: SpotifyAuthService, config?: { clientId: string; clientSecret: string }) {
     this.authService = authService;
-    this.spotifyApi = new SpotifyWebApi();
+    
+    // Configure with client credentials for public API calls
+    this.spotifyApi = new SpotifyWebApi(config ? {
+      clientId: config.clientId,
+      clientSecret: config.clientSecret
+    } : {});
   }
 
   /**

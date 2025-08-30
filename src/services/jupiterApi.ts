@@ -18,6 +18,9 @@ interface TokenSearchResult {
 
 interface TokenPriceData {
   usdPrice: number;
+  blockId?: number;
+  decimals?: number;
+  priceChange24h?: number;
   [key: string]: any;
 }
 
@@ -58,6 +61,7 @@ interface WithdrawalEligibility {
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
+  customTtl?: number; // Custom TTL in milliseconds
 }
 
 class JupiterApiService {
@@ -109,13 +113,15 @@ class JupiterApiService {
       const cached = this.getCachedData<number>(cacheKey);
       if (cached) return cached;
 
-      const response = await fetch(`${this.baseUrl}/price/v3?ids=${encodeURIComponent(mintAddress)}`);
+      // Use Jupiter Price API v3 (latest)
+      const response = await fetch(`${this.baseUrl}?ids=${encodeURIComponent(mintAddress)}`);
       
       if (!response.ok) {
         throw new Error(`Jupiter Price API error: ${response.status}`);
       }
 
-      const data: Record<string, TokenPriceData> = await response.json();
+      // V3 API returns different structure: { [mint]: { usdPrice, blockId, decimals, priceChange24h } }
+      const data: Record<string, { usdPrice: number; blockId: number; decimals: number; priceChange24h?: number }> = await response.json();
       const tokenData = data[mintAddress];
       
       if (tokenData && tokenData.usdPrice) {
@@ -139,22 +145,40 @@ class JupiterApiService {
     try {
       if (!mintAddresses || mintAddresses.length === 0) return {};
 
-      const response = await fetch(`${this.baseUrl}/price/v3?ids=${mintAddresses.join(',')}`);
-      
-      if (!response.ok) {
-        throw new Error(`Jupiter Price API error: ${response.status}`);
+      // Jupiter v3 API supports max 50 tokens per request
+      const batchSize = 50;
+      const results: Record<string, TokenPriceData> = {};
+
+      for (let i = 0; i < mintAddresses.length; i += batchSize) {
+        const batch = mintAddresses.slice(i, i + batchSize);
+        const idsParam = batch.map(addr => encodeURIComponent(addr)).join(',');
+        
+        const response = await fetch(`${this.baseUrl}?ids=${idsParam}`);
+        
+        if (!response.ok) {
+          console.warn(`Jupiter Price API v3 batch error: ${response.status}`);
+          continue;
+        }
+
+        // V3 API structure: { [mint]: { usdPrice, blockId, decimals, priceChange24h } }
+        const data: Record<string, { usdPrice: number; blockId: number; decimals: number; priceChange24h?: number }> = await response.json();
+        
+        // Convert v3 format to our TokenPriceData format
+        Object.entries(data).forEach(([mint, v3Data]) => {
+          if (v3Data && v3Data.usdPrice) {
+            const tokenPriceData: TokenPriceData = {
+              usdPrice: v3Data.usdPrice,
+              blockId: v3Data.blockId,
+              decimals: v3Data.decimals,
+              priceChange24h: v3Data.priceChange24h
+            };
+            results[mint] = tokenPriceData;
+            this.setCachedData(`price_${mint}`, v3Data.usdPrice, 30);
+          }
+        });
       }
 
-      const data: Record<string, TokenPriceData> = await response.json();
-      
-      // Cache individual prices
-      Object.entries(data).forEach(([mint, priceData]) => {
-        if (priceData && priceData.usdPrice) {
-          this.setCachedData(`price_${mint}`, priceData.usdPrice);
-        }
-      });
-
-      return data;
+      return results;
     } catch (error) {
       console.error('Error getting multiple token prices:', error);
       return {};
@@ -302,10 +326,11 @@ class JupiterApiService {
     return null;
   }
 
-  private setCachedData<T>(key: string, data: T): void {
+  private setCachedData<T>(key: string, data: T, customTtlSeconds?: number): void {
     this.cache.set(key, {
       data,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      customTtl: customTtlSeconds ? customTtlSeconds * 1000 : undefined
     });
   }
 

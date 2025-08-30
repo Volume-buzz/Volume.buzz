@@ -76,7 +76,7 @@ const config = {
 
   // Jupiter
   jupiter: {
-    apiUrl: process.env.JUPITER_API_URL || 'https://price.jup.ag/v4',
+    apiUrl: process.env.JUPITER_API_URL || 'https://lite-api.jup.ag/price/v3',
     routeApiUrl: process.env.JUPITER_ROUTE_API_URL || 'https://quote-api.jup.ag/v6'
   },
 

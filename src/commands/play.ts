@@ -11,6 +11,7 @@ import PrismaDatabase from '../database/prisma';
 import EmbedBuilder from '../utils/embedBuilder';
 import SpotifyApiService from '../services/spotify/SpotifyApiService';
 import SpotifyAuthService from '../services/spotify/SpotifyAuthService';
+import WalletService from '../services/wallet';
 import config from '../config/environment';
 import { Command } from '../types';
 import { Platform } from '../types/spotify';
@@ -38,13 +39,7 @@ const playCommand: Command = {
         .setMinValue(1)
         .setMaxValue(1000)
     )
-    .addIntegerOption(option =>
-      option.setName('duration')
-        .setDescription('Raid duration in minutes (default: 60)')
-        .setRequired(false)
-        .setMinValue(5)
-        .setMaxValue(480)
-    )
+
     .addIntegerOption(option =>
       option.setName('required_time')
         .setDescription('Required listening time in seconds (default: 30)')
@@ -62,6 +57,11 @@ const playCommand: Command = {
         .setDescription('Channel to post the raid (defaults to current channel)')
         .setRequired(false)
         .addChannelTypes(ChannelType.GuildText)
+    )
+    .addStringOption(option =>
+      option.setName('token_mint')
+        .setDescription('Token mint address for rewards (default: SOL)')
+        .setRequired(false)
     ) as SlashCommandBuilder,
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -81,14 +81,75 @@ const playCommand: Command = {
         return;
       }
 
-      // Get command parameters
+      // Get command parameters first to validate token ownership
       const trackUrl = interaction.options.getString('track', true);
       const goal = interaction.options.getInteger('goal', true);
       const reward = interaction.options.getInteger('reward', true);
-      const duration = interaction.options.getInteger('duration') || 60;
+      const duration = 60; // Fixed 60 minute duration
       const requiredTime = interaction.options.getInteger('required_time') || 30;
       const premiumOnly = interaction.options.getBoolean('premium') || false;
       const targetChannel = interaction.options.getChannel('channel') || interaction.channel;
+      const tokenMint = interaction.options.getString('token_mint') || 'SOL';
+
+      // Validate token ownership and amount if not using SOL
+      if (tokenMint !== 'SOL') {
+        // Check if admin has this token in their wallet
+        const walletService = new WalletService();
+        const adminWallet = await walletService.createOrGetWallet(interaction.user.id, isAdmin);
+        const balances = await walletService.getWalletBalances(adminWallet.publicKey);
+        
+        // Find the specific token in wallet
+        const tokenInWallet = balances.tokens.find(token => token.mint === tokenMint);
+        
+        if (!tokenInWallet) {
+          const embed = EmbedBuilder.createErrorEmbed(
+            'Token Not Found',
+            `❌ **You don't have this token in your wallet**\n\n` +
+            `**Token Mint:** \`${tokenMint}\`\n\n` +
+            `**To create raids with custom tokens:**\n` +
+            `1. Use \`/deposit\` to get your wallet address\n` +
+            `2. Send tokens to your admin wallet\n` +
+            `3. Then create raids with that token\n\n` +
+            `**Or use SOL for basic raids** (leave token_mint empty)`
+          );
+          await interaction.editReply({ embeds: [embed] });
+          return;
+        }
+        
+        // Calculate total tokens needed for this raid
+        const totalTokensNeeded = goal * reward;
+        
+        if (tokenInWallet.amount < totalTokensNeeded) {
+          const embed = EmbedBuilder.createErrorEmbed(
+            'Insufficient Tokens',
+            `❌ **Not enough tokens for this raid**\n\n` +
+            `**Token:** ${tokenInWallet.symbol}\n` +
+            `**Available:** ${tokenInWallet.amount.toFixed(2)} tokens\n` +
+            `**Needed:** ${totalTokensNeeded} tokens (${goal} users × ${reward} each)\n` +
+            `**Missing:** ${(totalTokensNeeded - tokenInWallet.amount).toFixed(2)} tokens\n\n` +
+            `Deposit more tokens to your wallet or reduce the goal/reward amounts.`
+          );
+          await interaction.editReply({ embeds: [embed] });
+          return;
+        }
+        
+        // Validate token is registered in our database
+        const tokenInfo = await PrismaDatabase.getTokenByMint(tokenMint);
+        if (!tokenInfo) {
+          // Auto-register the token if admin has it
+          try {
+            await PrismaDatabase.createToken({
+              mint: tokenMint,
+              symbol: tokenInWallet.symbol,
+              decimals: tokenInWallet.decimals,
+              enabled: true
+            });
+            console.log(`🪙 Auto-registered token: ${tokenInWallet.symbol} (${tokenMint})`);
+          } catch (tokenError) {
+            console.warn('Failed to auto-register token:', tokenError);
+          }
+        }
+      }
 
       if (!targetChannel) {
         const embed = EmbedBuilder.createErrorEmbed(
@@ -128,7 +189,10 @@ const playCommand: Command = {
             clientSecret: config.spotify.clientSecret,
             redirectUri: config.spotify.redirectUri
           });
-          const spotifyApiService = new SpotifyApiService(spotifyAuthService);
+          const spotifyApiService = new SpotifyApiService(spotifyAuthService, {
+            clientId: config.spotify.clientId,
+            clientSecret: config.spotify.clientSecret
+          });
           
           trackInfo = await spotifyApiService.getTrackFromUrl(trackUrl);
         } catch (error: any) {
@@ -194,7 +258,7 @@ const playCommand: Command = {
         requiredListenTime: requiredTime,
         streamsGoal: goal,
         rewardAmount: reward,
-        rewardTokenMint: 'SOL', // Default to SOL
+        rewardTokenMint: tokenMint,
         channelId: targetChannel.id,
         guildId: interaction.guild!.id,
         creatorId: interaction.user.id,
@@ -277,10 +341,11 @@ const playCommand: Command = {
         `✅ **${platform} raid created successfully!**\n\n` +
         `🎵 **Track:** ${trackInfo.title}\n` +
         `🎯 **Goal:** ${goal} listeners\n` +
-        `💰 **Reward:** ${reward} tokens each\n` +
+        `💰 **Reward:** ${reward} ${tokenMint} each\n` +
         `⏱️ **Required time:** ${requiredTime} seconds\n` +
         `📍 **Channel:** <#${targetChannel.id}>\n` +
         `${premiumOnly ? '🔒 **Premium only raid**\n' : ''}` +
+        `${tokenMint !== 'SOL' ? `🪙 **Token:** ${tokenMint}\n` : ''}` +
         `\n**Raid ID:** ${raid.id}\n` +
         `**Expires:** <t:${Math.floor(raid.expires_at!.getTime() / 1000)}:R>`
       );

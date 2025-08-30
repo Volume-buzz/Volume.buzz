@@ -1,8 +1,8 @@
 module.exports = {
   apps: [
     {
-      name: 'audius-discord-bot',
-      script: 'dist/app.js', // Changed from src/app.js to dist/app.js
+      name: 'audius-bot-complete',
+      script: 'dist/app.js',  // This starts BOTH bot and API server
       cwd: '/root/audius',
       instances: 1,
       exec_mode: 'fork',
@@ -31,47 +31,6 @@ module.exports = {
       
       // Auto-restart on file changes (disabled for production)
       autorestart: true,
-      
-      // Pre-start script to ensure build is complete
-      pre_start_script: 'npm run build',
-      
-      // Graceful shutdown
-      shutdown_with_message: true
-    },
-    {
-      name: 'audius-api-server',
-      script: 'dist/server.js', // Changed from src/server.js to dist/server.js
-      cwd: '/root/audius',
-      instances: 1,
-      exec_mode: 'fork',
-      env: {
-        NODE_ENV: 'production'
-      },
-      env_production: {
-        NODE_ENV: 'production'
-      },
-      // PM2 configuration
-      watch: false,
-      ignore_watch: ['node_modules', 'logs', 'dist'],
-      restart_delay: 1000,
-      max_restarts: 10,
-      min_uptime: '10s',
-      
-      // Logging
-      log_file: './logs/api-combined.log',
-      out_file: './logs/api-out.log',
-      error_file: './logs/api-error.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-      
-      // Advanced settings
-      kill_timeout: 5000,
-      listen_timeout: 3000,
-      
-      // Auto-restart on file changes (disabled for production)
-      autorestart: true,
-      
-      // Pre-start script to ensure build is complete
-      pre_start_script: 'npm run build',
       
       // Graceful shutdown
       shutdown_with_message: true

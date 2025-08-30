@@ -6,6 +6,9 @@ import {
   Routes,
   ChatInputCommandInteraction,
   ButtonInteraction,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   User as DiscordUser,
   Guild
 } from 'discord.js';
@@ -21,6 +24,7 @@ import OAuthServer from './services/oauthServer';
 import RaidMonitor from './services/raidMonitor';
 import PrismaDatabase from './database/prisma';
 import EmbedBuilder from './utils/embedBuilder';
+import WalletService from './services/wallet';
 import config from './config/environment';
 
 class AudiusBot {
@@ -93,7 +97,7 @@ class AudiusBot {
 
   private loadCommands(): void {
     const commandsPath = path.join(__dirname, 'commands');
-    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js') || file.endsWith('.ts'));
+    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js') && !file.endsWith('.d.ts'));
 
     for (const file of commandFiles) {
       const filePath = path.join(commandsPath, file);
@@ -170,6 +174,16 @@ class AudiusBot {
         await this.handleSpotifyLogout(interaction);
       } else if (customId === 'logout_both') {
         await this.handleLogoutBoth(interaction);
+      } else if (customId === 'export_private_key') {
+        await this.handleExportPrivateKey(interaction);
+      } else if (customId === 'view_transactions') {
+        await this.handleViewTransactions(interaction);
+      } else if (customId === 'quick_account') {
+        await this.handleQuickAccount(interaction);
+      } else if (customId === 'quick_wallet') {
+        await this.handleQuickWallet(interaction);
+      } else if (customId === 'view_wallet_info') {
+        await this.handleViewWalletInfo(interaction);
       } else {
         console.warn(`Unknown button interaction: ${customId}`);
       }
@@ -686,7 +700,7 @@ class AudiusBot {
     await interaction.deferReply({ ephemeral: true });
 
     try {
-      const authUrl = this.oauthServer.generateAuthUrl(interaction.user.id, 'AUDIUS');
+      const authUrl = await this.oauthServer.generateAuthUrl(interaction.user.id, 'AUDIUS');
       
       const embed = EmbedBuilder.createSuccessEmbed(
         'Audius Login',
@@ -719,7 +733,7 @@ class AudiusBot {
     await interaction.deferReply({ ephemeral: true });
 
     try {
-      const authUrl = this.oauthServer.generateAuthUrl(interaction.user.id, 'SPOTIFY');
+      const authUrl = await this.oauthServer.generateAuthUrl(interaction.user.id, 'SPOTIFY');
       
       const embed = EmbedBuilder.createSuccessEmbed(
         'Spotify Login',
@@ -972,7 +986,7 @@ class AudiusBot {
   private async deployCommands(): Promise<void> {
     const commands: any[] = [];
     const commandsPath = path.join(__dirname, 'commands');
-    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js') || file.endsWith('.ts'));
+    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js') && !file.endsWith('.d.ts'));
 
     for (const file of commandFiles) {
       const filePath = path.join(commandsPath, file);
@@ -1021,6 +1035,237 @@ class AudiusBot {
       console.error('❌ Error starting bot:', error);
       process.exit(1);
     }
+  }
+
+  private async handleExportPrivateKey(interaction: ButtonInteraction): Promise<void> {
+    await interaction.deferReply({ ephemeral: true });
+
+    try {
+      const walletService = new WalletService();
+      const privateKey = await walletService.getPrivateKey(interaction.user.id);
+
+      const embed = EmbedBuilder.createInfoEmbed(
+        '🔐 Private Key Export',
+        `**⚠️ KEEP THIS SAFE! ⚠️**\n\n` +
+        `Your wallet private key:\n` +
+        `\`\`\`\n${privateKey}\n\`\`\`\n\n` +
+        `**Security Warning:**\n` +
+        `🚨 Never share this with anyone\n` +
+        `🚨 Anyone with this key controls your wallet\n` +
+        `🚨 Store it in a secure location\n\n` +
+        `**How to use:**\n` +
+        `1. Import into Phantom, Solflare, or other Solana wallet\n` +
+        `2. This gives you full control of your tokens\n` +
+        `3. You can send/receive outside the bot\n\n` +
+        `*This message will auto-delete in 5 minutes for security*`
+      );
+
+      const message = await interaction.editReply({ embeds: [embed] });
+      
+      // Auto-delete the message after 5 minutes for security
+      setTimeout(async () => {
+        try {
+          await message.delete();
+        } catch (deleteError) {
+          console.warn('Failed to auto-delete private key message:', deleteError);
+        }
+      }, 5 * 60 * 1000);
+
+      console.log(`🔐 Private key exported for user ${interaction.user.tag}`);
+
+    } catch (error: any) {
+      console.error('Error exporting private key:', error);
+      
+      // Check if it's a corruption error and provide helpful guidance
+      const isCorruptionError = error.message.includes('corrupted') || error.message.includes('[object Object]');
+      
+      const embed = EmbedBuilder.createErrorEmbed(
+        'Export Failed',
+        isCorruptionError 
+          ? `${error.message}\n\n**How to fix:**\n1. Use the \`/regenerate-wallet\` command\n2. This will create a new wallet with working exports\n\n⚠️ **Warning:** Transfer any tokens from your current wallet first!`
+          : `Failed to export private key: ${error.message}`
+      );
+      
+      await interaction.editReply({ embeds: [embed] });
+    }
+  }
+
+  private async handleViewTransactions(interaction: ButtonInteraction): Promise<void> {
+    await interaction.deferReply({ ephemeral: true });
+
+    try {
+      const walletService = new WalletService();
+      const wallet = await walletService.createOrGetWallet(interaction.user.id, false);
+      
+      const embed = EmbedBuilder.createInfoEmbed(
+        '📋 Wallet Transactions',
+        `**View your transaction history:**\n\n` +
+        `🔗 **Solscan:** [View on Solscan](https://solscan.io/account/${wallet.publicKey})\n` +
+        `🔗 **Solana Explorer:** [View on Explorer](https://explorer.solana.com/address/${wallet.publicKey})\n\n` +
+        `**Wallet Address:**\n\`${wallet.publicKey}\`\n\n` +
+        `*Click the links above to view all transactions, token transfers, and account activity*`
+      );
+
+      await interaction.editReply({ embeds: [embed] });
+
+      console.log(`📋 Transaction history viewed for user ${interaction.user.tag}`);
+
+    } catch (error: any) {
+      console.error('Error showing transactions:', error);
+      
+      const embed = EmbedBuilder.createErrorEmbed(
+        'Transactions Error',
+        `Failed to load transaction information: ${error.message}`
+      );
+      
+      await interaction.editReply({ embeds: [embed] });
+    }
+  }
+
+  private async handleQuickAccount(interaction: ButtonInteraction): Promise<void> {
+    await interaction.deferReply({ ephemeral: true });
+
+    try {
+      // Get user data
+      const user = await PrismaDatabase.getUser(interaction.user.id);
+      const isAdmin = await PrismaDatabase.isAdmin(interaction.user.id);
+
+      if (!user) {
+        const embed = EmbedBuilder.createErrorEmbed(
+          'No Account Found',
+          'No account data found. Use `/login` to connect your accounts.'
+        );
+        await interaction.editReply({ embeds: [embed] });
+        return;
+      }
+
+      // Get wallet info
+      const walletService = new WalletService();
+      const wallet = await walletService.createOrGetWallet(interaction.user.id, isAdmin);
+      const balances = await walletService.getWalletBalances(wallet.publicKey);
+
+      const role = isAdmin ? '👑 Super Admin' : user.role === 'ARTIST' ? '🎨 Artist' : '👤 Fan';
+
+      const embed = EmbedBuilder.createInfoEmbed(
+        '👤 Your Account Overview',
+        `**Discord:** ${interaction.user.tag}\n` +
+        `**Role:** ${role}\n\n` +
+        `**Connected Platforms:**\n` +
+        `🎵 **Audius:** ${user.audius_handle ? `@${user.audius_handle}` : '❌ Not connected'}\n` +
+        `🎶 **Spotify:** ${user.spotify_display_name || '❌ Not connected'} ${user.spotify_is_premium ? '👑' : user.spotify_display_name ? '🆓' : ''}\n\n` +
+        `**Raid Statistics:**\n` +
+        `🎯 **Raids Participated:** ${user.total_raids_participated}\n` +
+        `🏆 **Rewards Claimed:** ${user.total_rewards_claimed}\n` +
+        `💰 **Token Balance:** ${user.tokens_balance}\n\n` +
+        `**Crypto Wallet:**\n` +
+        `📍 **Address:** \`${wallet.publicKey.substring(0, 8)}...${wallet.publicKey.substring(-4)}\`\n` +
+        `💎 **SOL:** ${balances.sol.toFixed(4)} SOL\n` +
+        `🪙 **Tokens:** ${balances.tokens.length} different tokens`
+      );
+
+      // Add action buttons
+      const buttons = new ActionRowBuilder<ButtonBuilder>()
+        .addComponents(
+          new ButtonBuilder()
+            .setCustomId('view_wallet_info')
+            .setLabel('💰 Full Wallet Details')
+            .setStyle(ButtonStyle.Primary),
+          new ButtonBuilder()
+            .setCustomId('view_transactions')
+            .setLabel('📋 View Transactions')
+            .setStyle(ButtonStyle.Secondary)
+        );
+
+      await interaction.editReply({ embeds: [embed], components: [buttons] });
+
+    } catch (error: any) {
+      console.error('Error showing quick account:', error);
+      const embed = EmbedBuilder.createErrorEmbed('Account Error', `Failed to load account: ${error.message}`);
+      await interaction.editReply({ embeds: [embed] });
+    }
+  }
+
+  private async handleQuickWallet(interaction: ButtonInteraction): Promise<void> {
+    await interaction.deferReply({ ephemeral: true });
+
+    try {
+      const walletService = new WalletService();
+      const jupiterApi = require('./services/jupiterApi').default;
+
+      // Get or create user wallet
+      const isAdmin = await PrismaDatabase.isAdmin(interaction.user.id);
+      const cryptoWallet = await walletService.createOrGetWallet(interaction.user.id, isAdmin);
+      const balances = await walletService.getWalletBalances(cryptoWallet.publicKey);
+
+      // Calculate total SOL equivalent
+      const solPrice = await jupiterApi.getTokenPrice('So11111111111111111111111111111111111111112');
+      let totalSOLEquivalent = balances.sol;
+      
+      const tokenDetails: string[] = [];
+      
+      for (const token of balances.tokens) {
+        const tokenPrice = await jupiterApi.getTokenPrice(token.mint);
+        if (tokenPrice && solPrice) {
+          const tokenValueSOL = (token.amount * tokenPrice) / solPrice;
+          totalSOLEquivalent += tokenValueSOL;
+        }
+        tokenDetails.push(`**${token.symbol}:** ${token.amount.toFixed(2)}`);
+      }
+
+      const role = isAdmin ? '👑 Super Admin' : '👤 Fan';
+
+      const embed = EmbedBuilder.createSuccessEmbed(
+        '💰 Quick Wallet View',
+        `**Address:** \`${cryptoWallet.publicKey}\`\n\n` +
+        `**💳 Token Balances**\n` +
+        `**SOL:** ${balances.sol.toFixed(4)} SOL\n` +
+        `${tokenDetails.length > 0 ? tokenDetails.join('\n') : 'No SPL tokens found'}\n\n` +
+        `**💎 Total Value:** ${totalSOLEquivalent.toFixed(4)} SOL equivalent\n` +
+        `**🔑 Wallet Type:** ${role} Wallet\n` +
+        `**📤 Withdrawal:** ${totalSOLEquivalent >= 1.0 ? '✅ Eligible' : `❌ Need ${(1.0 - totalSOLEquivalent).toFixed(4)} SOL more`}`
+      );
+
+      // Add action buttons
+      const buttons = new ActionRowBuilder<ButtonBuilder>()
+        .addComponents(
+          new ButtonBuilder()
+            .setCustomId('export_private_key')
+            .setLabel('🔐 Export Private Key')
+            .setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder()
+            .setCustomId('view_transactions')
+            .setLabel('📋 View Transactions')
+            .setStyle(ButtonStyle.Primary)
+        );
+
+      if (totalSOLEquivalent >= 1.0) {
+        buttons.addComponents(
+          new ButtonBuilder()
+            .setURL(`https://discord.com/channels/@me`)
+            .setLabel('💸 Use /withdraw')
+            .setStyle(ButtonStyle.Link)
+        );
+      }
+
+      await interaction.editReply({ embeds: [embed], components: [buttons] });
+
+    } catch (error: any) {
+      console.error('Error showing quick wallet:', error);
+      const embed = EmbedBuilder.createErrorEmbed('Wallet Error', `Failed to load wallet: ${error.message}`);
+      await interaction.editReply({ embeds: [embed] });
+    }
+  }
+
+  private async handleViewWalletInfo(interaction: ButtonInteraction): Promise<void> {
+    // Enhanced wallet view with full details
+    await this.handleQuickWallet(interaction);
+  }
+
+  /**
+   * Get OAuth server instance for API server
+   */
+  getOAuthServer(): OAuthServer {
+    return this.oauthServer;
   }
 
   public async shutdown(): Promise<void> {

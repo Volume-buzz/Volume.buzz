@@ -28,7 +28,7 @@ class EncryptionService {
   encrypt(plaintext: string): EncryptedData {
     try {
       const iv = crypto.randomBytes(16);
-      const cipher = crypto.createCipher('aes-256-gcm', this.masterKey);
+      const cipher = crypto.createCipheriv('aes-256-gcm', this.masterKey, iv);
       cipher.setAAD(Buffer.from('wallet-encryption'));
       
       let encrypted = cipher.update(plaintext, 'utf8', 'hex');
@@ -54,7 +54,7 @@ class EncryptionService {
   decrypt(encryptedData: EncryptedData): string {
     try {
       const { iv, tag, encrypted } = encryptedData;
-      const decipher = crypto.createDecipher('aes-256-gcm', this.masterKey);
+      const decipher = crypto.createDecipheriv('aes-256-gcm', this.masterKey, Buffer.from(iv, 'hex'));
       decipher.setAAD(Buffer.from('wallet-encryption'));
       decipher.setAuthTag(Buffer.from(tag, 'hex'));
       

@@ -32,7 +32,10 @@ class RaidMonitor {
       redirectUri: config.spotify.redirectUri
     });
     
-    this.spotifyApiService = new SpotifyApiService(this.spotifyAuthService);
+    this.spotifyApiService = new SpotifyApiService(this.spotifyAuthService, {
+      clientId: config.spotify.clientId,
+      clientSecret: config.spotify.clientSecret
+    });
     this.spotifyTrackingService = new SpotifyTrackingService(
       this.spotifyApiService, 
       this.spotifyAuthService

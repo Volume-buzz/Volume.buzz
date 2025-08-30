@@ -23,18 +23,40 @@ const loginCommand: Command = {
       // Check if user already has accounts connected
       const user = await PrismaDatabase.getUser(interaction.user.id);
       
-      const hasAudius = user?.audius_user_id !== null;
-      const hasSpotify = user?.spotify_user_id !== null;
+      const hasAudius = user?.audius_user_id !== null && user?.audius_user_id !== '' && user?.audius_user_id !== undefined;
+      const hasSpotify = user?.spotify_user_id !== null && user?.spotify_user_id !== '' && user?.spotify_user_id !== undefined;
 
       if (hasAudius && hasSpotify) {
+        const isAdmin = await PrismaDatabase.isAdmin(interaction.user.id);
+        
         const embed = EmbedBuilder.createInfoEmbed(
           'Already Connected',
-          `🎵 **Audius:** @${user?.audius_handle}\n` +
-          `🎶 **Spotify:** ${user?.spotify_display_name} ${user?.spotify_is_premium ? '👑' : '🆓'}\n\n` +
-          `You're already connected to both platforms! Use \`/logout\` if you want to change accounts.`
+          `🎵 **Audius:** @${user?.audius_handle || 'Connected'}\n` +
+          `🎶 **Spotify:** ${user?.spotify_display_name || 'Connected'} ${user?.spotify_is_premium ? '👑' : '🆓'}\n` +
+          `👤 **Role:** ${isAdmin ? '👑 Super Admin' : user?.role === 'ARTIST' ? '🎨 Artist' : '👤 Fan'}\n` +
+          `💰 **Tokens:** ${user?.tokens_balance || 0}\n` +
+          `🏆 **Raids:** ${user?.total_raids_participated || 0}\n\n` +
+          `You're already connected to both platforms!`
         );
 
-        await interaction.editReply({ embeds: [embed] });
+        // Add action buttons
+        const buttons = new ActionRowBuilder<ButtonBuilder>()
+          .addComponents(
+            new ButtonBuilder()
+              .setCustomId('quick_account')
+              .setLabel('👤 View Account')
+              .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+              .setCustomId('quick_wallet')
+              .setLabel('💰 View Wallet')
+              .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+              .setCustomId('logout_both')
+              .setLabel('🚪 Logout Both')
+              .setStyle(ButtonStyle.Secondary)
+          );
+
+        await interaction.editReply({ embeds: [embed], components: [buttons] });
         return;
       }
 
