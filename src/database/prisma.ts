@@ -191,6 +191,12 @@ class PrismaDatabase {
     spotifyDisplayName?: string;
     spotifyEmail?: string;
     spotifyIsPremium?: boolean;
+    spotifyAccessToken?: string;
+    spotifyRefreshToken?: string;
+    spotifyTokenExpiresAt?: Date;
+    spotifyScope?: string;
+    spotifyProduct?: string;
+    spotifyCountry?: string;
   }): Promise<User | null> {
     try {
       const updateData: any = {};
@@ -202,6 +208,12 @@ class PrismaDatabase {
       if (updates.spotifyDisplayName) updateData.spotify_display_name = updates.spotifyDisplayName;
       if (updates.spotifyEmail) updateData.spotify_email = updates.spotifyEmail;
       if (updates.spotifyIsPremium !== undefined) updateData.spotify_is_premium = updates.spotifyIsPremium;
+      if (updates.spotifyAccessToken !== undefined) updateData.spotify_access_token = updates.spotifyAccessToken;
+      if (updates.spotifyRefreshToken !== undefined) updateData.spotify_refresh_token = updates.spotifyRefreshToken;
+      if (updates.spotifyTokenExpiresAt !== undefined) updateData.spotify_token_expires_at = updates.spotifyTokenExpiresAt;
+      if (updates.spotifyScope !== undefined) updateData.spotify_scope = updates.spotifyScope;
+      if (updates.spotifyProduct !== undefined) updateData.spotify_product = updates.spotifyProduct;
+      if (updates.spotifyCountry !== undefined) updateData.spotify_country = updates.spotifyCountry;
 
       return await prisma.user.update({
         where: { discord_id: discordId },
@@ -249,6 +261,13 @@ class PrismaDatabase {
     guildId: string;
     creatorId: string;
     durationMinutes: number;
+    // Enhanced metadata fields
+    metadataJson?: string;
+    linkedTrackId?: string;
+    isPlayable?: boolean;
+    trackDurationMs?: number;
+    isExplicit?: boolean;
+    albumName?: string;
   }): Promise<Raid> {
     const expiresAt = new Date(Date.now() + raidData.durationMinutes * 60 * 1000);
     
@@ -269,9 +288,36 @@ class PrismaDatabase {
         guild_id: raidData.guildId,
         creator_id: raidData.creatorId,
         duration_minutes: raidData.durationMinutes,
-        expires_at: expiresAt
+        expires_at: expiresAt,
+        // Enhanced metadata
+        metadata_json: raidData.metadataJson,
+        linked_track_id: raidData.linkedTrackId,
+        is_playable: raidData.isPlayable ?? true,
+        track_duration_ms: raidData.trackDurationMs,
+        is_explicit: raidData.isExplicit ?? false,
+        album_name: raidData.albumName
       }
     });
+  }
+
+  static async updateRaid(raidId: number, updates: {
+    current_streams?: number;
+    status?: 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
+    message_id?: string;
+    completed_at?: Date;
+    first_finisher_discord_id?: string;
+    first_finisher_handle?: string;
+    first_finisher_time?: Date;
+  }): Promise<Raid | null> {
+    try {
+      return await prisma.raid.update({
+        where: { id: raidId },
+        data: updates
+      });
+    } catch (error) {
+      console.error(`Error updating raid ${raidId}:`, error);
+      return null;
+    }
   }
 
   static async getActiveRaids(): Promise<Raid[]> {
@@ -666,6 +712,8 @@ class PrismaDatabase {
         discord_id: true,
         audius_handle: true,
         audius_name: true,
+        spotify_display_name: true,
+        discord_username: true,
         tokens_balance: true,
         total_raids_participated: true
       }
@@ -700,7 +748,9 @@ class PrismaDatabase {
         user: {
           select: {
             audius_handle: true,
-            audius_name: true
+            audius_name: true,
+            spotify_display_name: true,
+            discord_username: true
           }
         }
       },

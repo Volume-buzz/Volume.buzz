@@ -8,11 +8,11 @@ import {
 } from 'discord.js';
 import { AudiusUser, Raid, DatabaseUser } from '../types';
 
-// Types for track data (from Audius API)
+// Types for track data (from Audius API and Spotify API)
 interface TrackData {
   id: string;
   title: string;
-  duration?: number;
+  duration?: number | string;
   genre?: string;
   permalink?: string;
   playCount?: number;
@@ -26,7 +26,14 @@ interface TrackData {
   user: {
     name: string;
     handle: string;
+    verified?: boolean;
   };
+  // Enhanced Spotify-specific metadata
+  album?: string;
+  releaseDate?: string;
+  explicit?: boolean;
+  isPlayable?: boolean;
+  linkedTrackId?: string;
 }
 
 interface RaidWithTrack extends Raid {
@@ -38,6 +45,8 @@ interface WinnerData {
   discord_id: string;
   audius_handle?: string;
   audius_name?: string;
+  spotify_display_name?: string;
+  discord_username?: string;
   total_listen_duration: number;
   qualified_at: Date;
   claimed_reward: boolean;
@@ -150,7 +159,14 @@ class EmbedBuilderUtils {
       const rank = index + 1;
       const emoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
       const discordUser = client.users.cache.get(user.discord_id);
-      const displayName = discordUser ? discordUser.displayName : user.audius_handle || 'Unknown User';
+      let displayName = 'Unknown User';
+      
+      if (discordUser) {
+        displayName = discordUser.displayName || discordUser.username;
+      } else {
+        // Fallback to platform-specific names
+        displayName = user.spotify_display_name || user.audius_handle || user.discord_username || 'Unknown User';
+      }
       
       description += `${emoji} **${displayName}** - ${user.tokens_balance} tokens (${user.total_raids_participated} raids)\n`;
     });
@@ -185,7 +201,14 @@ class EmbedBuilderUtils {
       const emoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
       
       const discordUser = client.users.cache.get(winner.discord_id);
-      const displayName = discordUser ? discordUser.displayName : winner.audius_handle || winner.audius_name || 'Unknown User';
+      let displayName = 'Unknown User';
+      
+      if (discordUser) {
+        displayName = discordUser.displayName || discordUser.username;
+      } else {
+        // Fallback to platform-specific names
+        displayName = winner.spotify_display_name || winner.audius_handle || winner.audius_name || 'Unknown User';
+      }
       
       const listenDuration = winner.total_listen_duration;
       const claimed = winner.claimed_reward ? '✅' : '❌';
@@ -233,42 +256,62 @@ class EmbedBuilderUtils {
     const progressBar = this.createProgressBar(progress);
     
     const isCryptoRaid = raid.token_mint && raid.token_mint !== 'SOL';
+    const platformIcon = raid.platform === 'SPOTIFY' ? '🎶' : '🎵';
     const raidTitle = isCryptoRaid ? 
-      `💎 CRYPTO RAID ${isActive ? 'ACTIVE' : 'COMPLETED'}` : 
-      `🎯 MUSIC RAID ${isActive ? 'ACTIVE' : 'COMPLETED'}`;
+      `💎 ${platformIcon} CRYPTO RAID ${isActive ? 'ACTIVE' : 'COMPLETED'}` : 
+      `🎯 ${platformIcon} MUSIC RAID ${isActive ? 'ACTIVE' : 'COMPLETED'}`;
     
     const embed = new DiscordEmbedBuilder()
       .setTitle(raidTitle)
-      .setColor(isActive ? (isCryptoRaid ? 0xFFD700 : 0x8B5DFF) : 0xFF6B6B)
+      .setColor(isActive ? (isCryptoRaid ? 0xFFD700 : (raid.platform === 'SPOTIFY' ? 0x1DB954 : 0x8B5DFF)) : 0xFF6B6B)
       .setTimestamp(raid.created_at);
 
-    // Add GIF for active raids
+    // Add GIF for active raids (smaller, as thumbnail instead of large image)
     if (isActive) {
-      embed.setImage('https://i.imgur.com/zcTJeGH.gif');
+      embed.setThumbnail('https://i.imgur.com/zcTJeGH.gif');
     }
 
-    // Main description with track info
+    // Main description with enhanced track info
     const duration = track.duration ? 
-      Math.floor(track.duration / 60) + ':' + (track.duration % 60).toString().padStart(2, '0') : 
+      (typeof track.duration === 'string' ? track.duration : 
+       Math.floor(track.duration / 60) + ':' + (track.duration % 60).toString().padStart(2, '0')) : 
       'Unknown';
     
-    // Build track URL - fallback to profile if permalink is missing
-    const trackUrl = track.permalink ? 
-              `https://audius.co${track.permalink}` :
-        `https://audius.co/${track.user.handle}`;
+    // Build track URL
+    const trackUrl = raid.platform === 'SPOTIFY' ? 
+      `https://open.spotify.com/track/${raid.track_id}` :
+      (track.permalink ? `https://audius.co${track.permalink}` : `https://audius.co/${track.user.handle}`);
+    
+    // Enhanced description with clickable track link
+    const artistInfo = track.user.verified ? `✅ ${track.user.name}` : track.user.name;
+    const playCountText = track.playCount ? ` | **${track.playCount.toLocaleString()}** plays` : '';
+    
+    // Enhanced Spotify metadata display
+    let metadataLine = `🎨 **Genre:** ${track.genre || 'Unknown'} | ⏱️ **Duration:** ${duration}${playCountText}`;
+    if (raid.platform === 'SPOTIFY') {
+      // Add Spotify-specific metadata
+      const explicitTag = track.explicit ? ' 🔞' : '';
+      const albumInfo = track.album ? ` | 💿 **Album:** ${track.album}` : '';
+      const relinkingInfo = track.linkedTrackId ? '\n🔄 *Alternative version may play in some regions*' : '';
+      const playabilityWarning = track.isPlayable === false ? '\n⚠️ *May not be available in all regions*' : '';
+      
+      metadataLine = `🎨 **Genre:** ${track.genre || 'Music'} | ⏱️ **Duration:** ${duration}${explicitTag}${albumInfo}${playCountText}${relinkingInfo}${playabilityWarning}`;
+    }
     
     embed.setDescription(
-      `## **${track.title}**\n` +
-      `**Artist:** ${track.user.name} (@${track.user.handle})\n` +
-      `**Genre:** ${track.genre || 'Unknown'} | **Duration:** ${duration}\n` +
-      `**Plays:** ${track.playCount?.toLocaleString() || 0}`
+      `## 🎵 **[${track.title}](${trackUrl})**\n\n` +
+      `🎤 **Artist:** ${artistInfo} (@${track.user.handle})\n` +
+      `${metadataLine}\n` +
+      `🎧 **Platform:** ${raid.platform}${raid.premium_only ? ' 👑 (Premium Required)' : ''}\n\n` +
+      `💰 **Reward:** ${raid.reward_amount} ${raid.token_mint || 'SOL'} tokens each\n` +
+      `⏰ **Listen for:** ${raid.required_listen_time} seconds to qualify`
     );
 
-    // Add artwork if available
+    // Use larger artwork as main image if available
     if (track.artwork) {
-      const artworkUrl = track.artwork._480x480 || track.artwork._150x150 || track.artwork._1000x1000;
+      const artworkUrl = track.artwork._1000x1000 || track.artwork._480x480 || track.artwork._150x150;
       if (artworkUrl) {
-        embed.setThumbnail(artworkUrl);
+        embed.setImage(artworkUrl);
       }
     }
 

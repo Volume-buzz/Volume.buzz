@@ -13,10 +13,25 @@ interface AudiusTrack {
   title: string;
   artist?: string;
   duration?: number;
+  // Enhanced metadata fields
+  artwork?: {
+    _150x150?: string;
+    _480x480?: string;
+    _1000x1000?: string;
+  } | null;
+  genre?: string;
+  playCount?: number;
+  permalink?: string;
+  user?: {
+    handle?: string;
+    name?: string;
+    verified?: boolean;
+    profilePicture?: any;
+  };
 }
 
 interface AudiusUser {
-  userId: number;
+  userId: string;
   email: string;
   name: string;
   handle: string;
@@ -57,29 +72,21 @@ class AudiusService {
    */
   async verifyAudiusToken(jwt: string): Promise<AudiusUser | null> {
     try {
-      // Get a random API endpoint
-      const hostsResponse = await fetch('https://api.audius.co');
-      const hosts = await hostsResponse.json();
+      // Decode JWT to get user data directly
+      // JWT format: header.payload.signature
+      const payload = JSON.parse(Buffer.from(jwt.split('.')[1], 'base64').toString());
       
-      if (!hosts.data || hosts.data.length === 0) {
-        throw new Error('No Audius API hosts available');
-      }
-
-      // Use the first available host
-      const apiHost = hosts.data[0];
-      const verifyUrl = `${apiHost}/v1/users/verify_token?token=${encodeURIComponent(jwt)}`;
+      console.log('✅ Audius token verified:', payload.handle);
       
-      const response = await fetch(verifyUrl);
-      
-      if (!response.ok) {
-        console.error('Audius token verification failed:', response.status, await response.text());
-        return null;
-      }
-
-      const userData = await response.json();
-      
-      console.log('✅ Audius token verified:', userData.handle);
-      return userData;
+      // Map JWT payload to AudiusUser interface
+      return {
+        userId: payload.userId || payload.sub, // Use userId or fallback to sub
+        email: payload.email || '',
+        name: payload.name || '',
+        handle: payload.handle || '',
+        verified: payload.verified || false,
+        profilePicture: payload.profilePicture || {}
+      };
 
     } catch (error) {
       console.error('Error verifying Audius token:', error);
@@ -154,22 +161,55 @@ class AudiusService {
   }
 
   /**
-   * Get track information from Audius
+   * Get track information from Audius with enhanced metadata
    */
   async getTrackInfo(trackId: string): Promise<AudiusTrack | null> {
     try {
-      const response = await this.audiusSdk.tracks.getTrack({ trackId });
+      // Get a random API endpoint first
+      const hostsResponse = await fetch('https://api.audius.co');
+      const hosts = await hostsResponse.json();
       
-      if (!response.data) {
+      if (!hosts.data || hosts.data.length === 0) {
+        throw new Error('No Audius API hosts available');
+      }
+
+      const apiHost = hosts.data[0];
+      const trackUrl = `${apiHost}/v1/tracks/${trackId}`;
+      
+      const response = await fetch(trackUrl);
+      
+      if (!response.ok) {
+        console.error(`Audius API error: ${response.status}`);
         return null;
       }
 
-      const track = response.data;
+      const result = await response.json();
+      const track = result.data;
+      
+      if (!track) {
+        return null;
+      }
+
       return {
         id: track.id,
         title: track.title,
         artist: track.user?.name,
-        duration: track.duration
+        duration: track.duration,
+        // Enhanced metadata
+        artwork: track.artwork ? {
+          _150x150: track.artwork['150x150'],
+          _480x480: track.artwork['480x480'], 
+          _1000x1000: track.artwork['1000x1000']
+        } : null,
+        genre: track.genre,
+        playCount: track.play_count,
+        permalink: track.permalink,
+        user: {
+          handle: track.user?.handle,
+          name: track.user?.name,
+          verified: track.user?.is_verified || false,
+          profilePicture: track.user?.profile_picture
+        }
       };
 
     } catch (error) {
@@ -179,7 +219,7 @@ class AudiusService {
   }
 
   /**
-   * Get user's current playing track
+   * Get user's current playing track with enhanced metadata
    */
   async getCurrentlyPlaying(audiusUserId: string): Promise<AudiusTrack | null> {
     try {
@@ -200,18 +240,74 @@ class AudiusService {
         if (response.status === 404) {
           return null; // No track currently playing
         }
-        throw new Error(`API error: ${response.status}`);
+        throw new Error(`Audius API error: ${response.status}`);
       }
 
       const data = await response.json();
       
+      if (!data.id || !data.title) {
+        return null;
+      }
+
+      // Get full track details using the track ID
+      const fullTrackData = await this.getTrackInfo(data.id);
+      
+      if (fullTrackData) {
+        return fullTrackData;
+      }
+
+      // Fallback to basic now-playing data
       return {
         id: data.id,
-        title: data.title
+        title: data.title,
+        artist: undefined, // Not provided by this endpoint
+        duration: undefined // Not provided by this endpoint
       };
 
     } catch (error) {
       console.error(`Error getting now playing for user ${audiusUserId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get enhanced track metadata for raid messages
+   */
+  async getEnhancedTrackData(trackId: string): Promise<{
+    title: string;
+    artist: string;
+    album?: string;
+    artwork?: string;
+    genre?: string;
+    duration?: string;
+    playCount?: number;
+    permalink?: string;
+    verified?: boolean;
+  } | null> {
+    try {
+      const track = await this.getTrackInfo(trackId);
+      
+      if (!track) {
+        return null;
+      }
+
+      const duration = track.duration ? 
+        Math.floor(track.duration / 60) + ':' + (track.duration % 60).toString().padStart(2, '0') : 
+        undefined;
+
+      return {
+        title: track.title,
+        artist: track.artist || 'Unknown Artist',
+        genre: track.genre,
+        duration,
+        playCount: track.playCount,
+        permalink: track.permalink,
+        artwork: track.artwork?._1000x1000 || track.artwork?._480x480 || track.artwork?._150x150,
+        verified: track.user?.verified || false
+      };
+
+    } catch (error) {
+      console.error(`Error getting enhanced track data for ${trackId}:`, error);
       return null;
     }
   }
@@ -256,7 +352,7 @@ class AudiusService {
 
       const user = response.data;
       return {
-        userId: parseInt(user.id),
+        userId: user.id.toString(),
         email: '', // Email not available from public API
         name: user.name,
         handle: user.handle,

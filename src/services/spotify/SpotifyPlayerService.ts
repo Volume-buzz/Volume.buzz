@@ -304,6 +304,7 @@ class SpotifyPlayerService {
         const discordId = '${discordId}';
         const raidId = ${raidId};
         const trackId = '${trackId}';
+        const linkedTrackId = '${raid.linked_track_id || ''}';
         const requiredTime = ${raid.required_listen_time};
         
         window.onSpotifyWebPlaybackSDKReady = () => {
@@ -341,13 +342,20 @@ class SpotifyPlayerService {
                     const isCurrentlyPlaying = !state.paused;
                     const currentTrack = state.track_window.current_track;
                     
-                    if (currentTrack && currentTrack.id === trackId) {
+                    // Check if current track matches original or linked track ID
+                    const isCorrectTrack = currentTrack && (
+                        currentTrack.id === trackId || 
+                        (linkedTrackId && currentTrack.id === linkedTrackId)
+                    );
+                    
+                    if (isCorrectTrack) {
                         isPlaying = isCurrentlyPlaying;
                         currentPosition = state.position;
                         
                         if (isPlaying) {
                             startTracking();
-                            updateStatus('🎵 Listening to raid track...', 'playing listening');
+                            const trackMatch = currentTrack.id === trackId ? 'original' : 'alternative version';
+                            updateStatus(\`🎵 Listening to raid track (\${trackMatch})...\`, 'playing listening');
                         } else {
                             stopTracking();
                             updateStatus('⏸️ Playback paused', 'paused');
@@ -462,7 +470,11 @@ class SpotifyPlayerService {
                         discordId,
                         raidId,
                         listenTime,
-                        isPlaying
+                        isPlaying,
+                        currentPosition,
+                        deviceId: device_id,
+                        trackingMethod: 'web_playback_sdk',
+                        timestamp: Date.now()
                     })
                 });
             } catch (error) {
@@ -555,14 +567,35 @@ class SpotifyPlayerService {
    */
   private async handlePlayerProgress(req: Request, res: Response): Promise<void> {
     try {
-      const { discordId, raidId, listenTime, isPlaying } = req.body;
+      const { 
+        discordId, 
+        raidId, 
+        listenTime, 
+        isPlaying, 
+        currentPosition, 
+        deviceId, 
+        trackingMethod, 
+        timestamp 
+      } = req.body;
       
-      // Update database with real-time progress
+      const raid = await PrismaDatabase.getRaid(raidId);
+      if (!raid) {
+        res.status(404).json({ error: 'Raid not found' });
+        return;
+      }
+      
+      // Update database with enhanced progress data
       await PrismaDatabase.updateRaidParticipant(raidId, discordId, {
         total_listen_duration: listenTime,
         is_listening: isPlaying,
-        qualified: listenTime >= ((await PrismaDatabase.getRaid(raidId))?.required_listen_time || 30),
-        last_check: new Date()
+        qualified: listenTime >= raid.required_listen_time,
+        last_check: new Date(),
+        listen_seconds: listenTime,
+        last_progress_ms: currentPosition,
+        last_timestamp: new Date(timestamp || Date.now()),
+        last_heartbeat_at: new Date(),
+        device_id: deviceId,
+        tracking_method: trackingMethod
       });
 
       res.json({ success: true });

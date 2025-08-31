@@ -91,9 +91,8 @@ class OAuthServer {
         expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
       });
 
-      // Create Audius OAuth URL (you'll need to implement this based on your existing Audius OAuth)
-      const audiusCallbackUrl = config.spotify.redirectUri.replace('/auth/spotify/callback', '/auth/audius/callback');
-      const authUrl = `https://audius.co/oauth/auth?client_id=${config.audius.apiKey}&response_type=code&redirect_uri=${encodeURIComponent(audiusCallbackUrl)}&state=${state}&scope=read`;
+      // Create Audius OAuth URL
+      const authUrl = `https://audius.co/oauth/auth?scope=read&api_key=${config.audius.apiKey}&redirect_uri=${encodeURIComponent('https://oauth.volume.epiclootlabs.com/auth/audius/callback')}&state=${state}&response_mode=query`;
       
       res.redirect(authUrl);
     } catch (error: any) {
@@ -124,8 +123,16 @@ class OAuthServer {
       // Remove the temporary session mapping
       await PrismaDatabase.deleteSessionMapping(sessionId);
       
-      // Create OAuth session
-      const state = await this.spotifyAuthService.createOAuthSession(sessionData.discord_id);
+      // Generate CSRF state
+      const state = crypto.randomBytes(32).toString('hex');
+      
+      // Store OAuth session
+      await PrismaDatabase.createOAuthSession({
+        state,
+        discordId: sessionData.discord_id,
+        platform: 'SPOTIFY',
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+      });
       
       // Generate Spotify OAuth URL
       const authUrl = this.spotifyAuthService.generateAuthUrl(state);
@@ -473,21 +480,37 @@ class OAuthServer {
       ? 'https://volume.epiclootlabs.com' 
       : `http://localhost:${config.api.port}`;
     
-    // Generate random session ID instead of using Discord ID
-    const randomSessionId = crypto.randomBytes(16).toString('hex');
+    // Generate CSRF state for OAuth callback
+    const state = crypto.randomBytes(32).toString('hex');
     
-    // Store mapping in database with 10 minute expiration
-    await PrismaDatabase.createSessionMapping({
-      sessionId: randomSessionId,
+    // Store OAuth session directly (this is what the callback expects)
+    await PrismaDatabase.createOAuthSession({
+      state,
       discordId,
       platform,
       expiresAt: new Date(Date.now() + 10 * 60 * 1000)
     });
     
     if (platform === 'SPOTIFY') {
-      return `${baseUrl}/oauth/spotify/login/${randomSessionId}`;
+      // Direct Spotify OAuth URL - redirect to Vercel frontend
+      const spotifyAuthUrl = `https://accounts.spotify.com/authorize?${new URLSearchParams({
+        response_type: 'code',
+        client_id: config.spotify.clientId,
+        scope: 'user-read-private user-read-email user-read-playback-state user-read-currently-playing',
+        redirect_uri: 'https://oauth.volume.epiclootlabs.com/auth/spotify/callback',
+        state: state
+      })}`;
+      return spotifyAuthUrl;
     } else {
-      return `${baseUrl}/oauth/audius/login/${randomSessionId}`;
+      // Direct Audius OAuth URL - redirect to Next.js frontend  
+      const audiusAuthUrl = `https://audius.co/oauth/auth?${new URLSearchParams({
+        scope: 'read',
+        api_key: config.audius.apiKey || '',
+        redirect_uri: 'https://oauth.volume.epiclootlabs.com/auth/audius/callback',
+        state: state,
+        response_mode: 'query'
+      })}`;
+      return audiusAuthUrl;
     }
   }
 

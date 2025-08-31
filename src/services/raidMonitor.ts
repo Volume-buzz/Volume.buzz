@@ -3,7 +3,7 @@
  * Monitors user listening activity for both Audius and Spotify platforms
  */
 
-import { Client, User as DiscordUser } from 'discord.js';
+import { Client, User as DiscordUser, EmbedBuilder as DiscordEmbedBuilder } from 'discord.js';
 import PrismaDatabase from '../database/prisma';
 import SpotifyApiService from './spotify/SpotifyApiService';
 import SpotifyAuthService from './spotify/SpotifyAuthService';
@@ -16,6 +16,7 @@ class RaidMonitor {
   private monitoringInterval: NodeJS.Timeout | null = null;
   private cleanupInterval: NodeJS.Timeout | null = null;
   private dmInterval: NodeJS.Timeout | null = null;
+  private lastProgressUpdate: number = 0;
   
   // Spotify services
   private spotifyAuthService: SpotifyAuthService;
@@ -38,7 +39,8 @@ class RaidMonitor {
     });
     this.spotifyTrackingService = new SpotifyTrackingService(
       this.spotifyApiService, 
-      this.spotifyAuthService
+      this.spotifyAuthService,
+      this.client
     );
   }
 
@@ -108,6 +110,12 @@ class RaidMonitor {
 
       // Check for raid completions
       await this.checkRaidCompletions();
+      
+      // Update raid progress embeds (every 30 seconds to avoid spam)
+      if (this.lastProgressUpdate + 30000 < Date.now()) {
+        await this.updateRaidProgressEmbeds();
+        this.lastProgressUpdate = Date.now();
+      }
       
     } catch (error) {
       console.error('Error in participant monitoring:', error);
@@ -273,7 +281,7 @@ class RaidMonitor {
   }
 
   /**
-   * Announce raid completion in Discord
+   * Announce raid completion in Discord with enhanced formatting
    */
   private async announceRaidCompletion(raid: any): Promise<void> {
     try {
@@ -285,22 +293,56 @@ class RaidMonitor {
 
       const winners = await PrismaDatabase.getRaidWinners(raid.id, 10);
       const platformIcon = raid.platform === 'SPOTIFY' ? '🎶' : '🎵';
+      const isCryptoRaid = raid.token_mint && raid.token_mint !== 'SOL';
       
+      // Get enhanced track metadata
+      let enhancedTrackData: any = null;
+      if (raid.platform === 'AUDIUS') {
+        const { default: AudiusService } = await import('./audiusService');
+        const audiusService = new AudiusService();
+        enhancedTrackData = await audiusService.getEnhancedTrackData(raid.track_id);
+      }
+      
+      // Build track URL
+      const trackUrl = raid.platform === 'SPOTIFY' ? 
+        `https://open.spotify.com/track/${raid.track_id}` :
+        `https://audius.co${enhancedTrackData?.permalink || ''}`;
+
+      const artistDisplay = enhancedTrackData?.verified ? 
+        `✅ ${raid.track_artist}` : 
+        raid.track_artist;
+
       const embed = {
-        title: `${platformIcon} Raid Completed!`,
-        description: `**${raid.track_title}** by ${raid.track_artist}\n\n` +
-          `🎯 **Goal reached:** ${raid.streams_goal} qualified listeners\n` +
-          `💰 **Rewards:** ${raid.reward_amount} tokens each\n` +
-          `⏱️ **Required time:** ${raid.required_listen_time} seconds\n` +
-          `🏆 **Platform:** ${raid.platform}\n\n` +
-          `**Top Winners:**\n` +
-          winners.slice(0, 5).map((w: any, i: number) => 
-            `${i + 1}. ${w.user.audius_handle || w.user.spotify_display_name || 'Anonymous'}`
-          ).join('\n') + 
-          `\n\n**🎉 Click "Claim Reward" to get your tokens!**`,
-        color: raid.platform === 'SPOTIFY' ? 0x1DB954 : 0x8B5DFF,
-        thumbnail: raid.track_artwork_url ? { url: raid.track_artwork_url } : undefined,
-        timestamp: new Date().toISOString()
+        title: `${platformIcon} 🏆 RAID VICTORY!`,
+        description: 
+          `## 🎵 **[${raid.track_title}](${trackUrl})**\n` +
+          `🎤 **by ${artistDisplay}**\n` +
+          (enhancedTrackData?.genre ? `🎨 **Genre:** ${enhancedTrackData.genre}\n` : '') +
+          (enhancedTrackData?.duration ? `⏱️ **Duration:** ${enhancedTrackData.duration}\n` : '') +
+          (enhancedTrackData?.playCount ? `🔥 **Total Plays:** ${enhancedTrackData.playCount.toLocaleString()}\n` : '') +
+          `\n🎯 **Mission Accomplished!** ${raid.streams_goal} listeners completed the raid!\n\n` +
+          `💰 **Reward Distribution:** ${raid.reward_amount} ${raid.token_mint || 'SOL'} tokens per winner\n` +
+          `⏱️ **Required Listen Time:** ${raid.required_listen_time} seconds\n` +
+          `🏆 **Platform:** ${raid.platform}${raid.premium_only ? ' (Premium)' : ''}\n\n` +
+          `**🏅 Top Winners:**\n` +
+          winners.slice(0, 5).map((w: any, i: number) => {
+            const username = w.user.audius_handle || w.user.spotify_display_name || 'Anonymous';
+            const medals = ['🥇', '🥈', '🥉', '🏅', '🏅'];
+            return `${medals[i] || '🏅'} **${i + 1}.** ${username}`;
+          }).join('\n') + 
+          (winners.length > 5 ? `\n*...and ${winners.length - 5} more winners!*` : '') +
+          `\n\n**🚀 Click "Claim Reward" below to get your tokens!**`,
+        color: isCryptoRaid ? 0xFFD700 : (raid.platform === 'SPOTIFY' ? 0x1DB954 : 0x8B5DFF),
+        image: enhancedTrackData?.artwork ? { url: enhancedTrackData.artwork } : 
+               (raid.track_artwork_url ? { url: raid.track_artwork_url } : undefined),
+        thumbnail: { url: 'https://i.imgur.com/zKBVcSH.gif' }, // Victory celebration GIF
+        timestamp: new Date().toISOString(),
+        footer: {
+          text: `Raid ID: ${raid.id} | Completed at`,
+          icon_url: raid.platform === 'SPOTIFY' ? 
+            'https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/spotify.svg' :
+            'https://audius.co/favicon.ico'
+        }
       };
 
       await channel.send({ 
@@ -310,15 +352,17 @@ class RaidMonitor {
           components: [{
             type: 2, // Button
             style: 3, // Success style
-            label: '🎉 Claim Reward',
+            label: '💎 Claim Your Tokens',
             custom_id: `claim_reward_${raid.id}`,
-            emoji: { name: '🎉' }
+            emoji: { name: '💰' }
           }]
         }]
       });
 
+      console.log(`🎉 Announced raid completion for raid ${raid.id}: ${raid.track_title}`);
+
     } catch (error) {
-      console.error('Error announcing raid completion:', error);
+      console.error('Error announcing enhanced raid completion:', error);
     }
   }
 
@@ -448,9 +492,82 @@ class RaidMonitor {
         raid.required_listen_time
       );
 
+      // Send initial progress DM
+      try {
+        const discordUser = await this.client.users.fetch(discordId);
+        if (raid.platform === 'SPOTIFY') {
+          const session = this.spotifyTrackingService.getSession(discordId, raidId);
+          if (session) {
+            await this.spotifyTrackingService.sendProgressDM(discordUser, raid, session);
+          }
+        } else {
+          // Send initial Audius progress DM
+          await this.sendInitialProgressDM(discordUser, raid);
+        }
+      } catch (dmError) {
+        console.warn(`Failed to send initial progress DM to ${discordId}:`, dmError);
+      }
+
       console.log(`➕ Added ${raid.platform} participant ${discordId} to raid ${raidId}`);
     } catch (error) {
       console.error(`Error adding participant ${discordId} to raid ${raidId}:`, error);
+    }
+  }
+
+  /**
+   * Send initial progress DM to participant
+   */
+  private async sendInitialProgressDM(discordUser: any, raid: any): Promise<void> {
+    try {
+      const platformIcon = raid.platform === 'SPOTIFY' ? '🎶' : '🎵';
+      const platformName = raid.platform === 'SPOTIFY' ? 'Spotify' : 'Audius';
+      
+      const embed = {
+        title: `${platformIcon} Raid Progress Tracker`,
+        description: `🎯 **You've joined the raid!**\n\n` +
+          `🎵 **Track:** ${raid.track_title}\n` +
+          `🎤 **Artist:** ${raid.track_artist}\n` +
+          `🎧 **Platform:** ${platformName}${raid.premium_only ? ' (Premium)' : ''}\n\n` +
+          `⏰ **Listen for ${raid.required_listen_time} seconds to qualify**\n` +
+          `💰 **Reward:** ${raid.reward_amount} ${raid.token_mint || 'SOL'} tokens\n\n` +
+          `🎧 **Start playing the track now!**\n` +
+          `I'll update your progress every few seconds.`,
+        color: raid.platform === 'SPOTIFY' ? 0x1DB954 : 0x8B5DFF,
+        fields: [
+          {
+            name: '📊 Progress',
+            value: `⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 0%\n**0**/${raid.required_listen_time} seconds`,
+            inline: false
+          },
+          {
+            name: '🎯 Status',
+            value: '⏳ **Waiting for playback to start...**',
+            inline: true
+          },
+          {
+            name: '💰 Reward',
+            value: `**${raid.reward_amount}** ${raid.token_mint || 'SOL'} tokens`,
+            inline: true
+          }
+        ],
+        timestamp: new Date().toISOString(),
+        footer: {
+          text: `Raid ID: ${raid.id} | 🔄 Updates every 10 seconds`
+        }
+      };
+
+      const discordEmbed = new DiscordEmbedBuilder(embed);
+      
+      if (raid.track_artwork_url) {
+        discordEmbed.setThumbnail(raid.track_artwork_url);
+      }
+
+      const dmChannel = await discordUser.createDM();
+      await dmChannel.send({ embeds: [discordEmbed] });
+      
+      console.log(`📬 Sent initial progress DM to ${discordUser.tag} for raid ${raid.id}`);
+    } catch (error) {
+      console.error('Failed to send initial progress DM:', error);
     }
   }
 
@@ -501,6 +618,80 @@ class RaidMonitor {
     } catch (error) {
       console.error(`Error checking premium raid eligibility for ${discordId}:`, error);
       return { canParticipate: false, reason: 'Error checking eligibility' };
+    }
+  }
+
+  /**
+   * Update raid progress embeds in Discord channels
+   */
+  private async updateRaidProgressEmbeds(): Promise<void> {
+    try {
+      const activeRaids = await PrismaDatabase.getActiveRaids();
+      
+      for (const raid of activeRaids) {
+        try {
+          if (!raid.message_id || !raid.channel_id) continue;
+          
+          // Get current participant count
+          const currentStreams = await PrismaDatabase.getParticipantCount(raid.id);
+          
+          // Update raid current_streams in database
+          await PrismaDatabase.updateRaid(raid.id, { current_streams: currentStreams });
+          
+          // Get the Discord channel and message
+          const channel = await this.client.channels.fetch(raid.channel_id);
+          if (!channel || !channel.isTextBased()) continue;
+          
+          const message = await channel.messages.fetch(raid.message_id);
+          if (!message) continue;
+          
+          // Reconstruct track data for embed
+          const trackData = {
+            id: raid.track_id,
+            title: raid.track_title || 'Unknown Track',
+            user: {
+              name: raid.track_artist || 'Unknown Artist',
+              handle: (raid.track_artist || 'unknown').toLowerCase().replace(/\s+/g, ''),
+              verified: false
+            },
+            genre: raid.platform === 'SPOTIFY' ? 'Spotify Track' : 'Audius Track',
+            duration: raid.track_duration_ms ? Math.floor(raid.track_duration_ms / 1000) : undefined,
+            permalink: raid.track_url,
+            artwork: raid.track_artwork_url ? {
+              _480x480: raid.track_artwork_url,
+              _150x150: raid.track_artwork_url,
+              _1000x1000: raid.track_artwork_url
+            } : undefined,
+            // Enhanced metadata
+            album: raid.album_name || undefined,
+            explicit: raid.is_explicit || false,
+            isPlayable: raid.is_playable !== false,
+            linkedTrackId: raid.linked_track_id || undefined
+          };
+          
+          // Create updated raid object
+          const raidWithTrack = {
+            ...raid,
+            current_streams: currentStreams,
+            token_mint: raid.token_mint || 'SOL',
+            reward_per_completion: raid.reward_per_completion ? parseFloat(raid.reward_per_completion) : 0
+          };
+          
+          // Generate updated embed
+          const { default: EmbedBuilder } = await import('../utils/embedBuilder');
+          const updatedEmbed = EmbedBuilder.createRaidEmbed(raidWithTrack as any, trackData, true);
+          
+          // Update the message
+          await message.edit({ embeds: [updatedEmbed] });
+          
+          console.log(`📊 Updated progress embed for raid ${raid.id}: ${currentStreams}/${raid.streams_goal} participants`);
+          
+        } catch (updateError) {
+          console.error(`Error updating progress embed for raid ${raid.id}:`, updateError);
+        }
+      }
+    } catch (error) {
+      console.error('Error updating raid progress embeds:', error);
     }
   }
 

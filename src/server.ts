@@ -9,7 +9,7 @@ import config from './config/environment';
 import rateLimiter from './middleware/rateLimiter';
 
 // Import routes
-import authRoutes, { setOAuthServer } from './routes/auth';
+import authRoutes, { setOAuthServer, setDMService } from './routes/auth';
 import walletRoutes from './routes/wallet';
 import adminRoutes from './routes/admin';
 import rewardsRoutes from './routes/rewards';
@@ -22,6 +22,7 @@ import OAuthServer from './services/oauthServer';
 // Import services
 import HeliusService from './services/helius';
 import RewardsService from './services/rewards';
+import DMService from './services/dmService';
 
 interface ApiError extends Error {
   status?: number;
@@ -34,12 +35,14 @@ class ApiServer {
   private heliusService: HeliusService;
   private rewardsService: RewardsService;
   private oauthServer: OAuthServer;
+  private dmService: DMService;
 
   constructor() {
     this.app = express();
     this.port = config.api.port;
     this.heliusService = new HeliusService();
     this.rewardsService = new RewardsService();
+    this.dmService = new DMService();
     // OAuth server will be set by the bot when it starts
     this.oauthServer = null as any;
   }
@@ -49,7 +52,17 @@ class ApiServer {
    */
   setOAuthServer(oauthServer: OAuthServer): void {
     this.oauthServer = oauthServer;
+    setOAuthServer(oauthServer);
     console.log('🔗 OAuth server connected to API server');
+  }
+
+  /**
+   * Set the Discord client for DM service
+   */
+  setDiscordClient(client: any): void {
+    this.dmService.setClient(client);
+    setDMService(this.dmService);
+    console.log('🤖 Discord client connected to DM service');
   }
 
   /**
@@ -101,128 +114,24 @@ class ApiServer {
       });
     });
 
-    // OAuth callback routes (what Spotify/Audius redirect to) are handled by authRoutes
+    // OAuth callbacks are handled by authRoutes only
+
+    // OAuth login routes (redirect to providers)
+    this.app.get('/oauth/spotify/login/:sessionId', (req, res) => {
+      if (this.oauthServer) {
+        this.oauthServer.initiateSpotifyLogin(req, res);
+      } else {
+        res.status(500).json({ error: 'OAuth server not initialized' });
+      }
+    });
     
-    // OAuth processing routes (where auth routes redirect to)
-    this.app.get('/oauth/spotify/callback', async (req: Request, res: Response) => {
-      try {
-        console.log('🔄 Processing Spotify OAuth callback:', req.query);
-        
-        const { code, state, error } = req.query;
-        
-        if (error) {
-          return res.status(400).send(`
-            <html><body style="font-family: Arial; text-align: center; padding: 50px;">
-              <h2>❌ Spotify Authorization Failed</h2>
-              <p>Error: ${error}</p>
-              <p>You can close this window and try again in Discord.</p>
-            </body></html>
-          `);
-        }
-
-        // TODO: Connect to your existing OAuth server here
-        // For now, show success message
-        return res.send(`
-          <html><body style="font-family: Arial; text-align: center; padding: 50px;">
-            <h2>✅ Spotify Authorization Successful!</h2>
-            <p>Your Spotify account is now connected to Discord.</p>
-            <p><strong>You can close this window and return to Discord.</strong></p>
-            <script>setTimeout(() => window.close(), 3000);</script>
-          </body></html>
-        `);
-        
-      } catch (error) {
-        console.error('Error processing Spotify OAuth:', error);
-        return res.status(500).send(`
-          <html><body style="font-family: Arial; text-align: center; padding: 50px;">
-            <h2>❌ Server Error</h2>
-            <p>Please try again in Discord.</p>
-          </body></html>
-        `);
+    this.app.get('/oauth/audius/login/:sessionId', (req, res) => {
+      if (this.oauthServer) {
+        this.oauthServer.initiateAudiusLogin(req, res);
+      } else {
+        res.status(500).json({ error: 'OAuth server not initialized' });
       }
     });
-
-    this.app.get('/oauth/audius/callback', async (req: Request, res: Response) => {
-      try {
-        console.log('🔄 Processing Audius OAuth callback:', req.query);
-        
-        const { code, state, error } = req.query;
-        
-        if (error) {
-          return res.status(400).send(`
-            <html><body style="font-family: Arial; text-align: center; padding: 50px;">
-              <h2>❌ Audius Authorization Failed</h2>
-              <p>Error: ${error}</p>
-              <p>You can close this window and try again in Discord.</p>
-            </body></html>
-          `);
-        }
-
-        // TODO: Connect to your existing OAuth server here
-        return res.send(`
-          <html><body style="font-family: Arial; text-align: center; padding: 50px;">
-            <h2>✅ Audius Authorization Successful!</h2>
-            <p>Your Audius account is now connected to Discord.</p>
-            <p><strong>You can close this window and return to Discord.</strong></p>
-            <script>setTimeout(() => window.close(), 3000);</script>
-          </body></html>
-        `);
-        
-      } catch (error) {
-        console.error('Error processing Audius OAuth:', error);
-        return res.status(500).send(`
-          <html><body style="font-family: Arial; text-align: center; padding: 50px;">
-            <h2>❌ Server Error</h2>
-            <p>Please try again in Discord.</p>
-          </body></html>
-        `);
-      }
-    });
-
-    // OAuth login initiation routes  
-    this.app.get('/oauth/spotify/login/:sessionId', (req: Request, res: Response) => {
-      try {
-        const sessionId = req.params.sessionId;
-        const spotifyAuthUrl = `https://accounts.spotify.com/authorize?${new URLSearchParams({
-          response_type: 'code',
-          client_id: config.spotify.clientId,
-          scope: 'user-read-private user-read-email',
-          redirect_uri: config.spotify.redirectUri,
-          state: sessionId
-        })}`;
-        console.log(`🎵 Redirecting to Spotify OAuth for session: ${sessionId}`);
-        res.redirect(spotifyAuthUrl);
-      } catch (error) {
-        console.error('OAuth login error:', error);
-        res.status(500).json({ error: 'Failed to initiate OAuth' });
-      }
-    });
-
-    this.app.get('/oauth/audius/login/:sessionId', (req: Request, res: Response) => {
-      try {
-        const sessionId = req.params.sessionId;
-        
-        // Use proper Audius OAuth URL format from their docs
-        const audiusAuthUrl = `https://audius.co/oauth/auth?${new URLSearchParams({
-          scope: 'read', // or 'write' for full permissions
-          api_key: config.audius.apiKey || '',
-          redirect_uri: 'https://volume.epiclootlabs.com/auth/audius/callback',
-          state: sessionId,
-          response_mode: 'query' // Use query params instead of fragment
-        })}`;
-        
-        console.log(`🎵 Redirecting to Audius OAuth for session: ${sessionId}`);
-        console.log(`🔗 Audius OAuth URL: ${audiusAuthUrl}`);
-        res.redirect(audiusAuthUrl);
-      } catch (error) {
-        console.error('Audius OAuth login error:', error);
-        res.status(500).json({ error: 'Failed to initiate Audius OAuth' });
-      }
-    });
-
-    console.log('🔗 OAuth routes configured:');
-    console.log('   Login: /oauth/spotify/login/:sessionId, /oauth/audius/login/:sessionId');
-    console.log('   Callback: /auth/spotify/callback, /auth/audius/callback');
 
     // Auth routes (OAuth callbacks)
     this.app.use('/auth', authRoutes);

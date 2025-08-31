@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'audius-bot-complete',
+      name: 'audius',
       script: 'dist/app.js',  // This starts BOTH bot and API server
       cwd: '/root/audius',
       instances: 1,

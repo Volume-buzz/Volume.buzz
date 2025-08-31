@@ -11,13 +11,16 @@ import {
   PlatformTrack 
 } from '../../types/spotify';
 import SpotifyAuthService from './SpotifyAuthService';
+import SpotifyRateLimitService from './SpotifyRateLimitService';
 
 class SpotifyApiService {
   private spotifyApi: SpotifyWebApi;
   private authService: SpotifyAuthService;
+  private rateLimitService: SpotifyRateLimitService;
 
   constructor(authService: SpotifyAuthService, config?: { clientId: string; clientSecret: string }) {
     this.authService = authService;
+    this.rateLimitService = SpotifyRateLimitService.getInstance();
     
     // Configure with client credentials for public API calls
     this.spotifyApi = new SpotifyWebApi(config ? {
@@ -95,40 +98,55 @@ class SpotifyApiService {
   }
 
   /**
-   * Get user's currently playing track (for free users)
+   * Get user's currently playing track with rate limiting
    */
   async getCurrentlyPlaying(discordId: string): Promise<SpotifyCurrentlyPlaying | null> {
-    try {
+    const rateLimitKey = SpotifyRateLimitService.getUserKey(discordId, 'currently-playing');
+    
+    return this.rateLimitService.executeWithRateLimit(rateLimitKey, async () => {
       const accessToken = await this.authService.getValidAccessToken(discordId);
       if (!accessToken) {
         throw new Error('No valid access token available');
       }
 
-      this.spotifyApi.setAccessToken(accessToken);
-      
-      const currentlyPlaying = await this.spotifyApi.getMyCurrentPlayingTrack({
-        market: 'US'
+      // Use direct API call to /me/player/currently-playing endpoint with market=from_token
+      const response = await fetch('https://api.spotify.com/v1/me/player/currently-playing?market=from_token', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
       });
 
-      return (currentlyPlaying as any).body || null;
-    } catch (error: any) {
-      if (error.statusCode === 204) {
-        // No content - user not playing anything
-        return null;
+      if (response.status === 204) {
+        return null; // No content - user not playing anything
       }
-      
-      console.error(`Error getting currently playing for user ${discordId}:`, error);
-      throw error;
-    }
+
+      if (response.status === 429) {
+        const retryAfter = parseInt(response.headers.get('retry-after') || '30');
+        const error: any = new Error(`Rate limited`);
+        error.statusCode = 429;
+        error.headers = { 'retry-after': retryAfter.toString() };
+        throw error;
+      }
+
+      if (!response.ok) {
+        throw new Error(`Spotify API error: ${response.status} ${response.statusText}`);
+      }
+
+      const currentlyPlaying = await response.json();
+      return currentlyPlaying || null;
+    });
   }
 
   /**
-   * Check if user is currently playing a specific track
+   * Check if user is currently playing a specific track (supports track relinking)
    */
-  async isPlayingTrack(discordId: string, trackId: string): Promise<{
+  async isPlayingTrack(discordId: string, trackId: string, linkedTrackId?: string): Promise<{
     isPlaying: boolean;
     progress_ms?: number;
     timestamp?: number;
+    matchedTrackId?: string;
+    deviceId?: string;
   }> {
     try {
       const currentlyPlaying = await this.getCurrentlyPlaying(discordId);
@@ -137,15 +155,34 @@ class SpotifyApiService {
         return { isPlaying: false };
       }
 
-      const isCurrentTrack = currentlyPlaying.item.id === trackId;
+      // Check if current track matches original track ID or linked track ID
+      const currentTrackId = currentlyPlaying.item.id;
+      const isOriginalTrack = currentTrackId === trackId;
+      const isLinkedTrack = linkedTrackId && currentTrackId === linkedTrackId;
+      const isMatch = isOriginalTrack || isLinkedTrack;
       
       return {
-        isPlaying: isCurrentTrack,
+        isPlaying: Boolean(isMatch),
         progress_ms: currentlyPlaying.progress_ms || 0,
-        timestamp: currentlyPlaying.timestamp
+        timestamp: currentlyPlaying.timestamp,
+        matchedTrackId: isMatch ? currentTrackId : undefined,
+        deviceId: currentlyPlaying.device?.id || undefined
       };
     } catch (error: any) {
+      // Handle rate limiting
+      if (error.statusCode === 429) {
+        const retryAfter = parseInt(error.headers?.['retry-after'] || '30');
+        console.warn(`⏱️ Rate limited checking playback for ${discordId}, retry after ${retryAfter}s`);
+        throw new Error(`Rate limited. Retry after ${retryAfter} seconds.`);
+      }
+
       console.error(`Error checking if user ${discordId} is playing track ${trackId}:`, error);
+      
+      // If it's an authentication error, the user needs to reconnect
+      if (error.message?.includes('No valid access token available')) {
+        console.log(`🔄 User ${discordId} needs to reconnect Spotify for raids to work`);
+      }
+      
       return { isPlaying: false };
     }
   }
@@ -213,6 +250,42 @@ class SpotifyApiService {
       return true;
     } catch (error: any) {
       console.error(`Error pausing playback for user ${discordId}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Add track to user's playback queue (premium users only) with rate limiting
+   */
+  async addToQueue(discordId: string, spotifyUri: string, deviceId?: string): Promise<boolean> {
+    const rateLimitKey = SpotifyRateLimitService.getUserKey(discordId, 'queue');
+    
+    try {
+      return await this.rateLimitService.executeWithRateLimit(rateLimitKey, async () => {
+        const accessToken = await this.authService.getValidAccessToken(discordId);
+        if (!accessToken) {
+          throw new Error('No valid access token available');
+        }
+
+        const isPremium = await this.authService.isUserPremium(discordId);
+        if (!isPremium) {
+          throw new Error('Queue control is only available for Spotify Premium users');
+        }
+
+        this.spotifyApi.setAccessToken(accessToken);
+
+        const queueOptions: any = { uri: spotifyUri };
+        if (deviceId) {
+          queueOptions.device_id = deviceId;
+        }
+
+        await this.spotifyApi.addToQueue(spotifyUri, queueOptions);
+        
+        console.log(`➕ Added to queue for user ${discordId}: ${spotifyUri}`);
+        return true;
+      });
+    } catch (error: any) {
+      console.error(`Error adding to queue for user ${discordId}:`, error);
       return false;
     }
   }

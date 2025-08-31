@@ -52,7 +52,7 @@ const config = {
   spotify: {
     clientId: process.env.SPOTIFY_CLIENT_ID || '',
     clientSecret: process.env.SPOTIFY_CLIENT_SECRET || '',
-    redirectUri: process.env.SPOTIFY_REDIRECT_URI || 'https://volume.epiclootlabs.com/auth/spotify/callback'
+    redirectUri: process.env.SPOTIFY_REDIRECT_URI || 'https://oauth.volume.epiclootlabs.com/auth/spotify/callback'
   },
 
   // Solana
@@ -144,7 +144,9 @@ const config = {
     enableWebhooks: parseBoolean(process.env.ENABLE_WEBHOOKS || 'true'),
     enableRewards: parseBoolean(process.env.ENABLE_REWARDS || 'true'),
     enableSettlement: parseBoolean(process.env.ENABLE_SETTLEMENT || 'true'),
-    enableMetrics: parseBoolean(process.env.ENABLE_METRICS || 'false')
+    enableMetrics: parseBoolean(process.env.ENABLE_METRICS || 'false'),
+    enableSpotifyEmbeddedPlayer: parseBoolean(process.env.ENABLE_SPOTIFY_EMBEDDED_PLAYER || 'true'),
+    enableSpotifyEnhancedMetadata: parseBoolean(process.env.ENABLE_SPOTIFY_ENHANCED_METADATA || 'true')
   }
 };
 
@@ -188,9 +190,7 @@ const requiredEnvVars: Array<keyof typeof process.env> = [
   'DISCORD_CLIENT_ID',
   'HELIUS_API_KEY',
   'ENCRYPTION_KEY',
-  'JWT_SECRET',
-  'SPOTIFY_CLIENT_ID',
-  'SPOTIFY_CLIENT_SECRET'
+  'JWT_SECRET'
 ];
 
 const missingVars = requiredEnvVars.filter(envVar => !process.env[envVar]);

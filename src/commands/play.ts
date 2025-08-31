@@ -11,6 +11,7 @@ import PrismaDatabase from '../database/prisma';
 import EmbedBuilder from '../utils/embedBuilder';
 import SpotifyApiService from '../services/spotify/SpotifyApiService';
 import SpotifyAuthService from '../services/spotify/SpotifyAuthService';
+import SpotifyMetadataService from '../services/spotify/SpotifyMetadataService';
 import WalletService from '../services/wallet';
 import config from '../config/environment';
 import { Command } from '../types';
@@ -246,13 +247,76 @@ const playCommand: Command = {
         return;
       }
 
-      // Create the raid in database
+      // Get enhanced track metadata for better raid display
+      let enhancedMetadata: any = {};
+      if (platform === 'AUDIUS') {
+        try {
+          const { default: AudiusService } = await import('../services/audiusService');
+          const audiusService = new AudiusService();
+          const enhanced = await audiusService.getEnhancedTrackData(trackInfo.id);
+          if (enhanced) {
+            enhancedMetadata = enhanced;
+          }
+        } catch (error) {
+          console.log('Using basic track info for Audius raid');
+        }
+      } else if (platform === 'SPOTIFY') {
+        try {
+          // Initialize Spotify services
+          const spotifyAuthService = new SpotifyAuthService({
+            clientId: config.spotify.clientId!,
+            clientSecret: config.spotify.clientSecret!,
+            redirectUri: config.spotify.redirectUri!
+          });
+          
+          const spotifyMetadataService = new SpotifyMetadataService(spotifyAuthService, {
+            clientId: config.spotify.clientId!,
+            clientSecret: config.spotify.clientSecret!,
+            redirectUri: config.spotify.redirectUri!
+          });
+
+          // Get enhanced metadata with user context for market relinking
+          const metadata = await spotifyMetadataService.getEnhancedTrackMetadata(
+            trackInfo.id, 
+            interaction.user.id
+          );
+
+          enhancedMetadata = {
+            title: metadata.track.name,
+            artist: metadata.artistNames,
+            artwork: metadata.albumArtwork.large || metadata.albumArtwork.medium,
+            genre: 'Spotify Track',
+            verified: true,
+            duration: metadata.formattedDuration,
+            album: metadata.albumInfo.name,
+            releaseDate: metadata.albumInfo.releaseDate,
+            explicit: metadata.track.explicit,
+            isPlayable: metadata.isPlayable,
+            linkedTrackId: metadata.linkedTrackId,
+            spotifyUrl: metadata.track.external_urls.spotify,
+            fullMetadata: metadata
+          };
+
+          console.log(`📊 Enhanced Spotify metadata loaded for ${trackInfo.id}`);
+        } catch (error) {
+          console.warn('Failed to get enhanced Spotify metadata, using basic info:', error);
+          enhancedMetadata = {
+            title: trackInfo.title,
+            artist: trackInfo.artist,
+            artwork: trackInfo.artwork_url,
+            genre: 'Spotify Track',
+            verified: false
+          };
+        }
+      }
+
+      // Create the raid in database with enhanced metadata
       const raid = await PrismaDatabase.createRaid({
         trackId: trackInfo.id,
         trackUrl: trackUrl,
-        trackTitle: trackInfo.title,
-        trackArtist: trackInfo.artist,
-        trackArtworkUrl: trackInfo.artwork_url,
+        trackTitle: enhancedMetadata.title || trackInfo.title,
+        trackArtist: enhancedMetadata.artist || trackInfo.artist,
+        trackArtworkUrl: enhancedMetadata.artwork || trackInfo.artwork_url,
         platform,
         premiumOnly,
         requiredListenTime: requiredTime,
@@ -262,61 +326,61 @@ const playCommand: Command = {
         channelId: targetChannel.id,
         guildId: interaction.guild!.id,
         creatorId: interaction.user.id,
-        durationMinutes: duration
+        durationMinutes: duration,
+        // Enhanced metadata for Spotify
+        metadataJson: enhancedMetadata.fullMetadata ? JSON.stringify(enhancedMetadata.fullMetadata) : undefined,
+        linkedTrackId: enhancedMetadata.linkedTrackId,
+        isPlayable: enhancedMetadata.isPlayable,
+        trackDurationMs: enhancedMetadata.fullMetadata?.track?.duration_ms,
+        isExplicit: enhancedMetadata.explicit,
+        albumName: enhancedMetadata.album
       });
 
-      // Create raid embed
-      const platformIcon = platform === 'SPOTIFY' ? '🎶' : '🎵';
-      const platformColor = platform === 'SPOTIFY' ? 0x1DB954 : 0x8B5DFF;
-      
-      let raidDescription = `${platformIcon} **Platform:** ${platform}\n` +
-        `🎯 **Goal:** ${goal} qualified listeners\n` +
-        `💰 **Reward:** ${reward} tokens each\n` +
-        `⏱️ **Required time:** ${requiredTime} seconds\n` +
-        `⌛ **Duration:** ${duration} minutes\n`;
+      // Create raid embed using the enhanced EmbedBuilder with GIFs and progress bars
+      const raidWithTrack = {
+        ...raid,
+        current_streams: 0, // New raid starts with 0 streams
+        streams_goal: goal,
+        platform: platform,
+        reward_amount: reward,
+        required_listen_time: requiredTime,
+        duration_minutes: duration,
+        premium_only: premiumOnly,
+        token_mint: tokenMint,
+        reward_per_completion: raid.reward_per_completion ? parseFloat(raid.reward_per_completion) : 0,
+        track_title: trackInfo.title,
+        track_artist: trackInfo.artist,
+        track_artwork_url: trackInfo.artwork_url,
+        status: 'ACTIVE' as const,
+        created_at: new Date()
+      };
 
-      if (platform === 'SPOTIFY' && premiumOnly) {
-        raidDescription += `🔒 **Premium Only** - Spotify Premium required\n`;
-      }
+      const trackData = {
+        id: trackInfo.id,
+        title: enhancedMetadata.title || trackInfo.title,
+        user: {
+          name: enhancedMetadata.artist || trackInfo.artist,
+          handle: (enhancedMetadata.artist || trackInfo.artist).toLowerCase().replace(/\s+/g, ''),
+          verified: enhancedMetadata.verified || false
+        },
+        genre: enhancedMetadata.genre || trackInfo.genre || 'Unknown',
+        duration: enhancedMetadata.duration || trackInfo.duration,
+        playCount: enhancedMetadata.playCount || trackInfo.playCount || 0,
+        permalink: enhancedMetadata.spotifyUrl || trackInfo.permalink,
+        artwork: trackInfo.artwork ? {
+          _480x480: enhancedMetadata.artwork || trackInfo.artwork_url,
+          _150x150: enhancedMetadata.artwork || trackInfo.artwork_url,
+          _1000x1000: enhancedMetadata.artwork || trackInfo.artwork_url
+        } : undefined,
+        // Enhanced Spotify-specific metadata
+        album: enhancedMetadata.album,
+        releaseDate: enhancedMetadata.releaseDate,
+        explicit: enhancedMetadata.explicit,
+        isPlayable: enhancedMetadata.isPlayable,
+        linkedTrackId: enhancedMetadata.linkedTrackId
+      };
 
-      raidDescription += `\n**How to participate:**\n` +
-        `1. Click "Join Raid" below\n` +
-        `2. Start playing the track on ${platform}\n` +
-        `3. Listen for at least ${requiredTime} seconds\n` +
-        `4. Claim your ${reward} tokens when the raid completes!\n\n` +
-        `**Current Progress:** 0/${goal} qualified listeners`;
-
-      const raidEmbed = new DiscordEmbedBuilder()
-        .setTitle(`🎯 ${trackInfo.title}`)
-        .setDescription(raidDescription)
-        .setColor(platformColor)
-        .addFields(
-          {
-            name: '🎤 Artist',
-            value: trackInfo.artist,
-            inline: true
-          },
-          {
-            name: '🎵 Platform',
-            value: platform + (premiumOnly ? ' (Premium)' : ''),
-            inline: true
-          },
-          {
-            name: '💰 Total Rewards',
-            value: `${goal * reward} tokens`,
-            inline: true
-          }
-        )
-        .setURL(trackUrl)
-        .setTimestamp()
-        .setFooter({
-          text: `Raid ID: ${raid.id} • Created by ${interaction.user.displayName}`,
-          iconURL: interaction.user.displayAvatarURL()
-        });
-
-      if (trackInfo.artwork_url) {
-        raidEmbed.setThumbnail(trackInfo.artwork_url);
-      }
+      const raidEmbed = EmbedBuilder.createRaidEmbed(raidWithTrack as any, trackData, true);
 
       // Create join button
       const joinButton = new ButtonBuilder()
@@ -324,7 +388,27 @@ const playCommand: Command = {
         .setLabel('🎯 Join Raid')
         .setStyle(ButtonStyle.Success);
 
-      const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(joinButton);
+      const buttons = [joinButton];
+
+      // Add Spotify-specific buttons
+      if (platform === 'SPOTIFY') {
+        // Open in Spotify button (for all users)
+        buttons.push(
+          new ButtonBuilder()
+            .setLabel('Open in Spotify')
+            .setStyle(ButtonStyle.Link)
+            .setURL(`https://open.spotify.com/track/${trackInfo.id}`)
+            .setEmoji('🎶')
+        );
+
+        // Premium-only features notification in embed
+        if (premiumOnly) {
+          // Add premium badge to embed description or footer
+          // This will be handled in the embed builder
+        }
+      }
+
+      const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons);
 
       // Post raid message in the target channel
       const raidMessage = await targetChannel.send({

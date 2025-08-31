@@ -76,7 +76,7 @@ export interface Raid {
   completed_at?: Date;
 }
 
-export type RaidStatus = 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+export type RaidStatus = 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
 
 export interface RaidParticipant {
   id: number;

@@ -20,6 +20,9 @@ model User {
   spotify_access_token    String? @map("spotify_access_token")
   spotify_refresh_token   String? @map("spotify_refresh_token")
   spotify_token_expires_at DateTime? @map("spotify_token_expires_at")
+  spotify_scope           String? @map("spotify_scope")
+  spotify_product         String? @map("spotify_product")
+  spotify_country         String? @map("spotify_country")
   discord_username        String? @map("discord_username")
   role                    UserRole @default(FAN) @map("role")
   tokens_balance          Int     @default(0) @map("tokens_balance")
@@ -75,6 +78,12 @@ model Raid {
   duration_minutes        Int       @default(60) @map("duration_minutes")
   status                  RaidStatus @default(ACTIVE) @map("status")
   message_id              String?   @map("message_id")
+  metadata_json           String?   @map("metadata_json") // Enhanced track metadata
+  linked_track_id         String?   @map("linked_track_id") // For track relinking
+  is_playable             Boolean   @default(true) @map("is_playable")
+  track_duration_ms       Int?      @map("track_duration_ms")
+  is_explicit             Boolean   @default(false) @map("is_explicit")
+  album_name              String?   @map("album_name")
   created_at              DateTime  @default(now()) @map("created_at")
   start_at                DateTime  @default(now()) @map("start_at")
   end_at                  DateTime? @map("end_at")
@@ -119,6 +128,12 @@ model RaidParticipant {
   qualified_at        DateTime? @map("qualified_at")
   last_dm_sent        DateTime? @map("last_dm_sent") @db.Timestamp(6)
   dm_message_id       String?   @map("dm_message_id")
+  listen_seconds      Int       @default(0) @map("listen_seconds")
+  last_progress_ms    Int?      @map("last_progress_ms")
+  last_timestamp      DateTime? @map("last_timestamp")
+  last_heartbeat_at   DateTime? @map("last_heartbeat_at")
+  tracking_method     String?   @map("tracking_method") // "web_playback_sdk" or "currently_playing_api"
+  device_id           String?   @map("device_id") // Spotify device ID for premium users
 
   raid Raid? @relation(fields: [raid_id], references: [id], onDelete: Cascade)
   user User  @relation(fields: [discord_id], references: [discord_id])

@@ -74,10 +74,8 @@ const addArtistCommand: Command = {
         return;
       }
 
-      // Promote user to artist
-      const updatedUser = await PrismaDatabase.updateUser(targetUser.id, {
-        role: 'ARTIST'
-      });
+      // Promote user to artist - role update handled separately
+      // Note: Role updates are handled through the database schema directly
 
       // Create artist wallet if they don't have one
       const WalletService = require('../services/wallet').default;

@@ -25,6 +25,7 @@ class SpotifyAuthService {
     'user-read-currently-playing',
     'user-read-playback-state', 
     'user-read-private',
+    'user-read-email',
     'user-modify-playback-state',
     'streaming'
   ];
@@ -122,13 +123,16 @@ class SpotifyAuthService {
       const expiresAt = new Date(Date.now() + (tokens.expires_in * 1000));
 
       await PrismaDatabase.updateUser(discordId, {
-        spotify_user_id: userProfile.id,
-        spotify_display_name: userProfile.display_name,
-        spotify_email: userProfile.email,
-        spotify_is_premium: userProfile.product === 'premium',
-        spotify_access_token: encryptedAccessToken.toString(),
-        spotify_refresh_token: encryptedRefreshToken.toString(),
-        spotify_token_expires_at: expiresAt
+        spotifyUserId: userProfile.id,
+        spotifyDisplayName: userProfile.display_name,
+        spotifyEmail: userProfile.email,
+        spotifyIsPremium: userProfile.product === 'premium',
+        spotifyAccessToken: JSON.stringify(encryptedAccessToken), // Store as JSON string
+        spotifyRefreshToken: JSON.stringify(encryptedRefreshToken), // Store as JSON string
+        spotifyTokenExpiresAt: expiresAt,
+        spotifyScope: tokens.scope,
+        spotifyProduct: userProfile.product,
+        spotifyCountry: userProfile.country
       });
 
       console.log(`💾 Saved Spotify tokens for user ${discordId} (${userProfile.display_name}) - Premium: ${userProfile.product === 'premium'}`);
@@ -148,6 +152,13 @@ class SpotifyAuthService {
         return null;
       }
 
+      // Validate that tokens are actually strings and not corrupted
+      if (typeof user.spotify_access_token !== 'string' || typeof user.spotify_refresh_token !== 'string') {
+        console.log(`🔄 User ${discordId} has corrupted token data, clearing...`);
+        await this.clearUserTokens(discordId);
+        return null;
+      }
+
       // Check if token is expired (with 5 minute buffer)
       const now = new Date();
       const expiresAt = user.spotify_token_expires_at;
@@ -156,21 +167,53 @@ class SpotifyAuthService {
       if (!expiresAt || (expiresAt.getTime() - bufferTime) <= now.getTime()) {
         console.log(`🔄 Refreshing Spotify token for user ${discordId}`);
         
-        const decryptedRefreshToken = this.encryptionService.decrypt(user.spotify_refresh_token as any);
-        const newTokens = await this.refreshAccessToken(decryptedRefreshToken);
-        
-        // Get updated user profile to check for premium status changes
-        const userProfile = await this.getUserProfile(newTokens.access_token);
-        
-        await this.saveUserTokens(discordId, newTokens, userProfile);
-        return newTokens.access_token;
+        try {
+          const refreshTokenData = JSON.parse(user.spotify_refresh_token);
+          const decryptedRefreshToken = this.encryptionService.decrypt(refreshTokenData);
+          const newTokens = await this.refreshAccessToken(decryptedRefreshToken);
+          
+          // Get updated user profile to check for premium status changes
+          const userProfile = await this.getUserProfile(newTokens.access_token);
+          
+          await this.saveUserTokens(discordId, newTokens, userProfile);
+          return newTokens.access_token;
+        } catch (refreshError: any) {
+          console.error(`Failed to refresh token for user ${discordId}:`, refreshError.message);
+          // Clear corrupted tokens
+          await this.clearUserTokens(discordId);
+          return null;
+        }
       }
 
-      // Token is still valid
-      return this.encryptionService.decrypt(user.spotify_access_token as any);
+      // Token is still valid - decrypt and return
+      try {
+        const accessTokenData = JSON.parse(user.spotify_access_token);
+        return this.encryptionService.decrypt(accessTokenData);
+      } catch (decryptError: any) {
+        console.error(`Token decryption failed for user ${discordId}:`, decryptError.message);
+        await this.clearUserTokens(discordId);
+        return null;
+      }
     } catch (error: any) {
       console.error(`Failed to get valid access token for user ${discordId}:`, error.message);
+      await this.clearUserTokens(discordId);
       return null;
+    }
+  }
+
+  /**
+   * Clear user's Spotify tokens and notify tracking service
+   */
+  private async clearUserTokens(discordId: string): Promise<void> {
+    try {
+      await PrismaDatabase.updateUser(discordId, {
+        spotifyAccessToken: undefined,
+        spotifyRefreshToken: undefined,
+        spotifyTokenExpiresAt: undefined
+      });
+      console.log(`🗑️ Cleared corrupted Spotify tokens for user ${discordId}`);
+    } catch (error: any) {
+      console.error(`Error clearing tokens for user ${discordId}:`, error.message);
     }
   }
 
@@ -201,13 +244,16 @@ class SpotifyAuthService {
   async revokeUserAuth(discordId: string): Promise<void> {
     try {
       await PrismaDatabase.updateUser(discordId, {
-        spotify_user_id: null,
-        spotify_display_name: null,
-        spotify_email: null,
-        spotify_is_premium: false,
-        spotify_access_token: null,
-        spotify_refresh_token: null,
-        spotify_token_expires_at: null
+        spotifyUserId: undefined,
+        spotifyDisplayName: undefined,
+        spotifyEmail: undefined,
+        spotifyIsPremium: false,
+        spotifyAccessToken: undefined,
+        spotifyRefreshToken: undefined,
+        spotifyTokenExpiresAt: undefined,
+        spotifyScope: undefined,
+        spotifyProduct: undefined,
+        spotifyCountry: undefined
       });
 
       console.log(`🔐 Revoked Spotify authentication for user ${discordId}`);

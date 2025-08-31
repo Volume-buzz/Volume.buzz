@@ -26,8 +26,10 @@ class AudiusApp {
       this.bot = new AudiusBot();
       await this.bot.start();
 
-      // OAuth routes are handled directly by the bot's OAuth server
-      console.log('🔗 OAuth routes handled by bot instance');
+      // Connect OAuth server and Discord client to API server
+      this.apiServer.setOAuthServer(this.bot.getOAuthServer());
+      this.apiServer.setDiscordClient(this.bot.client);
+      console.log('🔗 OAuth and DM services connected');
 
       console.log('✅ Audius application started successfully!');
       console.log('🎵 Ready to process music raids with crypto rewards');

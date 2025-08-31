@@ -3,7 +3,7 @@
  * Monitors user listening activity for raid participation
  */
 
-import { User as DiscordUser } from 'discord.js';
+import { User as DiscordUser, EmbedBuilder as DiscordEmbedBuilder, Client } from 'discord.js';
 import SpotifyApiService from './SpotifyApiService';
 import SpotifyAuthService from './SpotifyAuthService';
 import PrismaDatabase from '../../database/prisma';
@@ -15,10 +15,12 @@ class SpotifyTrackingService {
   private authService: SpotifyAuthService;
   private trackingSessions: Map<string, TrackingSession> = new Map();
   private trackingInterval: NodeJS.Timeout | null = null;
+  private client: Client;
 
-  constructor(apiService: SpotifyApiService, authService: SpotifyAuthService) {
+  constructor(apiService: SpotifyApiService, authService: SpotifyAuthService, client: Client) {
     this.apiService = apiService;
     this.authService = authService;
+    this.client = client;
   }
 
   /**
@@ -28,9 +30,22 @@ class SpotifyTrackingService {
     discordId: string, 
     raidId: number, 
     trackId: string, 
-    requiredTime: number
+    requiredTime: number,
+    linkedTrackId?: string
   ): Promise<void> {
     const sessionKey = `${discordId}-${raidId}`;
+    
+    // Check if user has valid Spotify auth before starting tracking
+    const hasValidAuth = await this.authService.isUserAuthenticated(discordId);
+    if (!hasValidAuth) {
+      console.log(`🚫 User ${discordId} has no valid Spotify auth, sending reconnect DM and not starting tracking`);
+      await this.sendAuthErrorDM(discordId, raidId);
+      return;
+    }
+
+    // Determine tracking method based on user premium status
+    const isPremium = await this.authService.isUserPremium(discordId);
+    const trackingMethod = isPremium ? 'web_playback_sdk' : 'currently_playing_api';
     
     const session: TrackingSession = {
       userId: discordId,
@@ -42,12 +57,18 @@ class SpotifyTrackingService {
       isListening: false,
       lastCheck: new Date(),
       requiredTime,
-      isPremium: await this.authService.isUserPremium(discordId)
+      isPremium
     };
 
     this.trackingSessions.set(sessionKey, session);
     
-    console.log(`🎧 Started Spotify tracking for user ${discordId} on raid ${raidId}`);
+    // Update database participant record with tracking method
+    await PrismaDatabase.updateRaidParticipant(raidId, discordId, {
+      tracking_method: trackingMethod,
+      last_heartbeat_at: new Date()
+    });
+    
+    console.log(`🎧 Started Spotify tracking for user ${discordId} on raid ${raidId} (${trackingMethod})`);
   }
 
   /**
@@ -70,9 +91,9 @@ class SpotifyTrackingService {
 
     this.trackingInterval = setInterval(async () => {
       await this.checkAllSessions();
-    }, 3000); // 3 second intervals as requested
+    }, 2000); // 2 second intervals as requested
 
-    console.log('🎯 Started Spotify global tracking (3-second intervals)');
+    console.log('🎯 Started Spotify global tracking (2-second intervals)');
   }
 
   /**
@@ -106,8 +127,39 @@ class SpotifyTrackingService {
       const now = new Date();
       const timeSinceLastCheck = (now.getTime() - session.lastCheck.getTime()) / 1000;
 
-      // Check if user is currently playing the raid track
-      const playbackStatus = await this.apiService.isPlayingTrack(session.userId, session.trackId);
+      // Get raid info for linked track ID
+      const raid = await PrismaDatabase.getRaid(session.raidId);
+      const linkedTrackId = raid?.linked_track_id || undefined;
+
+      // Check if user is currently playing the raid track (with relinking support)
+      let playbackStatus: any;
+      try {
+        playbackStatus = await this.apiService.isPlayingTrack(session.userId, session.trackId, linkedTrackId);
+      } catch (error: any) {
+        // Handle rate limiting
+        if (error.message.includes('Rate limited')) {
+          console.log(`⏱️ Rate limited for user ${session.userId}, skipping this check`);
+          return;
+        }
+
+        // ALWAYS remove user from tracking on authentication errors to prevent spam
+        console.log(`🚫 Authentication error for user ${session.userId}: ${error.message}`);
+        console.log(`🔄 Removing user ${session.userId} from Spotify tracking to prevent error loop`);
+        
+        // Send auth error DM only once and remove from tracking
+        await this.sendAuthErrorDM(session.userId, session.raidId);
+        this.stopTracking(session.userId, session.raidId);
+        return;
+      }
+      
+      // Handle authentication errors - only send DM once and remove from tracking
+      if (!playbackStatus && session.totalListenTime === 0) {
+        // Likely authentication issue - user needs to reconnect
+        await this.sendAuthErrorDM(session.userId, session.raidId);
+        // Remove from tracking to stop continuous errors
+        this.stopTracking(session.userId, session.raidId);
+        return;
+      }
       
       const wasListening = session.isListening;
       session.isListening = playbackStatus.isPlaying;
@@ -122,10 +174,15 @@ class SpotifyTrackingService {
           is_listening: true,
           total_listen_duration: Math.floor(session.totalListenTime),
           last_check: now,
-          qualified: session.totalListenTime >= session.requiredTime
+          qualified: session.totalListenTime >= session.requiredTime,
+          listen_seconds: Math.floor(session.totalListenTime),
+          last_progress_ms: playbackStatus.progress_ms,
+          last_timestamp: new Date(playbackStatus.timestamp || Date.now()),
+          last_heartbeat_at: now,
+          device_id: playbackStatus.deviceId
         };
 
-        if (session.totalListenTime >= session.requiredTime && !session.isListening) {
+        if (session.totalListenTime >= session.requiredTime && !wasListening) {
           updateData.qualified_at = now;
         }
 
@@ -136,6 +193,23 @@ class SpotifyTrackingService {
         );
 
         console.log(`🎵 User ${session.userId} listening to Spotify track (${Math.floor(session.totalListenTime)}s/${session.requiredTime}s)`);
+        
+        // Check if user has qualified and stop tracking
+        if (session.totalListenTime >= session.requiredTime) {
+          console.log(`🎉 User ${session.userId} qualified for raid ${session.raidId}! Stopping tracking.`);
+          
+          // Send final qualification DM
+          try {
+            const discordUser = await this.client.users.fetch(session.userId);
+            await this.sendQualificationDM(discordUser, raid, session);
+          } catch (dmError) {
+            console.warn(`Failed to send qualification DM to ${session.userId}:`, dmError);
+          }
+          
+          // Stop tracking this user
+          this.stopTracking(session.userId, session.raidId);
+          return;
+        }
       } else {
         // User stopped listening - reset timer like Audius
         if (wasListening) {
@@ -172,7 +246,7 @@ class SpotifyTrackingService {
   }
 
   /**
-   * Send progress DM to user
+   * Send progress DM to user with enhanced metadata
    */
   async sendProgressDM(
     discordUser: DiscordUser, 
@@ -180,58 +254,206 @@ class SpotifyTrackingService {
     session: TrackingSession
   ): Promise<void> {
     try {
+      // Get current playing track metadata for richer information
+      let currentTrackData: any = null;
+      try {
+        const playbackState = await this.apiService.getPlaybackState(session.userId);
+        if (playbackState && playbackState.item) {
+          currentTrackData = playbackState.item;
+        }
+      } catch (error) {
+        // Fallback to basic info if we can't get current playback
+        console.log('Using basic track info for progress DM');
+      }
+
       const progressPercentage = Math.min((session.totalListenTime / session.requiredTime) * 100, 100);
-      const progressBar = this.createProgressBar(progressPercentage, 10);
+      const progressBar = this.createProgressBar(progressPercentage, 15);
       
       let description: string;
       let color = 0x1DB954; // Spotify green
+      const timeLeft = Math.max(0, session.requiredTime - Math.floor(session.totalListenTime));
+      const minutesLeft = Math.floor(timeLeft / 60);
+      const secondsLeft = timeLeft % 60;
+      const timeLeftStr = minutesLeft > 0 ? `${minutesLeft}m ${secondsLeft}s` : `${secondsLeft}s`;
+
+      // Enhanced track info
+      const trackTitle = currentTrackData ? currentTrackData.name : raid.track_title;
+      const artistNames = currentTrackData ? 
+        currentTrackData.artists.map((a: any) => a.name).join(', ') : 
+        raid.track_artist;
+      const albumName = currentTrackData ? currentTrackData.album.name : null;
+      const spotifyUrl = `https://open.spotify.com/track/${raid.track_id}`;
 
       if (!session.isListening) {
-        description = `❌ **Not currently playing anything**\n\nPlease start playing **${raid.track_title}** on Spotify to continue earning!`;
+        description = `❌ **Not currently playing the raid track**\n\n` +
+          `🎵 Please start playing **[${trackTitle}](${spotifyUrl})** by **${artistNames}** on Spotify!\n\n` +
+          (albumName ? `💿 **Album:** ${albumName}\n` : '') +
+          `⏰ **${timeLeftStr}** remaining to qualify`;
         color = 0xFF6B6B;
       } else if (session.totalListenTime >= session.requiredTime) {
-        description = `✅ **Qualified!** Wait for the raid to finish and claim your rewards!\n\n🎉 You've listened for **${Math.floor(session.totalListenTime)}** seconds (**${Math.floor(progressPercentage)}%** complete)`;
+        description = `🏆 **RAID QUALIFICATION COMPLETE!**\n\n` +
+          `🎉 You've successfully listened to **[${trackTitle}](${spotifyUrl})** for **${Math.floor(session.totalListenTime)}** seconds!\n\n` +
+          `💎 **You can now claim your ${raid.reward_amount} ${raid.token_mint || 'SOL'} tokens in the raid channel!**`;
         color = 0x00FF00;
       } else {
-        description = `🎶 **Currently listening to ${raid.track_title}** on Spotify\n\nListen time: **${Math.floor(session.totalListenTime)}**/${session.requiredTime} seconds`;
+        description = `🎶 **Currently vibing to [${trackTitle}](${spotifyUrl})**\n` +
+          `🎤 by **${artistNames}**\n` +
+          (albumName ? `💿 from **${albumName}**\n` : '') +
+          `\n⏱️ **${timeLeftStr}** remaining to qualify for **${raid.reward_amount} ${raid.token_mint || 'SOL'}** tokens!`;
       }
 
-      const embed = {
-        title: `🎯 Spotify Raid Progress: ${raid.track_title}`,
-        description: description,
-        color: color,
-        fields: [
+      const embed = new DiscordEmbedBuilder()
+        .setTitle((session.totalListenTime >= session.requiredTime) ? '🏆 Spotify Raid Complete!' : `🎧 Spotify Raid Progress`)
+        .setDescription(description)
+        .setColor(color);
+
+      // Use album artwork if available from current playback
+      if (currentTrackData && currentTrackData.album && currentTrackData.album.images.length > 0) {
+        const albumArt = currentTrackData.album.images[0].url; // Largest available
+        embed.setThumbnail(albumArt);
+      } else if (raid.track_artwork_url) {
+        embed.setThumbnail(raid.track_artwork_url);
+      }
+
+      embed.addFields(
+        {
+          name: '📊 Your Listening Progress',
+          value: `${progressBar}\n**${Math.floor(session.totalListenTime)}**/${session.requiredTime} seconds (**${Math.floor(progressPercentage)}%** complete)`,
+          inline: false
+        },
+        {
+          name: (session.totalListenTime >= session.requiredTime) ? '🎉 Status' : '⏳ Time Remaining',
+          value: (session.totalListenTime >= session.requiredTime) ? 
+            '✅ **QUALIFIED!** Go claim your rewards!' :
+            `⏳ **${timeLeftStr}** left to qualify`,
+          inline: true
+        },
+        {
+          name: '💰 Reward Pool',
+          value: `**${raid.reward_amount}** ${raid.token_mint || 'SOL'} tokens`,
+          inline: true
+        },
+        {
+          name: '🎵 Spotify Status',
+          value: session.isPremium ? '👑 Premium User' : '🆓 Free User',
+          inline: true
+        }
+      )
+      .setTimestamp()
+      .setFooter({ 
+        text: (session.totalListenTime >= session.requiredTime) ? 
+          `Raid ID: ${raid.id} | 🎉 Claim rewards in Discord!` : 
+          `Raid ID: ${raid.id} | 🔄 Updates every 2 seconds` 
+      });
+
+      // Add celebration image if qualified, otherwise add Spotify branding
+      if (session.totalListenTime >= session.requiredTime) {
+        embed.setImage('https://i.imgur.com/N6HhP5R.gif');
+      }
+
+      await discordUser.send({ embeds: [embed] });
+    } catch (error) {
+      console.error('Failed to send enhanced Spotify progress DM:', error);
+    }
+  }
+
+  /**
+   * Send qualification success DM to user
+   */
+  async sendQualificationDM(discordUser: any, raid: any, session: TrackingSession): Promise<void> {
+    try {
+      const embed = new DiscordEmbedBuilder()
+        .setTitle('🎉 Raid Qualified!')
+        .setDescription(
+          `🏆 **Congratulations! You've completed the raid!**\n\n` +
+          `🎵 **Track:** ${raid.track_title}\n` +
+          `🎤 **Artist:** ${raid.track_artist}\n` +
+          `⏱️ **Listening Time:** ${Math.floor(session.totalListenTime)}/${session.requiredTime} seconds\n\n` +
+          `💰 **Reward Earned:** ${raid.reward_amount} ${raid.token_mint || 'SOL'} tokens\n\n` +
+          `🎯 **Next Steps:**\n` +
+          `• Wait for the raid to complete\n` +
+          `• Use \`/claim\` to collect your rewards\n` +
+          `• Check \`/wallet\` for your token balance\n\n` +
+          `🎊 **Well done, raider!**`
+        )
+        .setColor(0xFFD700)
+        .addFields(
           {
-            name: '📊 Progress Bar',
-            value: `${progressBar}`,
-            inline: false
+            name: '📊 Final Progress',
+            value: `🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 100%\n**${Math.floor(session.totalListenTime)}**/${session.requiredTime} seconds (**QUALIFIED!**)`
           },
           {
-            name: '💰 Potential Reward',
-            value: `${raid.reward_amount} tokens`,
+            name: '🎵 Platform',
+            value: `Spotify${session.isPremium ? ' 👑 Premium' : ' 🆓 Free'}`,
             inline: true
           },
           {
-            name: '⏱️ Required Time',
-            value: `${session.requiredTime} seconds`,
-            inline: true
-          },
-          {
-            name: '🎶 Platform',
-            value: session.isPremium ? 'Spotify Premium' : 'Spotify Free',
+            name: '💰 Reward',
+            value: `**${raid.reward_amount}** ${raid.token_mint || 'SOL'} tokens`,
             inline: true
           }
-        ],
-        timestamp: new Date().toISOString(),
-        footer: {
-          text: `Raid ID: ${raid.id} | Updates every 3 seconds`
-        }
-      };
+        )
+        .setImage('https://i.imgur.com/N6HhP5R.gif') // Celebration GIF
+        .setTimestamp()
+        .setFooter({ 
+          text: `Raid ID: ${raid.id} | 🎉 Qualified at ${new Date().toLocaleTimeString()}`
+        });
 
-      const dmChannel = await discordUser.createDM();
-      await dmChannel.send({ embeds: [embed] });
+      if (raid.track_artwork_url) {
+        embed.setThumbnail(raid.track_artwork_url);
+      }
+
+      await discordUser.send({ embeds: [embed] });
+      
+      console.log(`🎉 Sent qualification DM to ${discordUser.tag} for raid ${raid.id}`);
     } catch (error) {
-      console.error('Failed to send Spotify progress DM:', error);
+      console.error('Failed to send qualification DM:', error);
+    }
+  }
+
+  /**
+   * Send authentication error DM to user
+   */
+  async sendAuthErrorDM(discordId: string, raidId: number): Promise<void> {
+    try {
+      const discordUser = await this.client.users.fetch(discordId);
+      const raid = await PrismaDatabase.getRaid(raidId);
+      
+      if (!discordUser || !raid) return;
+
+      const embed = new DiscordEmbedBuilder()
+        .setTitle('🔄 Spotify Reconnection Required')
+        .setDescription(
+          `❌ **Your Spotify connection has expired or is invalid**\n\n` +
+          `To participate in raids, you need to reconnect your Spotify account.\n\n` +
+          `💡 **How to fix this:**\n` +
+          `1. Use \`/spotify connect\` in Discord\n` +
+          `2. Complete the Spotify authorization\n` +
+          `3. Join the raid again\n\n` +
+          `🎯 **Current Raid:** ${raid.track_title}\n` +
+          `💰 **Reward:** ${raid.reward_amount} tokens`
+        )
+        .setColor(0xFF6B6B)
+        .setTimestamp()
+        .setFooter({ text: `Raid ID: ${raidId} | Reconnect to continue` });
+
+      await discordUser.send({ embeds: [embed] });
+      
+      // Remove the user from the raid since they can't participate
+      try {
+        // Find the participant first, then delete by ID
+        const participants = await PrismaDatabase.getActiveListeners();
+        const participant = participants.find((p: any) => p.discord_id === discordId && p.raid_id === raidId);
+        if (participant) {
+          await PrismaDatabase.deleteRaidParticipant(participant.id);
+        }
+      } catch (removeError) {
+        console.error(`Error removing participant:`, removeError);
+      }
+      console.log(`🚫 Removed user ${discordId} from raid ${raidId} due to auth issues`);
+      
+    } catch (error) {
+      console.error('Failed to send auth error DM:', error);
     }
   }
 

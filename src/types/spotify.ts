@@ -45,7 +45,19 @@ export interface SpotifyTrack {
     ean?: string;
     upc?: string;
   };
-  is_playable: boolean;
+  is_playable?: boolean;
+  linked_from?: {
+    external_urls: {
+      spotify: string;
+    };
+    href: string;
+    id: string;
+    type: string;
+    uri: string;
+  };
+  restrictions?: {
+    reason: 'market' | 'product' | 'explicit';
+  };
 }
 
 export interface SpotifyArtist {
@@ -226,4 +238,31 @@ export interface TrackingSession {
   lastCheck: Date;
   requiredTime: number;
   isPremium?: boolean; // For Spotify users
+}
+
+export interface EnhancedSpotifyMetadata {
+  track: SpotifyTrack;
+  originalTrackId: string;
+  linkedTrackId?: string;
+  isPlayable: boolean;
+  market?: string;
+  fetchedAt: Date;
+  albumArtwork: {
+    large?: string; // 640x640
+    medium?: string; // 300x300
+    small?: string; // 64x64
+  };
+  formattedDuration: string;
+  artistNames: string;
+  albumInfo: {
+    name: string;
+    releaseDate: string;
+    type: string;
+  };
+}
+
+export interface SpotifyRateLimitInfo {
+  retryAfter?: number;
+  remaining?: number;
+  resetTime?: number;
 }

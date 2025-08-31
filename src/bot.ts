@@ -10,7 +10,8 @@ import {
   ButtonBuilder,
   ButtonStyle,
   User as DiscordUser,
-  Guild
+  Guild,
+  EmbedBuilder as DiscordEmbedBuilder
 } from 'discord.js';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -25,6 +26,8 @@ import RaidMonitor from './services/raidMonitor';
 import PrismaDatabase from './database/prisma';
 import EmbedBuilder from './utils/embedBuilder';
 import WalletService from './services/wallet';
+import SpotifyAuthService from './services/spotify/SpotifyAuthService';
+import SpotifyApiService from './services/spotify/SpotifyApiService';
 import config from './config/environment';
 
 class AudiusBot {
@@ -184,6 +187,8 @@ class AudiusBot {
         await this.handleQuickWallet(interaction);
       } else if (customId === 'view_wallet_info') {
         await this.handleViewWalletInfo(interaction);
+      } else if (customId.startsWith('spotify_queue_')) {
+        await this.handleSpotifyQueue(interaction);
       } else {
         console.warn(`Unknown button interaction: ${customId}`);
       }
@@ -366,7 +371,55 @@ class AudiusBot {
       `I'll send you DMs to track your progress!`
     );
 
-    await interaction.editReply({ embeds: [embed] });
+    // Create action buttons for Spotify raids
+    const actionRows: any[] = [];
+    if (raid.platform === 'SPOTIFY') {
+      const buttons: ButtonBuilder[] = [];
+
+      // Open in Spotify button (for all users)
+      buttons.push(
+        new ButtonBuilder()
+          .setLabel('Open in Spotify')
+          .setStyle(ButtonStyle.Link)
+          .setURL(`https://open.spotify.com/track/${raid.track_id}`)
+          .setEmoji('🎶')
+      );
+
+      // Premium-only features
+      if (user.spotify_is_premium) {
+        // Add to Queue button
+        buttons.push(
+          new ButtonBuilder()
+            .setCustomId(`spotify_queue_${raidId}_${userId}`)
+            .setLabel('Add to Queue')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('➕')
+        );
+
+        // Open Player button (if premium-only raid)
+        if (raid.premium_only) {
+          buttons.push(
+            new ButtonBuilder()
+              .setLabel('Open Player')
+              .setStyle(ButtonStyle.Link)
+              .setURL(`${process.env.BASE_URL || 'http://localhost:3000'}/player/${userId}/${raidId}/${raid.track_id}`)
+              .setEmoji('🎮')
+          );
+        }
+      }
+
+      if (buttons.length > 0) {
+        const actionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons);
+        actionRows.push(actionRow);
+      }
+    }
+
+    const replyOptions: any = { embeds: [embed] };
+    if (actionRows.length > 0) {
+      replyOptions.components = actionRows;
+    }
+
+    await interaction.editReply(replyOptions);
   }
 
   private async handleClaimReward(interaction: ButtonInteraction): Promise<any> {
@@ -766,6 +819,86 @@ class AudiusBot {
     }
   }
 
+  private async handleSpotifyQueue(interaction: ButtonInteraction): Promise<void> {
+    await interaction.deferReply({ ephemeral: true });
+
+    try {
+      const parts = interaction.customId.split('_');
+      const raidId = parseInt(parts[2]);
+      const userId = parts[3];
+
+      // Security check: only the user who clicked can add to their queue
+      if (userId !== interaction.user.id) {
+        const embed = EmbedBuilder.createErrorEmbed(
+          'Access Denied',
+          'You can only add tracks to your own queue.'
+        );
+        await interaction.editReply({ embeds: [embed] });
+        return;
+      }
+
+      // Get raid info
+      const raid = await PrismaDatabase.getRaid(raidId);
+      if (!raid || raid.platform !== 'SPOTIFY') {
+        const embed = EmbedBuilder.createErrorEmbed(
+          'Invalid Raid',
+          'This raid is not available or is not a Spotify raid.'
+        );
+        await interaction.editReply({ embeds: [embed] });
+        return;
+      }
+
+      // Check user premium status
+      const user = await PrismaDatabase.getUser(userId);
+      if (!user?.spotify_is_premium) {
+        const embed = EmbedBuilder.createErrorEmbed(
+          'Premium Required',
+          'Adding tracks to queue requires Spotify Premium.'
+        );
+        await interaction.editReply({ embeds: [embed] });
+        return;
+      }
+
+      // Initialize Spotify API service
+      const spotifyAuthService = new SpotifyAuthService({
+        clientId: config.spotify.clientId!,
+        clientSecret: config.spotify.clientSecret!,
+        redirectUri: config.spotify.redirectUri!
+      });
+      
+      const spotifyApiService = new SpotifyApiService(spotifyAuthService);
+
+      // Add track to queue
+      const spotifyUri = `spotify:track:${raid.track_id}`;
+      const success = await spotifyApiService.addToQueue(userId, spotifyUri);
+
+      if (success) {
+        const embed = EmbedBuilder.createSuccessEmbed(
+          'Added to Queue!',
+          `🎶 **${raid.track_title}** by ${raid.track_artist}\n\n` +
+          `➕ Track added to your Spotify queue!\n` +
+          `🎧 Start playing it now to begin earning raid progress.`
+        );
+        await interaction.editReply({ embeds: [embed] });
+      } else {
+        const embed = EmbedBuilder.createErrorEmbed(
+          'Queue Error',
+          'Failed to add track to your Spotify queue. Make sure Spotify is open and try again.'
+        );
+        await interaction.editReply({ embeds: [embed] });
+      }
+
+    } catch (error) {
+      console.error('Error handling Spotify queue:', error);
+      
+      const embed = EmbedBuilder.createErrorEmbed(
+        'Queue Error',
+        'There was an error adding the track to your queue. Please try again.'
+      );
+      await interaction.editReply({ embeds: [embed] });
+    }
+  }
+
   private async handleAudiusLogout(interaction: ButtonInteraction): Promise<void> {
     await interaction.deferReply({ ephemeral: true });
 
@@ -891,56 +1024,102 @@ class AudiusBot {
     try {
       const requiredTime = raid.required_listen_time || config.bot.minimumListenTime;
       const progressPercentage = Math.min((listenTime / requiredTime) * 100, 100);
-      const progressBar = EmbedBuilder.createProgressBar(progressPercentage, 10);
+      const progressBar = EmbedBuilder.createProgressBar(progressPercentage, 15); // Longer progress bar
       
       const platformIcon = raid.platform === 'SPOTIFY' ? '🎶' : '🎵';
       const platformName = raid.platform === 'SPOTIFY' ? 'Spotify' : 'Audius';
       const platformColor = raid.platform === 'SPOTIFY' ? 0x1DB954 : 0x8B5DFF;
+
+      // Get enhanced track data for Audius raids
+      let enhancedTrackData: any = null;
+      if (raid.platform === 'AUDIUS') {
+        try {
+          const { default: AudiusService } = await import('./services/audiusService');
+          const audiusService = new AudiusService();
+          enhancedTrackData = await audiusService.getEnhancedTrackData(raid.track_id);
+        } catch (error) {
+          console.log('Using basic track info for Audius progress DM');
+        }
+      }
+
+      const trackUrl = raid.platform === 'SPOTIFY' ? 
+        `https://open.spotify.com/track/${raid.track_id}` :
+        (enhancedTrackData?.permalink ? `https://audius.co${enhancedTrackData.permalink}` : null);
+
+      const timeLeft = Math.max(0, requiredTime - listenTime);
+      const minutesLeft = Math.floor(timeLeft / 60);
+      const secondsLeft = timeLeft % 60;
+      const timeLeftStr = minutesLeft > 0 ? `${minutesLeft}m ${secondsLeft}s` : `${secondsLeft}s`;
       
       let description: string;
       let color = platformColor;
       
       if (!isListening) {
-        description = `❌ **Not currently playing anything**\n\nPlease start playing **${raid.track_title}** on ${platformName} to continue earning!`;
+        const trackLink = trackUrl ? `**[${raid.track_title}](${trackUrl})**` : `**${raid.track_title}**`;
+        description = `❌ **Not currently listening to the raid track**\n\n` +
+          `🎵 Please start playing ${trackLink} by **${raid.track_artist}** on ${platformName}!\n\n` +
+          `⏰ **${timeLeftStr}** remaining to qualify`;
         color = 0xFF6B6B;
       } else if (listenTime >= requiredTime) {
-        description = `✅ **Qualified!** Wait for the raid to finish and claim your rewards!\n\n🎉 You've listened for **${listenTime}** seconds (**${Math.floor(progressPercentage)}%** complete)`;
+        const trackLink = trackUrl ? `**[${raid.track_title}](${trackUrl})**` : `**${raid.track_title}**`;
+        description = `🏆 **RAID QUALIFICATION COMPLETE!**\n\n` +
+          `🎉 You've successfully listened to ${trackLink} for **${listenTime}** seconds!\n\n` +
+          `💎 **Claim your ${raid.reward_amount} ${raid.token_mint || 'SOL'} tokens in the raid channel!**`;
         color = 0x00FF00;
       } else {
-        description = `${platformIcon} **Currently listening to ${raid.track_title}** on ${platformName}\n\nListen time: **${listenTime}**/${requiredTime} seconds`;
+        const trackLink = trackUrl ? `**[${raid.track_title}](${trackUrl})**` : `**${raid.track_title}**`;
+        description = `🎶 **Currently vibing to ${trackLink}**\n` +
+          `🎤 by **${raid.track_artist}**\n\n` +
+          `⏱️ **${timeLeftStr}** remaining to earn **${raid.reward_amount} ${raid.token_mint || 'SOL'}** tokens!`;
       }
 
-      const embed = {
-        title: `🎯 ${platformName} Raid Progress: ${raid.track_title}`,
-        description: description,
-        color: color,
-        fields: [
-          {
-            name: '📊 Progress Bar',
-            value: `${progressBar}`,
-            inline: false
-          },
-          {
-            name: '💰 Potential Reward',
-            value: `${raid.reward_amount} tokens`,
-            inline: true
-          },
-          {
-            name: '⏱️ Required Time',
-            value: `${requiredTime} seconds`,
-            inline: true
-          },
-          {
-            name: '🎵 Platform',
-            value: `${platformName}${raid.premium_only ? ' (Premium)' : ''}`,
-            inline: true
-          }
-        ],
-        timestamp: new Date().toISOString(),
-        footer: {
-          text: `Raid ID: ${raid.id} | Updates every 10 seconds`
+      const embed = new DiscordEmbedBuilder()
+        .setTitle(listenTime >= requiredTime ? `🏆 ${platformName} Raid Complete!` : `${platformIcon} ${platformName} Raid Progress`)
+        .setDescription(description)
+        .setColor(color);
+
+      // Add enhanced artwork
+      if (enhancedTrackData?.artwork) {
+        embed.setThumbnail(enhancedTrackData.artwork);
+      } else if (raid.track_artwork_url) {
+        embed.setThumbnail(raid.track_artwork_url);
+      }
+
+      embed.addFields(
+        {
+          name: '📊 Your Listening Progress',
+          value: `${progressBar}\n**${listenTime}**/${requiredTime} seconds (**${Math.floor(progressPercentage)}%** complete)`,
+          inline: false
+        },
+        {
+          name: listenTime >= requiredTime ? '🎉 Status' : '⏳ Time Remaining',
+          value: listenTime >= requiredTime ? 
+            '✅ **QUALIFIED!** Go claim your rewards!' :
+            `⏳ **${timeLeftStr}** left to qualify`,
+          inline: true
+        },
+        {
+          name: '💰 Reward',
+          value: `**${raid.reward_amount}** ${raid.token_mint || 'SOL'} tokens`,
+          inline: true
+        },
+        {
+          name: '🎵 Platform',
+          value: `${platformName}${raid.premium_only ? ' (Premium)' : ''}`,
+          inline: true
         }
-      };
+      )
+      .setTimestamp()
+      .setFooter({ 
+        text: listenTime >= requiredTime ? 
+          `Raid ID: ${raid.id} | 🎉 Claim rewards in Discord!` : 
+          `Raid ID: ${raid.id} | 🔄 Updates every 10 seconds`
+      });
+
+      // Add completion celebration if qualified
+      if (listenTime >= requiredTime) {
+        embed.setImage('https://i.imgur.com/N6HhP5R.gif');
+      }
 
       const dmChannel = await discordUser.createDM();
       await dmChannel.send({ embeds: [embed] });
