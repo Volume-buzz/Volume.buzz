@@ -13,7 +13,7 @@ import { Command } from '../types';
 const accountCommand: Command = {
   data: new SlashCommandBuilder()
     .setName('account')
-    .setDescription('👤 View your connected music accounts and raid statistics'),
+    .setDescription('👤 View your account information and raid statistics'),
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
@@ -23,50 +23,35 @@ const accountCommand: Command = {
       
       if (!user) {
         const embed = EmbedBuilder.createErrorEmbed(
-          'No Account Found',
-          'You haven\'t connected any music accounts yet!\n\nUse `/login` to connect your Audius and/or Spotify accounts.'
+          'Account Not Found',
+          'You haven\'t connected your Spotify account yet!\n\nUse `/login` to connect your account and start earning tokens.'
         );
         await interaction.editReply({ embeds: [embed] });
         return;
       }
 
-      const hasAudius = user.audius_user_id !== null;
       const hasSpotify = user.spotify_user_id !== null;
 
-      if (!hasAudius && !hasSpotify) {
-        const embed = EmbedBuilder.createInfoEmbed(
-          'No Accounts Connected',
-          'You haven\'t connected any music accounts yet!\n\nUse `/login` to connect your Audius and/or Spotify accounts.'
+      if (!hasSpotify) {
+        const embed = EmbedBuilder.createErrorEmbed(
+          'No Account Connected',
+          'You haven\'t connected your Spotify account yet!\n\nUse `/login` to connect your Spotify account and start earning tokens.'
         );
         await interaction.editReply({ embeds: [embed] });
         return;
       }
 
-      // Build account information
-      let description = `👤 **Discord:** ${interaction.user.displayName}\n\n`;
-      
-      // Connected accounts section
-      description += '**🔗 Connected Accounts:**\n';
-      
-      if (hasAudius) {
-        description += `✅ **Audius** - @${user.audius_handle}\n` +
-          `   └ ${user.audius_name}\n`;
-      } else {
-        description += `❌ **Audius** - Not connected\n`;
-      }
-      
-      if (hasSpotify) {
-        const premiumStatus = user.spotify_is_premium ? '👑 Premium' : '🆓 Free';
-        description += `✅ **Spotify** - ${user.spotify_display_name} (${premiumStatus})\n` +
-          `   └ ${user.spotify_email}\n`;
-      } else {
-        description += `❌ **Spotify** - Not connected\n`;
-      }
+      // Build account status description
+      const premiumStatus = user.spotify_is_premium ? '👑 Premium' : '🆓 Free';
+      let description = `👤 **Discord:** ${interaction.user.displayName}\n\n` +
+        `**🔗 Connected Account:**\n` +
+        `✅ **Spotify** - ${user.spotify_display_name} (${premiumStatus})\n` +
+        `   └ ${user.spotify_email}\n`;
 
       const embed = new DiscordEmbedBuilder()
         .setTitle('👤 Your Account')
         .setDescription(description)
-        .setColor(0x8B5DFF)
+        .setColor(0x1DB954)
         .addFields(
           {
             name: '🏆 Raid Statistics',
@@ -87,6 +72,13 @@ const accountCommand: Command = {
               ? `${Math.round((user.total_rewards_claimed / user.total_raids_participated) * 100)}%`
               : 'No raids yet',
             inline: true
+          },
+          {
+            name: '🎶 Spotify Features',
+            value: user.spotify_is_premium 
+              ? '👑 Premium - Enhanced tracking + embedded player'
+              : '🆓 Free - Basic tracking via Currently Playing API',
+            inline: false
           }
         )
         .setTimestamp()
@@ -95,57 +87,44 @@ const accountCommand: Command = {
           iconURL: interaction.user.displayAvatarURL()
         });
 
-      // Add thumbnail based on connected platforms
-      if (hasSpotify && user.spotify_is_premium) {
+      // Add Spotify profile picture if available
+      if (user.spotify_is_premium) {
         embed.setThumbnail('https://cdn.discordapp.com/attachments/123/456/spotify-premium-icon.png');
-      } else if (hasAudius) {
-        embed.setThumbnail('https://cdn.discordapp.com/attachments/123/456/audius-icon.png');
       }
 
       // Create action buttons
       const buttons = [];
 
-      if (!hasAudius || !hasSpotify) {
-        buttons.push(
-          new ButtonBuilder()
-            .setCustomId('connect_more_accounts')
-            .setLabel(`🔗 Connect ${!hasAudius ? 'Audius' : 'Spotify'}`)
-            .setStyle(ButtonStyle.Primary)
-        );
-      }
+      buttons.push(
+        new ButtonBuilder()
+          .setCustomId('quick_wallet')
+          .setLabel('💳 View Wallet')
+          .setStyle(ButtonStyle.Primary)
+      );
 
       buttons.push(
         new ButtonBuilder()
-          .setCustomId('view_wallet_info')
-          .setLabel('💰 Wallet Info')
-          .setStyle(ButtonStyle.Secondary)
+          .setCustomId('logout_spotify')
+          .setLabel('🚪 Disconnect Spotify')
+          .setStyle(ButtonStyle.Danger)
       );
 
-      if (hasAudius || hasSpotify) {
-        buttons.push(
-          new ButtonBuilder()
-            .setCustomId('logout_options')
-            .setLabel('🚪 Logout Options')
-            .setStyle(ButtonStyle.Danger)
-        );
-      }
+      const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons);
 
-      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(buttons);
-
-      await interaction.editReply({
+      await interaction.editReply({ 
         embeds: [embed],
-        components: [row]
+        components: [buttonRow]
       });
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error in account command:', error);
       
-      const errorEmbed = EmbedBuilder.createErrorEmbed(
+      const embed = EmbedBuilder.createErrorEmbed(
         'Account Error',
-        'There was an error loading your account information. Please try again.'
+        'There was an error retrieving your account information. Please try again.'
       );
-
-      await interaction.editReply({ embeds: [errorEmbed] });
+      
+      await interaction.editReply({ embeds: [embed] });
     }
   }
 };

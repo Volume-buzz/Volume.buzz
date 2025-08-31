@@ -14,13 +14,13 @@ type UserWithWallet = User & {
 
 type RaidWithParticipants = Raid & {
   participants: Array<RaidParticipant & {
-    user: Pick<User, 'audius_handle' | 'audius_name'>;
+    user: Pick<User, 'spotify_display_name' | 'discord_username'>;
   }>;
 };
 
 type ParticipantWithRaidAndUser = RaidParticipant & {
   raid: Pick<Raid, 'id' | 'track_id' | 'track_title' | 'reward_amount'> | null;
-  user: Pick<User, 'audius_user_id' | 'audius_handle'> | null;
+  user: Pick<User, 'spotify_user_id' | 'spotify_display_name'> | null;
 };
 
 // Allow any return type for these complex Prisma queries to avoid type conflicts
@@ -36,24 +36,24 @@ class PrismaDatabase {
 
   static async createUser(userData: {
     discordId: string;
-    audiusUserId: string;
-    audiusHandle: string;
-    audiusName: string;
+    spotifyUserId?: string;
+    spotifyDisplayName?: string;
+    spotifyEmail?: string;
     tokensBalance?: number;
   }): Promise<User> {
     return await prisma.user.upsert({
       where: { discord_id: userData.discordId },
       update: {
-        audius_user_id: userData.audiusUserId,
-        audius_handle: userData.audiusHandle,
-        audius_name: userData.audiusName,
+        spotify_user_id: userData.spotifyUserId,
+        spotify_display_name: userData.spotifyDisplayName,
+        spotify_email: userData.spotifyEmail,
         last_updated: new Date()
       },
       create: {
         discord_id: userData.discordId,
-        audius_user_id: userData.audiusUserId,
-        audius_handle: userData.audiusHandle,
-        audius_name: userData.audiusName,
+        spotify_user_id: userData.spotifyUserId,
+        spotify_display_name: userData.spotifyDisplayName,
+        spotify_email: userData.spotifyEmail,
         tokens_balance: userData.tokensBalance || 0
       }
     });
@@ -246,7 +246,7 @@ class PrismaDatabase {
         track_title: raidData.trackTitle,
         track_artist: raidData.trackArtist,
         track_artwork_url: raidData.trackArtworkUrl,
-        platform: raidData.platform,
+        platform: 'SPOTIFY',
         premium_only: raidData.premiumOnly || false,
         required_listen_time: raidData.requiredListenTime || 30,
         streams_goal: raidData.streamsGoal,
@@ -348,8 +348,8 @@ class PrismaDatabase {
           include: {
             user: {
               select: {
-                audius_handle: true,
-                audius_name: true
+                spotify_display_name: true,
+                discord_username: true
               }
             }
           }
@@ -438,8 +438,8 @@ class PrismaDatabase {
         },
         user: {
           select: {
-            audius_user_id: true,
-            audius_handle: true
+            spotify_user_id: true,
+            spotify_display_name: true
           }
         }
       }
@@ -474,8 +474,8 @@ class PrismaDatabase {
       include: {
         user: {
           select: {
-            audius_handle: true,
-            audius_name: true
+            spotify_display_name: true,
+            discord_username: true
           }
         }
       }
@@ -535,8 +535,8 @@ class PrismaDatabase {
         },
         user: {
           select: {
-            audius_user_id: true,
-            audius_handle: true
+            spotify_user_id: true,
+            spotify_display_name: true
           }
         }
       }
@@ -571,8 +571,8 @@ class PrismaDatabase {
         },
         user: {
           select: {
-            audius_user_id: true,
-            audius_handle: true
+            spotify_user_id: true,
+            spotify_display_name: true
           }
         }
       }
@@ -601,7 +601,7 @@ class PrismaDatabase {
         },
         user: {
           select: {
-            audius_user_id: true
+            spotify_user_id: true
           }
         }
       }
@@ -780,7 +780,7 @@ class PrismaDatabase {
       data: {
         state: sessionData.state,
         discord_id: sessionData.discordId,
-        platform: sessionData.platform,
+        platform: 'SPOTIFY',
         expires_at: sessionData.expiresAt
       }
     });
@@ -826,7 +826,7 @@ class PrismaDatabase {
       data: {
         state: `session_${sessionData.sessionId}`, // Prefix to distinguish from OAuth states
         discord_id: sessionData.discordId,
-        platform: sessionData.platform,
+        platform: 'SPOTIFY',
         expires_at: sessionData.expiresAt
       }
     });

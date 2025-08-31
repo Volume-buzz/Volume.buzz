@@ -421,7 +421,7 @@ class AudiusBot {
 
     // Check if user is linked to Audius
     const user = await PrismaDatabase.getUser(userId);
-    if (!user || !user.audius_user_id) {
+    if (!user || !user.spotify_user_id) {
       const embed = EmbedBuilder.createErrorEmbed(
         'Account Not Linked',
         'You need to link your Audius account to claim rewards!\n\nUse `/login` to connect your account.'
@@ -506,7 +506,7 @@ class AudiusBot {
 
       await interaction.editReply({ embeds: [embed] });
 
-      console.log(`💰 ${user.audius_handle} claimed ${claimResult.amount} ${claimResult.tokenMint} tokens from raid ${raidId} - TX: ${claimResult.transactionHash}`);
+      console.log(`💰 ${user.spotify_display_name} claimed ${claimResult.amount} ${claimResult.tokenMint} tokens from raid ${raidId} - TX: ${claimResult.transactionHash}`);
       
     } catch (claimError: any) {
       console.error('Error claiming crypto reward:', claimError);
@@ -601,7 +601,7 @@ class AudiusBot {
     
     // SECURITY FIX: Only allow viewing own wallet data
     const requestingUser = await PrismaDatabase.getUser(interaction.user.id);
-    if (!requestingUser || requestingUser.audius_user_id !== audiusUserId) {
+    if (!requestingUser || requestingUser.spotify_user_id !== audiusUserId) {
       const embed = EmbedBuilder.createErrorEmbed(
         'Access Denied',
         'You can only view your own wallet information.'
@@ -694,7 +694,7 @@ class AudiusBot {
       // Get user data before deletion for confirmation message
       const user = await PrismaDatabase.getUser(interaction.user.id);
       
-      if (!user || !user.audius_user_id) {
+      if (!user || !user.spotify_user_id) {
         const embed = EmbedBuilder.createErrorEmbed(
           'Not Logged In',
           'You don\'t have an Audius account connected to logout from.'
@@ -709,14 +709,14 @@ class AudiusBot {
       // Send confirmation
       const embed = EmbedBuilder.createSuccessEmbed(
         'Successfully Logged Out',
-        `Your Audius account **@${user.audius_handle}** has been disconnected from Discord.\n\n` +
+        `Your Audius account **@${user.spotify_display_name}** has been disconnected from Discord.\n\n` +
         `**Note:** Your raid tokens (${user.tokens_balance || 0}) have been reset.\n\n` +
         `Use \`/login\` anytime to connect a new Audius account.`
       );
 
       await interaction.editReply({ embeds: [embed] });
 
-      console.log(`🚪 User ${interaction.user.tag} (${interaction.user.id}) logged out from Audius account @${user.audius_handle}`);
+      console.log(`🚪 User ${interaction.user.tag} (${interaction.user.id}) logged out from Audius account @${user.spotify_display_name}`);
 
     } catch (error) {
       console.error('Error handling logout:', error);
@@ -731,42 +731,6 @@ class AudiusBot {
   }
 
   // Removed Audius login - Spotify only
-
-  private async handleSpotifyLogin(interaction: ButtonInteraction): Promise<void> {
-    await interaction.deferReply({ ephemeral: true });
-
-    try {
-      const authUrl = await this.oauthServer.generateAuthUrl(interaction.user.id, 'SPOTIFY');
-      
-      const embed = EmbedBuilder.createSuccessEmbed(
-        'Spotify Login',
-        `🎶 **Click the link below to connect your Spotify account:**\n\n` +
-        `[🔐 **Connect Spotify Account**](${authUrl})\n\n` +
-        `**What happens next:**\n` +
-        `1. You'll be redirected to Spotify\n` +
-        `2. Authorize the Discord bot\n` +
-        `3. You'll be redirected back (you can close that tab)\n` +
-        `4. Start participating in Spotify raids!\n\n` +
-        `**Account Types:**\n` +
-        `👑 **Premium** - Enhanced tracking + embedded player\n` +
-        `🆓 **Free** - Basic tracking via Currently Playing API\n\n` +
-        `*This link expires in 10 minutes.*`
-      );
-
-      await interaction.editReply({ embeds: [embed] });
-      
-      console.log(`🔗 Generated Spotify OAuth URL for ${interaction.user.tag}`);
-    } catch (error) {
-      console.error('Error generating Spotify auth URL:', error);
-      
-      const embed = EmbedBuilder.createErrorEmbed(
-        'Login Error',
-        'Failed to generate Spotify login URL. Please try again.'
-      );
-      
-      await interaction.editReply({ embeds: [embed] });
-    }
-  }
 
   private async handleSpotifyLogin(interaction: ButtonInteraction): Promise<void> {
     await interaction.deferReply({ ephemeral: true });
@@ -891,7 +855,7 @@ class AudiusBot {
     try {
       const user = await PrismaDatabase.getUser(interaction.user.id);
       
-      if (!user || !user.audius_user_id) {
+      if (!user || !user.spotify_user_id) {
         const embed = EmbedBuilder.createErrorEmbed(
           'Not Connected',
           'You don\'t have an Audius account connected.'
@@ -905,14 +869,14 @@ class AudiusBot {
       const embed = EmbedBuilder.createSuccessEmbed(
         'Audius Disconnected',
         `🎵 **Audius account disconnected**\n\n` +
-        `Your account **@${user.audius_handle}** has been disconnected.\n` +
+        `Your account **@${user.spotify_display_name}** has been disconnected.\n` +
         `${user.spotify_user_id ? '\n✅ Your Spotify account remains connected.' : ''}\n\n` +
         `Use \`/login\` to reconnect if needed.`
       );
 
       await interaction.editReply({ embeds: [embed] });
       
-      console.log(`🚪 ${interaction.user.tag} logged out from Audius (@${user.audius_handle})`);
+      console.log(`🚪 ${interaction.user.tag} logged out from Audius (@${user.spotify_display_name})`);
     } catch (error) {
       console.error('Error handling Audius logout:', error);
       
@@ -940,13 +904,13 @@ class AudiusBot {
         return;
       }
 
-      await PrismaDatabase.deleteSpotifyAccount(interaction.user.id);
+      await PrismaDatabase.deleteUser(interaction.user.id);
 
       const embed = EmbedBuilder.createSuccessEmbed(
         'Spotify Disconnected',
         `🎶 **Spotify account disconnected**\n\n` +
         `Your account **${user.spotify_display_name}** has been disconnected.\n` +
-        `${user.audius_user_id ? '\n✅ Your Audius account remains connected.' : ''}\n\n` +
+        `${user.spotify_user_id ? '\n✅ Your Audius account remains connected.' : ''}\n\n` +
         `Use \`/login\` to reconnect if needed.`
       );
 
@@ -971,7 +935,7 @@ class AudiusBot {
     try {
       const user = await PrismaDatabase.getUser(interaction.user.id);
       
-      if (!user || (!user.audius_user_id && !user.spotify_user_id)) {
+      if (!user || (!user.spotify_user_id && !user.spotify_user_id)) {
         const embed = EmbedBuilder.createErrorEmbed(
           'Not Connected',
           'You don\'t have any accounts connected.'
@@ -980,12 +944,12 @@ class AudiusBot {
         return;
       }
 
-      await PrismaDatabase.deleteAllAccounts(interaction.user.id);
+      await PrismaDatabase.deleteUser(interaction.user.id);
 
       const embed = EmbedBuilder.createSuccessEmbed(
         'All Accounts Disconnected',
         `🚪 **All music accounts disconnected**\n\n` +
-        `${user.audius_user_id ? `🎵 Audius: @${user.audius_handle}\n` : ''}` +
+        `${user.spotify_user_id ? `🎵 Audius: @${user.spotify_display_name}\n` : ''}` +
         `${user.spotify_user_id ? `🎶 Spotify: ${user.spotify_display_name}\n` : ''}` +
         `\n**Your raid history and tokens remain saved.**\n\n` +
         `Use \`/login\` to reconnect your accounts anytime.`
@@ -1012,25 +976,14 @@ class AudiusBot {
       const progressPercentage = Math.min((listenTime / requiredTime) * 100, 100);
       const progressBar = EmbedBuilder.createProgressBar(progressPercentage, 15); // Longer progress bar
       
-      const platformIcon = raid.platform === 'SPOTIFY' ? '🎶' : '🎵';
-      const platformName = raid.platform === 'SPOTIFY' ? 'Spotify' : 'Audius';
-      const platformColor = raid.platform === 'SPOTIFY' ? 0x1DB954 : 0x8B5DFF;
+      const platformIcon = '🎶';
+      const platformName = 'Spotify';
+      const platformColor = 0x1DB954;
 
-      // Get enhanced track data for Audius raids
+      // Enhanced track data (Spotify only)
       let enhancedTrackData: any = null;
-      if (raid.platform === 'AUDIUS') {
-        try {
-          const { default: AudiusService } = await import('./services/audiusService');
-          const audiusService = new AudiusService();
-          enhancedTrackData = await audiusService.getEnhancedTrackData(raid.track_id);
-        } catch (error) {
-          console.log('Using basic track info for Audius progress DM');
-        }
-      }
 
-      const trackUrl = raid.platform === 'SPOTIFY' ? 
-        `https://open.spotify.com/track/${raid.track_id}` :
-        (enhancedTrackData?.permalink ? `https://audius.co${enhancedTrackData.permalink}` : null);
+      const trackUrl = `https://open.spotify.com/track/${raid.track_id}`;
 
       const timeLeft = Math.max(0, requiredTime - listenTime);
       const minutesLeft = Math.floor(timeLeft / 60);
@@ -1114,32 +1067,9 @@ class AudiusBot {
     }
   }
 
-  public async sendOAuthSuccessDM(discordUser: DiscordUser, audiusUser: any): Promise<void> {
-    try {
-      const embed = EmbedBuilder.createSuccessEmbed(
-        'Account Connected!',
-        `🎉 **Welcome to Audius Discord Bot!**\n\n` +
-        `Your Audius account has been successfully linked:\n` +
-        `**🎵 ${audiusUser.name}** (@${audiusUser.handle})\n\n` +
-        `**What's next?**\n` +
-        `🎯 Join music raids to earn tokens\n` +
-        `🎧 Listen to tracks and get rewarded\n` +
-        `🏆 Climb the leaderboard\n\n` +
-        `**Available Commands:**\n` +
-        `• \`/account\` - View your profile & tokens\n` +
-        `• \`/leaderboard\` - See top raiders\n` +
-        `• \`/search\` - Find tracks for raids\n\n` +
-        `Ready to raid? 🚀`
-      );
+  // Removed Audius OAuth success DM - Spotify only
 
-      const dmChannel = await discordUser.createDM();
-      await dmChannel.send({ embeds: [embed] });
-      
-      console.log(`📨 Sent OAuth success DM to ${discordUser.tag} (${audiusUser.handle})`);
-    } catch (error) {
-      console.error('Failed to send OAuth success DM:', error);
-    }
-  }
+
 
   /**
    * Get Spotify services from raid monitor
@@ -1316,7 +1246,7 @@ class AudiusBot {
         `**Discord:** ${interaction.user.tag}\n` +
         `**Role:** ${role}\n\n` +
         `**Connected Platforms:**\n` +
-        `🎵 **Audius:** ${user.audius_handle ? `@${user.audius_handle}` : '❌ Not connected'}\n` +
+        `🎵 **Audius:** ${user.spotify_display_name ? `@${user.spotify_display_name}` : '❌ Not connected'}\n` +
         `🎶 **Spotify:** ${user.spotify_display_name || '❌ Not connected'} ${user.spotify_is_premium ? '👑' : user.spotify_display_name ? '🆓' : ''}\n\n` +
         `**Raid Statistics:**\n` +
         `🎯 **Raids Participated:** ${user.total_raids_participated}\n` +

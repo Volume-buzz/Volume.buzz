@@ -40,9 +40,9 @@ const addArtistCommand: Command = {
         // Create user record if doesn't exist
         user = await PrismaDatabase.createUser({
           discordId: targetUser.id,
-          audiusUserId: '',
-          audiusHandle: '',
-          audiusName: '',
+          spotifyUserId: '',
+          spotifyDisplayName: targetUser.displayName,
+          spotifyEmail: '',
           tokensBalance: 0
         });
         console.log(`👤 Created user record for ${targetUser.tag} before promoting to artist`);

@@ -1,7 +1,7 @@
 import { 
   SlashCommandBuilder, 
   ChatInputCommandInteraction,
-  EmbedBuilder as DiscordEmbedBuilder 
+  EmbedBuilder as DiscordEmbedBuilder
 } from 'discord.js';
 import PrismaDatabase from '../database/prisma';
 import EmbedBuilder from '../utils/embedBuilder';
@@ -10,72 +10,89 @@ import { Command } from '../types';
 const debugUserCommand: Command = {
   data: new SlashCommandBuilder()
     .setName('debug-user')
-    .setDescription('🔍 Debug user data (Admin only)')
+    .setDescription('🔍 Debug user account information (Admin only)')
     .addUserOption(option =>
       option.setName('user')
-        .setDescription('User to check (optional, defaults to yourself)')
-        .setRequired(false)
+        .setDescription('User to debug')
+        .setRequired(true)
     ),
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
       await interaction.deferReply({ ephemeral: true });
 
-      // Admin only
+      // Check if user is admin
       const isAdmin = await PrismaDatabase.isAdmin(interaction.user.id);
       if (!isAdmin) {
         const embed = EmbedBuilder.createErrorEmbed(
-          'Permission Denied',
-          'Only admins can use debug commands.'
+          'Access Denied',
+          'This command is only available to administrators.'
         );
         await interaction.editReply({ embeds: [embed] });
         return;
       }
 
-      const targetUser = interaction.options.getUser('user') || interaction.user;
+      const targetUser = interaction.options.getUser('user', true);
       const user = await PrismaDatabase.getUser(targetUser.id);
-      const wallet = await PrismaDatabase.getUserWallet(targetUser.id);
-
-      let description = `**Discord:** ${targetUser.tag} (${targetUser.id})\n\n`;
 
       if (!user) {
-        description += `❌ **No user record found**\n\nUser needs to use /login first.`;
-      } else {
-        description += `**Database Record:**\n`;
-        description += `👤 **Role:** ${user.role}\n`;
-        description += `🎵 **Audius ID:** ${user.audius_user_id || 'None'}\n`;
-        description += `🎵 **Audius Handle:** @${user.audius_handle || 'None'}\n`;
-        description += `🎶 **Spotify ID:** ${user.spotify_user_id || 'None'}\n`;
-        description += `🎶 **Spotify Name:** ${user.spotify_display_name || 'None'}\n`;
-        description += `💰 **Token Balance:** ${user.tokens_balance}\n`;
-        description += `🏆 **Raids:** ${user.total_raids_participated}\n\n`;
-
-        // Connection status
-        const hasAudius = user.audius_user_id !== null && user.audius_user_id !== '' && user.audius_user_id !== undefined;
-        const hasSpotify = user.spotify_user_id !== null && user.spotify_user_id !== '' && user.spotify_user_id !== undefined;
-        
-        description += `**Connection Status:**\n`;
-        description += `🎵 **Audius:** ${hasAudius ? '✅ Connected' : '❌ Not Connected'}\n`;
-        description += `🎶 **Spotify:** ${hasSpotify ? '✅ Connected' : '❌ Not Connected'}\n\n`;
+        const embed = EmbedBuilder.createErrorEmbed(
+          'User Not Found',
+          `No database record found for ${targetUser.displayName} (${targetUser.id})`
+        );
+        await interaction.editReply({ embeds: [embed] });
+        return;
       }
 
-      if (!wallet) {
-        description += `💳 **Wallet:** ❌ No wallet found`;
-      } else {
-        description += `💳 **Wallet:** ✅ \`${wallet.public_key}\`\n`;
-        description += `🔑 **Type:** ${wallet.is_artist_wallet ? 'Admin' : 'Fan'}\n`;
-        description += `📅 **Created:** ${wallet.created_at.toISOString().split('T')[0]}`;
-      }
+      // Build debug information
+      let description = `**🔍 Debug Info for ${targetUser.displayName}**\n\n`;
+      description += `**Discord ID:** ${user.discord_id}\n`;
+      description += `**Database ID:** ${user.id}\n\n`;
+      
+      description += `**🎶 Spotify Account:**\n`;
+      description += `🎶 **Spotify ID:** ${user.spotify_user_id || 'None'}\n`;
+      description += `🎶 **Display Name:** ${user.spotify_display_name || 'None'}\n`;
+      description += `🎶 **Email:** ${user.spotify_email || 'None'}\n`;
+      description += `🎶 **Premium:** ${user.spotify_is_premium ? '👑 Yes' : '🆓 No'}\n`;
+      description += `🎶 **Country:** ${user.spotify_country || 'Unknown'}\n`;
+      description += `🎶 **Product:** ${user.spotify_product || 'Unknown'}\n\n`;
 
-      const embed = EmbedBuilder.createInfoEmbed('🔍 User Debug Info', description);
+      // Check connection status
+      const hasSpotify = user.spotify_user_id !== null && user.spotify_user_id !== '' && user.spotify_user_id !== undefined;
+      
+      description += `**Connection Status:**\n`;
+      description += `🎶 Spotify: ${hasSpotify ? '✅ Connected' : '❌ Not connected'}\n\n`;
+
+      description += `**Token Info:**\n`;
+      description += `💰 **Balance:** ${user.tokens_balance} tokens\n`;
+      description += `🎯 **Raids Participated:** ${user.total_raids_participated}\n`;
+      description += `🏆 **Rewards Claimed:** ${user.total_rewards_claimed}\n`;
+      description += `👤 **Role:** ${user.role}\n\n`;
+
+      description += `**Timestamps:**\n`;
+      description += `📅 **Created:** ${user.created_at.toLocaleString()}\n`;
+      description += `🔄 **Last Updated:** ${user.last_updated.toLocaleString()}\n`;
+      description += `🔑 **Token Expires:** ${user.spotify_token_expires_at?.toLocaleString() || 'N/A'}\n`;
+
+      const embed = new DiscordEmbedBuilder()
+        .setTitle('🔍 User Debug Information')
+        .setDescription(description)
+        .setColor(0x1DB954)
+        .setThumbnail(targetUser.displayAvatarURL())
+        .setTimestamp()
+        .setFooter({ 
+          text: `Requested by ${interaction.user.displayName}`,
+          iconURL: interaction.user.displayAvatarURL()
+        });
+
       await interaction.editReply({ embeds: [embed] });
 
-    } catch (error: any) {
-      console.error('Error debugging user:', error);
+    } catch (error) {
+      console.error('Error in debug-user command:', error);
       
       const embed = EmbedBuilder.createErrorEmbed(
-        'Debug Failed',
-        `Failed to debug user: ${error.message}`
+        'Debug Error',
+        'There was an error retrieving user debug information.'
       );
       
       await interaction.editReply({ embeds: [embed] });
@@ -84,5 +101,3 @@ const debugUserCommand: Command = {
 };
 
 export default debugUserCommand;
-
-

@@ -199,8 +199,8 @@ export interface SpotifySearchResults {
   };
 }
 
-// Platform-agnostic types
-export type Platform = 'AUDIUS' | 'SPOTIFY';
+// Platform type (Spotify only)
+export type Platform = 'SPOTIFY';
 
 export interface PlatformTrack {
   id: string;
@@ -213,17 +213,14 @@ export interface PlatformTrack {
   // Spotify specific
   spotify_uri?: string;
   preview_url?: string;
-  // Audius specific  
-  audius_permalink?: string;
 }
 
 export interface PlatformUser {
   id: string;
   name: string;
-  handle?: string; // For Audius
-  display_name?: string; // For Spotify
+  display_name?: string;
   platform: Platform;
-  is_premium?: boolean; // For Spotify
+  is_premium?: boolean;
   profile_picture?: string;
 }
 

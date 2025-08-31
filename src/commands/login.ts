@@ -4,39 +4,35 @@ import {
   ActionRowBuilder, 
   ButtonBuilder, 
   ButtonStyle,
-  EmbedBuilder as DiscordEmbedBuilder 
+  EmbedBuilder as DiscordEmbedBuilder
 } from 'discord.js';
 import PrismaDatabase from '../database/prisma';
 import EmbedBuilder from '../utils/embedBuilder';
-import config from '../config/environment';
 import { Command } from '../types';
 
 const loginCommand: Command = {
   data: new SlashCommandBuilder()
     .setName('login')
-    .setDescription('🔐 Connect your music streaming accounts to participate in raids'),
+    .setDescription('🔐 Connect your Spotify account to participate in raids'),
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
       await interaction.deferReply({ ephemeral: true });
 
-      // Check if user already has accounts connected
+      // Check if user already has Spotify connected
       const user = await PrismaDatabase.getUser(interaction.user.id);
-      
-      const hasAudius = user?.audius_user_id !== null && user?.audius_user_id !== '' && user?.audius_user_id !== undefined;
       const hasSpotify = user?.spotify_user_id !== null && user?.spotify_user_id !== '' && user?.spotify_user_id !== undefined;
 
-      if (hasAudius && hasSpotify) {
+      if (hasSpotify) {
         const isAdmin = await PrismaDatabase.isAdmin(interaction.user.id);
         
         const embed = EmbedBuilder.createInfoEmbed(
           'Already Connected',
-          `🎵 **Audius:** @${user?.audius_handle || 'Connected'}\n` +
           `🎶 **Spotify:** ${user?.spotify_display_name || 'Connected'} ${user?.spotify_is_premium ? '👑' : '🆓'}\n` +
           `👤 **Role:** ${isAdmin ? '👑 Super Admin' : user?.role === 'ARTIST' ? '🎨 Artist' : '👤 Fan'}\n` +
           `💰 **Tokens:** ${user?.tokens_balance || 0}\n` +
           `🏆 **Raids:** ${user?.total_raids_participated || 0}\n\n` +
-          `You're already connected to both platforms!`
+          `Your Spotify account is already connected!`
         );
 
         // Add action buttons
@@ -48,66 +44,43 @@ const loginCommand: Command = {
               .setStyle(ButtonStyle.Primary),
             new ButtonBuilder()
               .setCustomId('quick_wallet')
-              .setLabel('💰 View Wallet')
-              .setStyle(ButtonStyle.Success),
+              .setLabel('💳 View Wallet')
+              .setStyle(ButtonStyle.Secondary),
             new ButtonBuilder()
-              .setCustomId('logout_both')
-              .setLabel('🚪 Logout Both')
-              .setStyle(ButtonStyle.Secondary)
+              .setCustomId('logout_spotify')
+              .setLabel('🚪 Disconnect')
+              .setStyle(ButtonStyle.Danger)
           );
 
-        await interaction.editReply({ embeds: [embed], components: [buttons] });
+        await interaction.editReply({ 
+          embeds: [embed],
+          components: [buttons]
+        });
         return;
       }
 
-      // Create login buttons for available platforms
-      const buttons = [];
+      // Show Spotify login button
+      const loginButton = new ButtonBuilder()
+        .setCustomId('login_spotify')
+        .setLabel('🎶 Connect Spotify')
+        .setStyle(ButtonStyle.Success);
 
-      if (!hasAudius) {
-        buttons.push(
-          new ButtonBuilder()
-            .setCustomId('login_audius')
-            .setLabel('🎵 Login with Audius')
-            .setStyle(ButtonStyle.Primary)
-        );
-      }
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(loginButton);
 
-      if (!hasSpotify) {
-        buttons.push(
-          new ButtonBuilder()
-            .setCustomId('login_spotify')
-            .setLabel('🎶 Login with Spotify')
-            .setStyle(ButtonStyle.Success)
-        );
-      }
-
-      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(buttons);
-
-      let description = '**Choose a platform to connect:**\n\n';
-      
-      if (!hasAudius) {
-        description += '🎵 **Audius** - Decentralized music platform\n' +
-          '• Participate in all Audius raids\n' +
-          '• Earn crypto tokens for listening\n\n';
-      } else {
-        description += `✅ **Audius** - Connected as @${user?.audius_handle}\n\n`;
-      }
-
-      if (!hasSpotify) {
-        description += '🎶 **Spotify** - World\'s largest music platform\n' +
-          '• Participate in Spotify raids\n' +
-          '• Premium users get enhanced tracking\n' +
-          '• Free users can join most raids\n\n';
-      } else {
-        description += `✅ **Spotify** - Connected as ${user?.spotify_display_name} ${user?.spotify_is_premium ? '👑' : '🆓'}\n\n`;
-      }
-
-      description += '*You can connect to both platforms for maximum raid opportunities!*';
+      const description = '🎶 **Connect your Spotify account to start raiding:**\n\n' +
+        '• Participate in Spotify music raids\n' +
+        '• Earn crypto tokens for listening\n' +
+        '• Premium users get enhanced tracking + embedded player\n' +
+        '• Free users can join most raids\n\n' +
+        '**Account Types:**\n' +
+        '👑 **Premium** - Full access + embedded player\n' +
+        '🆓 **Free** - Basic access with API tracking\n\n' +
+        '*Click the button below to get started!*';
 
       const embed = new DiscordEmbedBuilder()
-        .setTitle('🔐 Connect Your Music Accounts')
+        .setTitle('🔐 Connect Your Spotify Account')
         .setDescription(description)
-        .setColor(0x8B5DFF)
+        .setColor(0x1DB954)
         .addFields(
           {
             name: '🎯 What are raids?',
@@ -115,30 +88,33 @@ const loginCommand: Command = {
             inline: false
           },
           {
-            name: '💡 Why connect accounts?',
+            name: '💡 Why connect Spotify?',
             value: 'We track your listening to verify you completed the raid requirements.',
+            inline: false
+          },
+          {
+            name: '🔒 Privacy & Security',
+            value: 'Your tokens are encrypted and stored securely. We only access listening data during raids.',
             inline: false
           }
         )
-        .setFooter({ 
-          text: 'Your data is encrypted and secure' 
-        })
+        .setFooter({ text: 'Spotify Discord Bot • Secure OAuth Integration' })
         .setTimestamp();
 
-      await interaction.editReply({
+      await interaction.editReply({ 
         embeds: [embed],
         components: [row]
       });
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error in login command:', error);
       
-      const errorEmbed = EmbedBuilder.createErrorEmbed(
+      const embed = EmbedBuilder.createErrorEmbed(
         'Login Error',
-        'There was an error setting up the login process. Please try again.'
+        'There was an error processing your login request. Please try again.'
       );
-
-      await interaction.editReply({ embeds: [errorEmbed] });
+      
+      await interaction.editReply({ embeds: [embed] });
     }
   }
 };

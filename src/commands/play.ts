@@ -15,20 +15,19 @@ import SpotifyMetadataService from '../services/spotify/SpotifyMetadataService';
 import WalletService from '../services/wallet';
 import config from '../config/environment';
 import { Command } from '../types';
-import { Platform } from '../types/spotify';
 
 const playCommand: Command = {
   data: new SlashCommandBuilder()
     .setName('play')
-    .setDescription('🎯 Create a music raid campaign with crypto rewards')
+    .setDescription('🎯 Create a Spotify music raid campaign with crypto rewards')
     .addStringOption(option =>
-      option.setName('track')
-        .setDescription('Track URL (Audius or Spotify)')
+      option.setName('url')
+        .setDescription('Spotify track URL')
         .setRequired(true)
     )
     .addIntegerOption(option =>
       option.setName('goal')
-        .setDescription('Number of listeners needed to complete the raid')
+        .setDescription('Number of participants needed (1-100)')
         .setRequired(true)
         .setMinValue(1)
         .setMaxValue(100)
@@ -38,210 +37,99 @@ const playCommand: Command = {
         .setDescription('Token reward amount per participant')
         .setRequired(true)
         .setMinValue(1)
-        .setMaxValue(1000)
     )
-
     .addIntegerOption(option =>
-      option.setName('required_time')
-        .setDescription('Required listening time in seconds (default: 30)')
-        .setRequired(false)
-        .setMinValue(10)
+      option.setName('time')
+        .setDescription('Required listening time in seconds (15-300)')
+        .setRequired(true)
+        .setMinValue(15)
         .setMaxValue(300)
+    )
+    .addIntegerOption(option =>
+      option.setName('duration')
+        .setDescription('Raid duration in minutes (5-180)')
+        .setRequired(true)
+        .setMinValue(5)
+        .setMaxValue(180)
     )
     .addBooleanOption(option =>
       option.setName('premium')
-        .setDescription('Spotify Premium required (Spotify raids only, default: false)')
+        .setDescription('Require Spotify Premium (enables enhanced tracking)')
+        .setRequired(false)
+    )
+    .addStringOption(option =>
+      option.setName('token')
+        .setDescription('Token mint address (default: SOL)')
         .setRequired(false)
     )
     .addChannelOption(option =>
       option.setName('channel')
-        .setDescription('Channel to post the raid (defaults to current channel)')
+        .setDescription('Channel to post the raid (default: current channel)')
         .setRequired(false)
         .addChannelTypes(ChannelType.GuildText)
-    )
-    .addStringOption(option =>
-      option.setName('token_mint')
-        .setDescription('Token mint address for rewards (default: SOL)')
-        .setRequired(false)
-    ) as SlashCommandBuilder,
+    ),
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply();
 
-      // Check if user has admin permissions or is an artist
-      const user = await PrismaDatabase.getUser(interaction.user.id);
+      // Check admin permissions
       const isAdmin = await PrismaDatabase.isAdmin(interaction.user.id);
-      
-      if (!isAdmin && (!user || user.role !== 'ARTIST')) {
+      if (!isAdmin) {
         const embed = EmbedBuilder.createErrorEmbed(
           'Permission Denied',
-          'Only admins and verified artists can create raids.\n\nContact an admin to get artist permissions.'
+          'Only administrators can create raids.\n\nContact a server admin to create raids.'
         );
         await interaction.editReply({ embeds: [embed] });
         return;
       }
 
-      // Get command parameters first to validate token ownership
-      const trackUrl = interaction.options.getString('track', true);
+      // Get parameters
+      const trackUrl = interaction.options.getString('url', true);
       const goal = interaction.options.getInteger('goal', true);
       const reward = interaction.options.getInteger('reward', true);
-      const duration = 60; // Fixed 60 minute duration
-      const requiredTime = interaction.options.getInteger('required_time') || 30;
+      const requiredTime = interaction.options.getInteger('time', true);
+      const duration = interaction.options.getInteger('duration', true);
       const premiumOnly = interaction.options.getBoolean('premium') || false;
+      const tokenMint = interaction.options.getString('token') || 'SOL';
       const targetChannel = interaction.options.getChannel('channel') || interaction.channel;
-      const tokenMint = interaction.options.getString('token_mint') || 'SOL';
 
-      // Validate token ownership and amount if not using SOL
-      if (tokenMint !== 'SOL') {
-        // Check if admin has this token in their wallet
-        const walletService = new WalletService();
-        const adminWallet = await walletService.createOrGetWallet(interaction.user.id, isAdmin);
-        const balances = await walletService.getWalletBalances(adminWallet.publicKey);
-        
-        // Find the specific token in wallet
-        const tokenInWallet = balances.tokens.find(token => token.mint === tokenMint);
-        
-        if (!tokenInWallet) {
-          const embed = EmbedBuilder.createErrorEmbed(
-            'Token Not Found',
-            `❌ **You don't have this token in your wallet**\n\n` +
-            `**Token Mint:** \`${tokenMint}\`\n\n` +
-            `**To create raids with custom tokens:**\n` +
-            `1. Use \`/deposit\` to get your wallet address\n` +
-            `2. Send tokens to your admin wallet\n` +
-            `3. Then create raids with that token\n\n` +
-            `**Or use SOL for basic raids** (leave token_mint empty)`
-          );
-          await interaction.editReply({ embeds: [embed] });
-          return;
-        }
-        
-        // Calculate total tokens needed for this raid
-        const totalTokensNeeded = goal * reward;
-        
-        if (tokenInWallet.amount < totalTokensNeeded) {
-          const embed = EmbedBuilder.createErrorEmbed(
-            'Insufficient Tokens',
-            `❌ **Not enough tokens for this raid**\n\n` +
-            `**Token:** ${tokenInWallet.symbol}\n` +
-            `**Available:** ${tokenInWallet.amount.toFixed(2)} tokens\n` +
-            `**Needed:** ${totalTokensNeeded} tokens (${goal} users × ${reward} each)\n` +
-            `**Missing:** ${(totalTokensNeeded - tokenInWallet.amount).toFixed(2)} tokens\n\n` +
-            `Deposit more tokens to your wallet or reduce the goal/reward amounts.`
-          );
-          await interaction.editReply({ embeds: [embed] });
-          return;
-        }
-        
-        // Validate token is registered in our database
-        const tokenInfo = await PrismaDatabase.getTokenByMint(tokenMint);
-        if (!tokenInfo) {
-          // Auto-register the token if admin has it
-          try {
-            await PrismaDatabase.createToken({
-              mint: tokenMint,
-              symbol: tokenInWallet.symbol,
-              decimals: tokenInWallet.decimals,
-              enabled: true
-            });
-            console.log(`🪙 Auto-registered token: ${tokenInWallet.symbol} (${tokenMint})`);
-          } catch (tokenError) {
-            console.warn('Failed to auto-register token:', tokenError);
-          }
-        }
-      }
-
-      if (!targetChannel) {
+      // Validate channel
+      if (!targetChannel || targetChannel.type !== ChannelType.GuildText) {
         const embed = EmbedBuilder.createErrorEmbed(
           'Invalid Channel',
-          'Please specify a valid text channel for the raid.'
+          'Please select a valid text channel for the raid.'
         );
         await interaction.editReply({ embeds: [embed] });
         return;
       }
 
-      // Type guard for text-based channel
-      if (!('send' in targetChannel)) {
-        const embed = EmbedBuilder.createErrorEmbed(
-          'Invalid Channel Type',
-          'Please select a text channel for the raid.'
-        );
-        await interaction.editReply({ embeds: [embed] });
-        return;
-      }
-
-      // Detect platform from URL
-      let platform: Platform;
-      let trackInfo: any;
-
-      if (SpotifyApiService.isSpotifyUrl(trackUrl)) {
-        platform = 'SPOTIFY';
-        
-        // Validate premium_only parameter
-        if (premiumOnly) {
-          console.log('🔒 Creating premium-only Spotify raid');
-        }
-
-        try {
-          // Initialize Spotify services
-          const spotifyAuthService = new SpotifyAuthService({
-            clientId: config.spotify.clientId,
-            clientSecret: config.spotify.clientSecret,
-            redirectUri: config.spotify.redirectUri
-          });
-          const spotifyApiService = new SpotifyApiService(spotifyAuthService, {
-            clientId: config.spotify.clientId,
-            clientSecret: config.spotify.clientSecret
-          });
-          
-          trackInfo = await spotifyApiService.getTrackFromUrl(trackUrl);
-        } catch (error: any) {
-          const embed = EmbedBuilder.createErrorEmbed(
-            'Invalid Spotify Track',
-            `Failed to fetch track information: ${error.message}\n\nPlease check the URL and try again.`
-          );
-          await interaction.editReply({ embeds: [embed] });
-          return;
-        }
-      } else if (trackUrl.includes('audius.co')) {
-        platform = 'AUDIUS';
-        
-        // Premium option not applicable for Audius
-        if (premiumOnly) {
-          const embed = EmbedBuilder.createErrorEmbed(
-            'Invalid Option',
-            'Premium option is only available for Spotify raids. Audius raids are always free for all users.'
-          );
-          await interaction.editReply({ embeds: [embed] });
-          return;
-        }
-
-        try {
-          // TODO: Use existing Audius service to get track info
-          // For now, parse basic info from URL
-          trackInfo = {
-            id: trackUrl.split('/').pop() || 'unknown',
-            title: 'Audius Track', // Will be filled by actual service
-            artist: 'Unknown Artist',
-            url: trackUrl,
-            platform: 'AUDIUS'
-          };
-        } catch (error: any) {
-          const embed = EmbedBuilder.createErrorEmbed(
-            'Invalid Audius Track',
-            `Failed to fetch track information: ${error.message}\n\nPlease check the URL and try again.`
-          );
-          await interaction.editReply({ embeds: [embed] });
-          return;
-        }
-      } else {
+      // Validate Spotify track URL and get track info
+      if (!trackUrl.includes('open.spotify.com/track/')) {
         const embed = EmbedBuilder.createErrorEmbed(
           'Invalid URL',
-          'Please provide a valid Audius or Spotify track URL.\n\n' +
-          '**Supported formats:**\n' +
-          '• `https://audius.co/...`\n' +
+          'Please provide a valid Spotify track URL.\n\n' +
+          '**Supported format:**\n' +
           '• `https://open.spotify.com/track/...`'
+        );
+        await interaction.editReply({ embeds: [embed] });
+        return;
+      }
+
+      let trackInfo: any;
+      try {
+        const spotifyAuthService = new SpotifyAuthService({
+          clientId: config.spotify.clientId!,
+          clientSecret: config.spotify.clientSecret!,
+          redirectUri: config.spotify.redirectUri!
+        });
+        
+        const spotifyApiService = new SpotifyApiService(spotifyAuthService);
+        trackInfo = await spotifyApiService.getTrackFromUrl(trackUrl);
+      } catch (error: any) {
+        const embed = EmbedBuilder.createErrorEmbed(
+          'Invalid Spotify Track',
+          `Failed to fetch track information: ${error.message}\n\nPlease check the URL and try again.`
         );
         await interaction.editReply({ embeds: [embed] });
         return;
@@ -250,7 +138,6 @@ const playCommand: Command = {
       // Get enhanced Spotify track metadata
       let enhancedMetadata: any = {};
       try {
-        // Initialize Spotify services
         const spotifyAuthService = new SpotifyAuthService({
           clientId: config.spotify.clientId!,
           clientSecret: config.spotify.clientSecret!,
@@ -263,7 +150,6 @@ const playCommand: Command = {
           redirectUri: config.spotify.redirectUri!
         });
 
-        // Get enhanced metadata with user context for market relinking
         const metadata = await spotifyMetadataService.getEnhancedTrackMetadata(
           trackInfo.id, 
           interaction.user.id
@@ -314,7 +200,7 @@ const playCommand: Command = {
         guildId: interaction.guild!.id,
         creatorId: interaction.user.id,
         durationMinutes: duration,
-        // Enhanced metadata for Spotify
+        // Enhanced metadata
         metadataJson: enhancedMetadata.fullMetadata ? JSON.stringify(enhancedMetadata.fullMetadata) : undefined,
         linkedTrackId: enhancedMetadata.linkedTrackId,
         isPlayable: enhancedMetadata.isPlayable,
@@ -323,10 +209,10 @@ const playCommand: Command = {
         albumName: enhancedMetadata.album
       });
 
-      // Create raid embed using the enhanced EmbedBuilder with GIFs and progress bars
+      // Create raid embed
       const raidWithTrack = {
         ...raid,
-        current_streams: 0, // New raid starts with 0 streams
+        current_streams: 0,
         streams_goal: goal,
         platform: 'SPOTIFY',
         reward_amount: reward,
@@ -350,7 +236,7 @@ const playCommand: Command = {
           handle: (enhancedMetadata.artist || trackInfo.artist).toLowerCase().replace(/\s+/g, ''),
           verified: enhancedMetadata.verified || false
         },
-        genre: enhancedMetadata.genre || trackInfo.genre || 'Unknown',
+        genre: enhancedMetadata.genre || trackInfo.genre || 'Spotify Track',
         duration: enhancedMetadata.duration || trackInfo.duration,
         playCount: enhancedMetadata.playCount || trackInfo.playCount || 0,
         permalink: enhancedMetadata.spotifyUrl || trackInfo.permalink,
@@ -359,7 +245,7 @@ const playCommand: Command = {
           _150x150: enhancedMetadata.artwork || trackInfo.artwork_url,
           _1000x1000: enhancedMetadata.artwork || trackInfo.artwork_url
         } : undefined,
-        // Enhanced Spotify-specific metadata
+        // Enhanced metadata
         album: enhancedMetadata.album,
         releaseDate: enhancedMetadata.releaseDate,
         explicit: enhancedMetadata.explicit,
@@ -369,62 +255,56 @@ const playCommand: Command = {
 
       const raidEmbed = EmbedBuilder.createRaidEmbed(raidWithTrack as any, trackData, true);
 
-      // Create join button
+      // Create buttons
       const joinButton = new ButtonBuilder()
         .setCustomId(`join_raid_${raid.id}`)
         .setLabel('🎯 Join Raid')
         .setStyle(ButtonStyle.Success);
 
-      const buttons = [joinButton];
+      const spotifyButton = new ButtonBuilder()
+        .setLabel('Open in Spotify')
+        .setStyle(ButtonStyle.Link)
+        .setURL(`https://open.spotify.com/track/${trackInfo.id}`)
+        .setEmoji('🎶');
 
-      // Add Spotify buttons (always available since we're Spotify-only)
-      buttons.push(
-        new ButtonBuilder()
-          .setLabel('Open in Spotify')
-          .setStyle(ButtonStyle.Link)
-          .setURL(`https://open.spotify.com/track/${trackInfo.id}`)
-          .setEmoji('🎶')
-      );
+      const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(joinButton, spotifyButton);
 
-      const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons);
-
-      // Post raid message in the target channel
-      const raidMessage = await targetChannel.send({
+      // Post raid message
+      const raidMessage = await (targetChannel as any).send({
         embeds: [raidEmbed],
         components: [buttonRow]
       });
 
       // Update raid with message ID
-      await PrismaDatabase.updateRaidMessageId(raid.id, raidMessage.id);
+      await PrismaDatabase.updateRaid(raid.id, { message_id: raidMessage.id });
 
-      // Confirmation message to command user
-      const confirmEmbed = EmbedBuilder.createSuccessEmbed(
-        'Raid Created!',
-        `✅ **${platform} raid created successfully!**\n\n` +
-        `🎵 **Track:** ${trackInfo.title}\n` +
-        `🎯 **Goal:** ${goal} listeners\n` +
-        `💰 **Reward:** ${reward} ${tokenMint} each\n` +
-        `⏱️ **Required time:** ${requiredTime} seconds\n` +
-        `📍 **Channel:** <#${targetChannel.id}>\n` +
-        `${premiumOnly ? '🔒 **Premium only raid**\n' : ''}` +
-        `${tokenMint !== 'SOL' ? `🪙 **Token:** ${tokenMint}\n` : ''}` +
-        `\n**Raid ID:** ${raid.id}\n` +
-        `**Expires:** <t:${Math.floor(raid.expires_at!.getTime() / 1000)}:R>`
+      // Success response
+      const embed = EmbedBuilder.createSuccessEmbed(
+        'Spotify Raid Created!',
+        `🎯 **Raid posted in ${targetChannel}**\n\n` +
+        `🎶 **Track:** ${trackInfo.title}\n` +
+        `🎤 **Artist:** ${trackInfo.artist}\n` +
+        `🎯 **Goal:** ${goal} participants\n` +
+        `💰 **Reward:** ${reward} ${tokenMint} tokens each\n` +
+        `⏰ **Duration:** ${duration} minutes\n` +
+        `🎧 **Listen Time:** ${requiredTime} seconds\n` +
+        `👑 **Premium Only:** ${premiumOnly ? 'Yes' : 'No'}\n\n` +
+        `Participants can join by clicking the **Join Raid** button!`
       );
 
-      await interaction.editReply({ embeds: [confirmEmbed] });
+      await interaction.editReply({ embeds: [embed] });
+      
+      console.log(`🎯 Spotify raid created by ${interaction.user.tag}: ${trackInfo.title} (${goal} participants, ${reward} tokens)`);
 
-      console.log(`🎯 ${platform} raid created: ${raid.id} by ${interaction.user.tag} - ${trackInfo.title} (${goal} goal, ${reward} tokens)`);
-
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating raid:', error);
       
-      const errorEmbed = EmbedBuilder.createErrorEmbed(
+      const embed = EmbedBuilder.createErrorEmbed(
         'Raid Creation Failed',
-        `Failed to create raid: ${error.message}\n\nPlease try again or contact support.`
+        'There was an error creating the raid. Please try again.'
       );
-
-      await interaction.editReply({ embeds: [errorEmbed] });
+      
+      await interaction.editReply({ embeds: [embed] });
     }
   }
 };

@@ -12,24 +12,9 @@ export interface Command {
 }
 
 // User types
-export interface AudiusUser {
-  id: string;
-  name: string;
-  handle: string;
-  bio?: string;
-  profilePicture?: string;
-  followerCount: number;
-  followeeCount: number;
-  trackCount: number;
-  isVerified?: boolean;
-}
-
 export interface DatabaseUser {
   id: number;
   discord_id: string;
-  audius_user_id?: string;
-  audius_handle?: string;
-  audius_name?: string;
   spotify_user_id?: string;
   spotify_display_name?: string;
   spotify_email?: string;
@@ -37,6 +22,10 @@ export interface DatabaseUser {
   spotify_access_token?: string;
   spotify_refresh_token?: string;
   spotify_token_expires_at?: Date;
+  spotify_scope?: string;
+  spotify_product?: string;
+  spotify_country?: string;
+  discord_username?: string;
   tokens_balance: number;
   total_raids_participated: number;
   total_rewards_claimed: number;

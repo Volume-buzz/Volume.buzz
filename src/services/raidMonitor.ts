@@ -295,18 +295,11 @@ class RaidMonitor {
       const platformIcon = raid.platform === 'SPOTIFY' ? '🎶' : '🎵';
       const isCryptoRaid = raid.token_mint && raid.token_mint !== 'SOL';
       
-      // Get enhanced track metadata
+      // Enhanced track metadata (Spotify only)
       let enhancedTrackData: any = null;
-      if (raid.platform === 'AUDIUS') {
-        const { default: AudiusService } = await import('./audiusService');
-        const audiusService = new AudiusService();
-        enhancedTrackData = await audiusService.getEnhancedTrackData(raid.track_id);
-      }
       
-      // Build track URL
-      const trackUrl = raid.platform === 'SPOTIFY' ? 
-        `https://open.spotify.com/track/${raid.track_id}` :
-        `https://audius.co${enhancedTrackData?.permalink || ''}`;
+      // Build Spotify track URL
+      const trackUrl = `https://open.spotify.com/track/${raid.track_id}`;
 
       const artistDisplay = enhancedTrackData?.verified ? 
         `✅ ${raid.track_artist}` : 

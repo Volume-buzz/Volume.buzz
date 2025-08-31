@@ -72,7 +72,7 @@ class OAuthServer {
 
       // Get Discord ID from session mapping
       const sessionData = await PrismaDatabase.getSessionMapping(sessionId);
-      if (!sessionData || sessionData.platform !== 'AUDIUS') {
+      if (!sessionData || sessionData.platform !== 'SPOTIFY') {
         res.status(400).json({ error: 'Invalid or expired session ID' });
         return;
       }
@@ -181,7 +181,7 @@ class OAuthServer {
       // Validate OAuth session
       const session = await PrismaDatabase.getOAuthSession(state);
       
-      if (!session || session.platform !== 'AUDIUS') {
+      if (!session || session.platform !== 'SPOTIFY') {
         res.status(400).send(`
           <html>
             <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">

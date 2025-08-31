@@ -1,10 +1,10 @@
 import { 
   SlashCommandBuilder, 
-  ChatInputCommandInteraction, 
-  ActionRowBuilder, 
-  ButtonBuilder, 
+  ChatInputCommandInteraction,
+  ActionRowBuilder,
+  ButtonBuilder,
   ButtonStyle,
-  EmbedBuilder as DiscordEmbedBuilder 
+  EmbedBuilder as DiscordEmbedBuilder
 } from 'discord.js';
 import PrismaDatabase from '../database/prisma';
 import EmbedBuilder from '../utils/embedBuilder';
@@ -13,115 +13,76 @@ import { Command } from '../types';
 const logoutCommand: Command = {
   data: new SlashCommandBuilder()
     .setName('logout')
-    .setDescription('🚪 Disconnect your music streaming accounts'),
+    .setDescription('🚪 Disconnect your Spotify account'),
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
       await interaction.deferReply({ ephemeral: true });
 
-      // Check current connections
       const user = await PrismaDatabase.getUser(interaction.user.id);
       
       if (!user) {
         const embed = EmbedBuilder.createErrorEmbed(
-          'No Account Found',
-          'You don\'t have any accounts connected to logout from.'
+          'Account Not Found',
+          'You don\'t have any connected accounts to disconnect.'
         );
         await interaction.editReply({ embeds: [embed] });
         return;
       }
 
-      const hasAudius = user.audius_user_id !== null;
       const hasSpotify = user.spotify_user_id !== null;
 
-      if (!hasAudius && !hasSpotify) {
-        const embed = EmbedBuilder.createInfoEmbed(
-          'Not Connected',
-          'You don\'t have any music accounts connected.\n\nUse `/login` to connect your accounts.'
+      if (!hasSpotify) {
+        const embed = EmbedBuilder.createErrorEmbed(
+          'No Account Connected',
+          'You don\'t have a Spotify account connected.'
         );
         await interaction.editReply({ embeds: [embed] });
         return;
       }
 
-      // Create logout options based on connected accounts
-      const buttons = [];
-
-      if (hasAudius) {
-        buttons.push(
-          new ButtonBuilder()
-            .setCustomId('logout_audius')
-            .setLabel('🎵 Logout from Audius')
-            .setStyle(ButtonStyle.Secondary)
-        );
-      }
-
-      if (hasSpotify) {
-        buttons.push(
-          new ButtonBuilder()
-            .setCustomId('logout_spotify')
-            .setLabel('🎶 Logout from Spotify')
-            .setStyle(ButtonStyle.Secondary)
-        );
-      }
-
-      if (hasAudius && hasSpotify) {
-        buttons.push(
-          new ButtonBuilder()
-            .setCustomId('logout_both')
-            .setLabel('🚪 Logout from Both')
-            .setStyle(ButtonStyle.Danger)
-        );
-      }
-
-      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(buttons);
-
-      let description = '**Current connections:**\n\n';
-      
-      if (hasAudius) {
-        description += `✅ **Audius** - Connected as @${user.audius_handle}\n` +
-          `• Raid participation: ${user.total_raids_participated}\n` +
-          `• Token balance: ${user.tokens_balance}\n\n`;
-      }
-
-      if (hasSpotify) {
-        description += `✅ **Spotify** - Connected as ${user.spotify_display_name}\n` +
-          `• Account type: ${user.spotify_is_premium ? 'Premium 👑' : 'Free 🆓'}\n` +
-          `• Email: ${user.spotify_email}\n\n`;
-      }
-
-      description += '**Choose what to disconnect:**\n\n' +
-        '⚠️ **Warning:** Logging out will:\n' +
-        '• Remove access to platform-specific raids\n' +
-        '• Stop tracking your listening activity\n' +
-        '• Keep your earned tokens and raid history';
+      // Show confirmation for Spotify logout
+      let description = '**🔗 Connected Account:**\n\n';
+      description += `✅ **Spotify** - Connected as ${user.spotify_display_name} ${user.spotify_is_premium ? '👑' : '🆓'}\n\n`;
+      description += '**⚠️ Warning:** Disconnecting will:\n' +
+        '• Remove access to all raids\n' +
+        '• Stop progress tracking\n' +
+        '• Keep your token balance and raid history\n\n' +
+        '*Are you sure you want to disconnect?*';
 
       const embed = new DiscordEmbedBuilder()
-        .setTitle('🚪 Account Logout')
+        .setTitle('🚪 Disconnect Spotify Account')
         .setDescription(description)
         .setColor(0xFF6B6B)
-        .addFields(
-          {
-            name: '💡 Selective Logout',
-            value: 'You can logout from one platform while keeping the other connected.',
-            inline: false
-          }
-        )
         .setTimestamp();
 
-      await interaction.editReply({
+      // Create confirmation buttons
+      const buttons = new ActionRowBuilder<ButtonBuilder>()
+        .addComponents(
+          new ButtonBuilder()
+            .setCustomId('logout_spotify')
+            .setLabel('🚪 Yes, Disconnect')
+            .setStyle(ButtonStyle.Danger),
+          new ButtonBuilder()
+            .setCustomId('quick_account')
+            .setLabel('❌ Cancel')
+            .setStyle(ButtonStyle.Secondary)
+        );
+
+      await interaction.editReply({ 
         embeds: [embed],
-        components: [row]
+        components: [buttons]
       });
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error in logout command:', error);
       
-      const errorEmbed = EmbedBuilder.createErrorEmbed(
+      const embed = EmbedBuilder.createErrorEmbed(
         'Logout Error',
-        'There was an error processing the logout request. Please try again.'
+        'There was an error processing your logout request. Please try again.'
       );
-
-      await interaction.editReply({ embeds: [errorEmbed] });
+      
+      await interaction.editReply({ embeds: [embed] });
     }
   }
 };

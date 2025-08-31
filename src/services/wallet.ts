@@ -78,9 +78,9 @@ class WalletService {
         console.log(`👤 Creating user record for ${discordId} before wallet creation`);
         user = await PrismaDatabase.createUser({
           discordId,
-          audiusUserId: '',
-          audiusHandle: '',
-          audiusName: '',
+          spotifyUserId: '',
+          spotifyDisplayName: '',
+          spotifyEmail: '',
           tokensBalance: 0
         });
       }
