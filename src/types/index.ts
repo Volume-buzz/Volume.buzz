@@ -1,9 +1,9 @@
-// Main type definitions for the Audius Discord Bot
+// Main type definitions for the Spotify Discord Bot
 
 import { ChatInputCommandInteraction, SlashCommandBuilder, ButtonInteraction, User as DiscordUser } from 'discord.js';
 
 // Platform types
-export type Platform = 'AUDIUS' | 'SPOTIFY';
+export type Platform = 'SPOTIFY';
 
 // Command interface
 export interface Command {
@@ -71,7 +71,7 @@ export interface RaidParticipant {
   id: number;
   raid_id: number;
   discord_id: string;
-  audius_user_id: string;
+  spotify_user_id: string;
   listen_start_time?: Date;
   total_listen_duration: number;
   last_check?: Date;
@@ -176,9 +176,6 @@ export interface EnvironmentConfig {
   discordClientId: string;
   guildId?: string;
   
-  // Audius
-  audiusApiKey?: string;
-  audiusApiUrl: string;
   
   // Database
   databaseUrl: string;

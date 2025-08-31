@@ -1,6 +1,6 @@
 /**
- * Dual Platform Raid Monitor
- * Monitors user listening activity for both Audius and Spotify platforms
+ * Spotify Raid Monitor
+ * Monitors user listening activity for Spotify platform
  */
 
 import { Client, User as DiscordUser, EmbedBuilder as DiscordEmbedBuilder } from 'discord.js';
@@ -48,7 +48,7 @@ class RaidMonitor {
    * Start monitoring raid participants
    */
   start(): void {
-    console.log('🎯 Starting dual platform raid monitor...');
+    console.log('🎯 Starting Spotify raid monitor...');
 
     // Main monitoring loop - check all participants every 10 seconds
     this.monitoringInterval = setInterval(async () => {
@@ -68,14 +68,14 @@ class RaidMonitor {
     // Start Spotify-specific tracking
     this.spotifyTrackingService.startGlobalTracking();
 
-    console.log('✅ Dual platform raid monitor started');
+    console.log('✅ Spotify raid monitor started');
   }
 
   /**
    * Stop monitoring
    */
   stop(): void {
-    console.log('🛑 Stopping dual platform raid monitor...');
+    console.log('🛑 Stopping Spotify raid monitor...');
 
     if (this.monitoringInterval) {
       clearInterval(this.monitoringInterval);
@@ -94,7 +94,7 @@ class RaidMonitor {
 
     this.spotifyTrackingService.stopGlobalTracking();
 
-    console.log('✅ Dual platform raid monitor stopped');
+    console.log('✅ Spotify raid monitor stopped');
   }
 
   /**
@@ -133,11 +133,7 @@ class RaidMonitor {
       const platform = raid.platform as Platform;
       const requiredTime = raid.required_listen_time || 30;
 
-      if (platform === 'SPOTIFY') {
-        await this.checkSpotifyParticipant(participant, raid, requiredTime);
-      } else {
-        await this.checkAudiusParticipant(participant, raid, requiredTime);
-      }
+      await this.checkSpotifyParticipant(participant, raid, requiredTime);
 
     } catch (error) {
       console.error(`Error checking participant ${participant.discord_id}:`, error);
@@ -185,11 +181,11 @@ class RaidMonitor {
           })
         });
 
-        console.log(`🎶 ${participant.user.audius_handle || 'User'} listening to Spotify (${Math.floor(newListenTime)}s/${requiredTime}s)`);
+        console.log(`🎶 ${participant.user.spotify_display_name || 'User'} listening to Spotify (${Math.floor(newListenTime)}s/${requiredTime}s)`);
       } else {
-        // User stopped listening - reset timer like Audius behavior
+        // User stopped listening - reset timer
         if (wasListening) {
-          console.log(`⏸️ ${participant.user.audius_handle || 'User'} stopped Spotify playback - resetting timer`);
+          console.log(`⏸️ ${participant.user.spotify_display_name || 'User'} stopped Spotify playback - resetting timer`);
           newListenTime = 0; // Reset timer when user stops
         }
 
@@ -205,58 +201,6 @@ class RaidMonitor {
     }
   }
 
-  /**
-   * Check Audius participant listening status (existing logic)
-   */
-  private async checkAudiusParticipant(participant: any, raid: any, requiredTime: number): Promise<void> {
-    try {
-      // TODO: Implement existing Audius checking logic here
-      // This would be the same as your current Audius tracking implementation
-      // For now, I'll create a placeholder that mimics the structure
-
-      const now = new Date();
-      const timeSinceLastCheck = participant.last_check 
-        ? (now.getTime() - new Date(participant.last_check).getTime()) / 1000 
-        : 10;
-
-      // Placeholder for Audius API call to check currently playing
-      // const isPlayingRaidTrack = await AudiusService.isUserPlayingTrack(participant.user.audius_user_id, raid.track_id);
-      const isPlayingRaidTrack = false; // Placeholder
-
-      let newListenTime = participant.total_listen_duration;
-      const wasListening = participant.is_listening;
-
-      if (isPlayingRaidTrack) {
-        newListenTime += timeSinceLastCheck;
-        
-        await PrismaDatabase.updateRaidParticipant(raid.id, participant.discord_id, {
-          is_listening: true,
-          total_listen_duration: Math.floor(newListenTime),
-          last_check: now,
-          qualified: newListenTime >= requiredTime,
-          ...(newListenTime >= requiredTime && !participant.qualified && {
-            qualified_at: now
-          })
-        });
-
-        console.log(`🎵 ${participant.user.audius_handle || 'User'} listening to Audius (${Math.floor(newListenTime)}s/${requiredTime}s)`);
-      } else {
-        if (wasListening) {
-          console.log(`⏸️ ${participant.user.audius_handle || 'User'} stopped Audius playback - resetting timer`);
-          newListenTime = 0; // Reset timer when user stops
-        }
-
-        await PrismaDatabase.updateRaidParticipant(raid.id, participant.discord_id, {
-          is_listening: false,
-          total_listen_duration: Math.floor(newListenTime),
-          last_check: now
-        });
-      }
-
-    } catch (error: any) {
-      console.error(`Error checking Audius participant ${participant.discord_id}:`, error.message);
-    }
-  }
 
   /**
    * Check for raid completions
@@ -319,9 +263,9 @@ class RaidMonitor {
           `🏆 **Platform:** ${raid.platform}${raid.premium_only ? ' (Premium)' : ''}\n\n` +
           `**🏅 Top Winners:**\n` +
           winners.slice(0, 5).map((w: any, i: number) => {
-            const username = w.user.audius_handle || w.user.spotify_display_name || 'Anonymous';
+            const displayName = w.user.discord_username || 'Unknown User';
             const medals = ['🥇', '🥈', '🥉', '🏅', '🏅'];
-            return `${medals[i] || '🏅'} **${i + 1}.** ${username}`;
+            return `${medals[i] || '🏅'} **${i + 1}.** ${displayName}`;
           }).join('\n') + 
           (winners.length > 5 ? `\n*...and ${winners.length - 5} more winners!*` : '') +
           `\n\n**🚀 Click "Claim Reward" below to get your tokens!**`,
@@ -332,9 +276,7 @@ class RaidMonitor {
         timestamp: new Date().toISOString(),
         footer: {
           text: `Raid ID: ${raid.id} | Completed at`,
-          icon_url: raid.platform === 'SPOTIFY' ? 
-            'https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/spotify.svg' :
-            'https://audius.co/favicon.ico'
+          icon_url: 'https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/spotify.svg'
         }
       };
 
@@ -369,10 +311,10 @@ class RaidMonitor {
       
       for (const participant of activeListeners) {
         try {
-          // Check if we sent a DM recently (limit to once per minute)
+          // Check if we sent a DM recently (limit to once per 2 seconds for real-time updates)
           if (participant.last_dm_sent) {
             const timeSinceLastDM = now.getTime() - new Date(participant.last_dm_sent).getTime();
-            if (timeSinceLastDM < 60000) { // Less than 1 minute
+            if (timeSinceLastDM < 2000) { // Less than 2 seconds
               continue;
             }
           }
@@ -385,10 +327,6 @@ class RaidMonitor {
             if (session) {
               await this.spotifyTrackingService.sendProgressDM(discordUser, raid, session);
             }
-          } else {
-            // Send Audius progress DM (placeholder - integrate with existing bot instance)
-            // TODO: Access bot instance through proper reference
-            console.log(`📧 Need to send Audius progress DM to ${participant.discord_id}`);
           }
 
           // Update last DM sent time
@@ -442,7 +380,6 @@ class RaidMonitor {
     if (platform === 'SPOTIFY') {
       await this.spotifyTrackingService.startTracking(discordId, raidId, trackId, requiredTime);
     }
-    // Audius tracking is handled by the main monitoring loop
     
     console.log(`🎯 Started tracking ${platform} participant ${discordId} for raid ${raidId}`);
   }
@@ -485,21 +422,20 @@ class RaidMonitor {
         raid.required_listen_time
       );
 
-      // Send initial progress DM
-      try {
-        const discordUser = await this.client.users.fetch(discordId);
-        if (raid.platform === 'SPOTIFY') {
-          const session = this.spotifyTrackingService.getSession(discordId, raidId);
-          if (session) {
-            await this.spotifyTrackingService.sendProgressDM(discordUser, raid, session);
+      // Send initial progress DM after a delay to allow user to start playing
+      setTimeout(async () => {
+        try {
+          const discordUser = await this.client.users.fetch(discordId);
+          if (raid.platform === 'SPOTIFY') {
+            const session = this.spotifyTrackingService.getSession(discordId, raidId);
+            if (session) {
+              await this.spotifyTrackingService.sendProgressDM(discordUser, raid, session);
+            }
           }
-        } else {
-          // Send initial Audius progress DM
-          await this.sendInitialProgressDM(discordUser, raid);
+        } catch (dmError) {
+          console.warn(`Failed to send initial progress DM to ${discordId}:`, dmError);
         }
-      } catch (dmError) {
-        console.warn(`Failed to send initial progress DM to ${discordId}:`, dmError);
-      }
+      }, 5000); // 5 second delay
 
       console.log(`➕ Added ${raid.platform} participant ${discordId} to raid ${raidId}`);
     } catch (error) {
@@ -513,7 +449,7 @@ class RaidMonitor {
   private async sendInitialProgressDM(discordUser: any, raid: any): Promise<void> {
     try {
       const platformIcon = raid.platform === 'SPOTIFY' ? '🎶' : '🎵';
-      const platformName = raid.platform === 'SPOTIFY' ? 'Spotify' : 'Audius';
+      const platformName = 'Spotify';
       
       const embed = {
         title: `${platformIcon} Raid Progress Tracker`,
@@ -647,7 +583,7 @@ class RaidMonitor {
               handle: (raid.track_artist || 'unknown').toLowerCase().replace(/\s+/g, ''),
               verified: false
             },
-            genre: raid.platform === 'SPOTIFY' ? 'Spotify Track' : 'Audius Track',
+            genre: 'Spotify Track',
             duration: raid.track_duration_ms ? Math.floor(raid.track_duration_ms / 1000) : undefined,
             permalink: raid.track_url,
             artwork: raid.track_artwork_url ? {

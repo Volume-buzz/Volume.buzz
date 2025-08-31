@@ -1,7 +1,7 @@
 {
-  "name": "audius-discord-bot",
+  "name": "spotify-discord-bot",
   "version": "1.0.0",
-  "description": "Discord bot for Audius music raid campaigns",
+  "description": "Discord bot for Spotify music raid campaigns",
   "main": "dist/app.js",
   "scripts": {
     "build": "tsc && npm run db:generate",
@@ -27,14 +27,13 @@
   },
   "keywords": [
     "discord",
-    "audius",
+    "spotify",
     "music",
     "bot"
   ],
   "author": "SlashRaid",
   "license": "MIT",
   "dependencies": {
-    "@audius/sdk": "^9.1.0",
     "@prisma/client": "^6.12.0",
     "@solana/web3.js": "^1.98.4",
     "@solana/spl-token": "^0.4.8",

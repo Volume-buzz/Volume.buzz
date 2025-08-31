@@ -2,11 +2,11 @@
  * Main application entry point that starts both the Discord bot and API server
  */
 import 'dotenv/config';
-import AudiusBot from './bot';
+import SpotifyBot from './bot';
 import ApiServer from './server';
 
-class AudiusApp {
-  private bot: AudiusBot | null = null;
+class SpotifyApp {
+  private bot: SpotifyBot | null = null;
   private apiServer: ApiServer | null = null;
 
   /**
@@ -14,7 +14,7 @@ class AudiusApp {
    */
   async start(): Promise<void> {
     try {
-      console.log('🚀 Starting Audius Crypto Wallet System...');
+      console.log('🚀 Starting Spotify Crypto Wallet System...');
 
       // Start API server first
       console.log('📡 Starting API server...');
@@ -23,7 +23,7 @@ class AudiusApp {
 
       // Start Discord bot
       console.log('🤖 Starting Discord bot...');
-      this.bot = new AudiusBot();
+      this.bot = new SpotifyBot();
       await this.bot.start();
 
       // Connect OAuth server and Discord client to API server
@@ -31,7 +31,7 @@ class AudiusApp {
       this.apiServer.setDiscordClient(this.bot.client);
       console.log('🔗 OAuth and DM services connected');
 
-      console.log('✅ Audius application started successfully!');
+      console.log('✅ Spotify application started successfully!');
       console.log('🎵 Ready to process music raids with crypto rewards');
     } catch (error) {
       console.error('❌ Failed to start application:', error);
@@ -43,7 +43,7 @@ class AudiusApp {
    * Shutdown the application gracefully
    */
   async shutdown(): Promise<void> {
-    console.log('🛑 Shutting down Audius application...');
+    console.log('🛑 Shutting down Spotify application...');
 
     try {
       if (this.bot) {
@@ -64,7 +64,7 @@ class AudiusApp {
 }
 
 // Handle process signals for graceful shutdown
-const app = new AudiusApp();
+const app = new SpotifyApp();
 
 process.on('SIGTERM', () => app.shutdown());
 process.on('SIGINT', () => app.shutdown());
@@ -82,4 +82,4 @@ if (require.main === module) {
   app.start();
 }
 
-export default AudiusApp;
+export default SpotifyApp;

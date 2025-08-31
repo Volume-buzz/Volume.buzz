@@ -1,4 +1,4 @@
-// Express type augmentations for the Audius Discord Bot
+// Express type augmentations for the Spotify Discord Bot
 
 import { DatabaseUser } from './index';
 import { User as DiscordUser } from 'discord.js';

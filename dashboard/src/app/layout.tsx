@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Audius Discord Bot - OAuth",
-  description: "Connect your Spotify and Audius accounts to the Discord bot",
+  title: "Spotify Discord Bot - OAuth",
+  description: "Connect your Spotify account to the Discord bot",
 };
 
 export default function RootLayout({

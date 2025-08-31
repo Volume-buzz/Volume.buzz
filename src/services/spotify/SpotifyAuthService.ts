@@ -116,7 +116,7 @@ class SpotifyAuthService {
   /**
    * Save encrypted Spotify tokens to database
    */
-  async saveUserTokens(discordId: string, tokens: SpotifyAuthTokens, userProfile: SpotifyUser): Promise<void> {
+  async saveUserTokens(discordId: string, tokens: SpotifyAuthTokens, userProfile: SpotifyUser, discordUsername?: string): Promise<void> {
     try {
       const encryptedAccessToken = this.encryptionService.encrypt(tokens.access_token);
       const encryptedRefreshToken = this.encryptionService.encrypt(tokens.refresh_token);
@@ -127,6 +127,7 @@ class SpotifyAuthService {
         spotifyDisplayName: userProfile.display_name,
         spotifyEmail: userProfile.email,
         spotifyIsPremium: userProfile.product === 'premium',
+        discordUsername: discordUsername,
         spotifyAccessToken: JSON.stringify(encryptedAccessToken), // Store as JSON string
         spotifyRefreshToken: JSON.stringify(encryptedRefreshToken), // Store as JSON string
         spotifyTokenExpiresAt: expiresAt,

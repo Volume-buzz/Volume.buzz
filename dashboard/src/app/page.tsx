@@ -3,7 +3,7 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-purple-600 via-blue-600 to-green-600 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full text-center">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">🎵 Audius Discord Bot</h1>
+          <h1 className="text-4xl font-bold text-gray-800 mb-4">🎵 Spotify Discord Bot</h1>
           <p className="text-lg text-gray-600">Connect your music accounts to earn crypto rewards</p>
         </div>
 
@@ -18,15 +18,6 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-6 text-white">
-            <h2 className="text-xl font-bold mb-2">🎵 Audius Integration</h2>
-            <p className="text-sm mb-4">Connect your Audius account to discover and raid new tracks</p>
-            <div className="text-xs opacity-90">
-              <p>✓ Track discovery and search</p>
-              <p>✓ Artist verification status</p>
-              <p>✓ Profile and listening history</p>
-            </div>
-          </div>
         </div>
 
         <div className="mt-8 pt-6 border-t border-gray-200">
@@ -41,7 +32,7 @@ export default function Home() {
 
         <div className="mt-6">
           <p className="text-xs text-gray-500">
-            This OAuth service handles secure authentication for the Audius Discord Bot.
+            This OAuth service handles secure authentication for the Spotify Discord Bot.
             Your credentials are never stored - only temporary session tokens.
           </p>
         </div>

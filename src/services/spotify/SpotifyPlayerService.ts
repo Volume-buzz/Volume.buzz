@@ -321,7 +321,7 @@ class SpotifyPlayerService {
                 }
                 
                 player = new Spotify.Player({
-                    name: 'Audius Discord Bot Player',
+                    name: 'Spotify Discord Bot Player',
                     getOAuthToken: cb => { cb(token); },
                     volume: 0.8
                 });

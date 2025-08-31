@@ -49,7 +49,7 @@ class DMService {
         .setColor(notification.color || 0x8B5DFF)
         .setTimestamp()
         .setFooter({
-          text: 'Audius Discord Bot',
+          text: 'Spotify Discord Bot',
           iconURL: this.client.user?.displayAvatarURL()
         });
 
@@ -96,32 +96,6 @@ class DMService {
     });
   }
 
-  /**
-   * Send Audius connection success DM
-   */
-  async notifyAudiusConnected(userId: string, audiusProfile: any): Promise<void> {
-    await this.sendDM({
-      userId,
-      title: '🎵 Audius Connected!',
-      message: `🎉 **Your Audius account has been successfully connected!**\n\n` +
-               `**Connected Account:**\n` +
-               `${audiusProfile.name} (@${audiusProfile.handle})\n` +
-               `${audiusProfile.verified ? '✅ Verified Artist' : '🎧 Music Fan'}\n\n` +
-               `**What's next:**\n` +
-               `• Use \`/account\` to view your connected accounts\n` +
-               `• Use \`/listen\` to track listening and earn rewards\n` +
-               `• Join music raids for your favorite tracks\n\n` +
-               `*Thank you for connecting your Audius account!*`,
-      color: 0xCC0FE0,
-      fields: [
-        {
-          name: '🎵 New Commands Available',
-          value: '• `/listen track_id:D7KyD` - Track listening\n• `/listen artist_handle:skrillex` - Check what artists are playing',
-          inline: false
-        }
-      ]
-    });
-  }
 
   /**
    * Send listening reward notification

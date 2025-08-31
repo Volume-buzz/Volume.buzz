@@ -113,14 +113,30 @@ class JupiterApiService {
       const cached = this.getCachedData<number>(cacheKey);
       if (cached) return cached;
 
-      // Use Jupiter Price API v3 (latest)
+      // Special handling for SOL native token
+      if (mintAddress === 'So11111111111111111111111111111111111111112') {
+        // Use CoinGecko for SOL price as fallback
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+        if (response.ok) {
+          const data = await response.json();
+          const solPrice = data.solana?.usd;
+          if (solPrice) {
+            this.setCachedData(cacheKey, solPrice);
+            return solPrice;
+          }
+        }
+        // Fallback fixed price if API fails
+        return 150; // Approximate SOL price
+      }
+
+      // Use Jupiter Price API for other tokens
       const response = await fetch(`${this.baseUrl}?ids=${encodeURIComponent(mintAddress)}`);
       
       if (!response.ok) {
-        throw new Error(`Jupiter Price API error: ${response.status}`);
+        console.warn(`Jupiter Price API error for ${mintAddress}: ${response.status}`);
+        return null;
       }
 
-      // V3 API returns different structure: { [mint]: { usdPrice, blockId, decimals, priceChange24h } }
       const data: Record<string, { usdPrice: number; blockId: number; decimals: number; priceChange24h?: number }> = await response.json();
       const tokenData = data[mintAddress];
       

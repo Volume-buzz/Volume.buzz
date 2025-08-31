@@ -71,7 +71,7 @@ const playCommand: Command = {
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
-      await interaction.deferReply();
+      await interaction.deferReply({ ephemeral: true });
 
       // Check admin permissions
       const isAdmin = await PrismaDatabase.isAdmin(interaction.user.id);
@@ -124,7 +124,10 @@ const playCommand: Command = {
           redirectUri: config.spotify.redirectUri!
         });
         
-        const spotifyApiService = new SpotifyApiService(spotifyAuthService);
+        const spotifyApiService = new SpotifyApiService(spotifyAuthService, {
+          clientId: config.spotify.clientId!,
+          clientSecret: config.spotify.clientSecret!
+        });
         trackInfo = await spotifyApiService.getTrackFromUrl(trackUrl);
       } catch (error: any) {
         const embed = EmbedBuilder.createErrorEmbed(

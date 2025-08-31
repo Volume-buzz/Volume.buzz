@@ -106,7 +106,7 @@ class ApiServer {
     this.app.get('/health', (req: Request, res: Response) => {
       res.json({
         success: true,
-        message: 'Audius Crypto API is running',
+        message: 'Spotify Crypto API is running',
         timestamp: new Date(),
         version: '1.0.0',
         environment: config.api.nodeEnv,
@@ -125,13 +125,6 @@ class ApiServer {
       }
     });
     
-    this.app.get('/oauth/audius/login/:sessionId', (req, res) => {
-      if (this.oauthServer) {
-        this.oauthServer.initiateAudiusLogin(req, res);
-      } else {
-        res.status(500).json({ error: 'OAuth server not initialized' });
-      }
-    });
 
     // Auth routes (OAuth callbacks)
     this.app.use('/auth', authRoutes);
@@ -212,7 +205,7 @@ class ApiServer {
     this.initialize();
 
     this.server = this.app.listen(this.port, () => {
-      console.log(`🚀 Audius Crypto API server running on port ${this.port}`);
+      console.log(`🚀 Spotify Crypto API server running on port ${this.port}`);
       console.log(`📊 Environment: ${config.api.nodeEnv}`);
       console.log(`🔗 Solana Network: ${config.solana.network}`);
       console.log(`💰 Helius Integration: ${config.helius.apiKey ? 'Enabled' : 'Disabled'}`);

@@ -452,78 +452,8 @@ class EmbedBuilderUtils {
     return new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons);
   }
 
-  static createAccountButtons(audiusUserId: string, handle: string): ActionRowBuilder<ButtonBuilder>[] {
-    const row1 = new ActionRowBuilder<ButtonBuilder>()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId(`followers_${audiusUserId}`)
-          .setLabel('Followers')
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('👥'),
-        new ButtonBuilder()
-          .setCustomId(`following_${audiusUserId}`)
-          .setLabel('Following')
-          .setStyle(ButtonStyle.Secondary)  
-          .setEmoji('👤'),
-        new ButtonBuilder()
-          .setCustomId(`wallets_${audiusUserId}`)
-          .setLabel('Wallets')
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('💰'),
-        new ButtonBuilder()
-          .setLabel('View on Audius')
-          .setStyle(ButtonStyle.Link)
-          .setURL(`https://audius.co/${handle}`)
-          .setEmoji('🔗')
-      );
 
-    const row2 = new ActionRowBuilder<ButtonBuilder>()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId('logout_account')
-          .setLabel('Logout')
-          .setStyle(ButtonStyle.Danger)
-          .setEmoji('🚪')
-      );
 
-    return [row1, row2];
-  }
-
-  static createLookupButtons(audiusUserId: string, handle: string): ActionRowBuilder<ButtonBuilder> {
-    return new ActionRowBuilder<ButtonBuilder>()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId(`lookup_tracks_${audiusUserId}`)
-          .setLabel('Tracks')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('🎵'),
-        new ButtonBuilder()
-          .setCustomId(`lookup_followers_${audiusUserId}`)
-          .setLabel('Followers')
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('👥'),
-        new ButtonBuilder()
-          .setCustomId(`lookup_following_${audiusUserId}`)
-          .setLabel('Following')
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('👤'),
-        new ButtonBuilder()
-          .setLabel('View on Audius')
-          .setStyle(ButtonStyle.Link)
-          .setURL(`https://audius.co/${handle}`)
-          .setEmoji('🔗')
-      );
-  }
-
-  static createOAuthButton(oauthUrl: string): ActionRowBuilder<ButtonBuilder> {
-    return new ActionRowBuilder<ButtonBuilder>()
-      .addComponents(
-        new ButtonBuilder()
-          .setLabel('🔗 Connect Audius Account')
-          .setStyle(ButtonStyle.Link)
-          .setURL(oauthUrl)
-      );
-  }
 
   static createErrorEmbed(title: string, description: string): DiscordEmbedBuilder {
     return new DiscordEmbedBuilder()

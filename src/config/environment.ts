@@ -42,11 +42,6 @@ const config = {
     guildId: process.env.GUILD_ID
   },
 
-  // Audius
-  audius: {
-    apiEndpoint: process.env.AUDIUS_API_ENDPOINT || 'https://discoveryprovider.audius.co',
-    apiKey: process.env.AUDIUS_API_KEY
-  },
 
   // Spotify
   spotify: {
@@ -157,9 +152,6 @@ export const environment: EnvironmentConfig = {
   discordClientId: config.discord.clientId,
   guildId: config.discord.guildId,
 
-  // Audius
-  audiusApiKey: config.audius.apiKey,
-  audiusApiUrl: config.audius.apiEndpoint,
 
   // Database
   databaseUrl: config.database.url,

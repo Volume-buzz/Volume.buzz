@@ -211,7 +211,7 @@ class SpotifyTrackingService {
           return;
         }
       } else {
-        // User stopped listening - reset timer like Audius
+        // User stopped listening - reset timer
         if (wasListening) {
           console.log(`⏸️ User ${session.userId} stopped listening to Spotify track - resetting timer`);
           session.totalListenTime = 0; // Reset timer when user stops
@@ -464,10 +464,7 @@ class SpotifyTrackingService {
     const filled = Math.round((percentage / 100) * length);
     const empty = length - filled;
     
-    const filledBlocks = '█'.repeat(filled);
-    const emptyBlocks = '░'.repeat(empty);
-    
-    return `[${filledBlocks}${emptyBlocks}] ${Math.round(percentage)}%`;
+    return '🟩'.repeat(filled) + '⬜'.repeat(empty) + ` (${Math.floor(percentage)}%)`;
   }
 
   /**

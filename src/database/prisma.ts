@@ -40,6 +40,7 @@ class PrismaDatabase {
     spotifyDisplayName?: string;
     spotifyEmail?: string;
     tokensBalance?: number;
+    discordUsername?: string;
   }): Promise<User> {
     return await prisma.user.upsert({
       where: { discord_id: userData.discordId },
@@ -47,6 +48,7 @@ class PrismaDatabase {
         spotify_user_id: userData.spotifyUserId,
         spotify_display_name: userData.spotifyDisplayName,
         spotify_email: userData.spotifyEmail,
+        discord_username: userData.discordUsername,
         last_updated: new Date()
       },
       create: {
@@ -54,6 +56,7 @@ class PrismaDatabase {
         spotify_user_id: userData.spotifyUserId,
         spotify_display_name: userData.spotifyDisplayName,
         spotify_email: userData.spotifyEmail,
+        discord_username: userData.discordUsername,
         tokens_balance: userData.tokensBalance || 0
       }
     });
@@ -219,7 +222,7 @@ class PrismaDatabase {
     trackTitle: string;
     trackArtist: string;
     trackArtworkUrl?: string;
-    platform: 'AUDIUS' | 'SPOTIFY';
+    platform: 'SPOTIFY';
     premiumOnly?: boolean;
     requiredListenTime?: number;
     streamsGoal: number;
@@ -773,7 +776,7 @@ class PrismaDatabase {
   static async createOAuthSession(sessionData: {
     state: string;
     discordId: string;
-    platform: 'AUDIUS' | 'SPOTIFY';
+    platform: 'SPOTIFY';
     expiresAt: Date;
   }): Promise<OAuthSession> {
     return await prisma.oAuthSession.create({
@@ -819,7 +822,7 @@ class PrismaDatabase {
   static async createSessionMapping(sessionData: {
     sessionId: string;
     discordId: string;
-    platform: 'AUDIUS' | 'SPOTIFY';
+    platform: 'SPOTIFY';
     expiresAt: Date;
   }): Promise<OAuthSession> {
     return await prisma.oAuthSession.create({
@@ -1025,6 +1028,81 @@ class PrismaDatabase {
   // Utility methods
   static async disconnect(): Promise<void> {
     await prisma.$disconnect();
+  }
+
+  // Helper to update Discord username when missing
+  static async ensureDiscordUsername(discordId: string, username: string): Promise<void> {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { discord_id: discordId }
+      });
+
+      if (user && !user.discord_username) {
+        await prisma.user.update({
+          where: { discord_id: discordId },
+          data: { discord_username: username }
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to update Discord username:', error);
+    }
+  }
+
+  // Leaderboard methods
+  static async getTopUsersByRaids(limit: number = 10): Promise<any[]> {
+    return await prisma.user.findMany({
+      where: {
+        total_raids_participated: { gt: 0 }
+      },
+      orderBy: [
+        { total_raids_participated: 'desc' },
+        { tokens_balance: 'desc' }
+      ],
+      take: limit
+    });
+  }
+
+  static async getRecentWinners(limit: number = 10): Promise<any[]> {
+    return await prisma.raidParticipant.findMany({
+      where: {
+        qualified: true,
+        qualified_at: { not: null }
+      },
+      include: {
+        user: true,
+        raid: true
+      },
+      orderBy: { qualified_at: 'desc' },
+      take: limit
+    });
+  }
+
+  static async getUserRankByRaids(discordId: string): Promise<any> {
+    const user = await prisma.user.findUnique({
+      where: { discord_id: discordId }
+    });
+
+    if (!user || user.total_raids_participated === 0) {
+      return null;
+    }
+
+    const usersWithMoreRaids = await prisma.user.count({
+      where: {
+        total_raids_participated: { gt: user.total_raids_participated }
+      }
+    });
+
+    const totalUsers = await prisma.user.count({
+      where: {
+        total_raids_participated: { gt: 0 }
+      }
+    });
+
+    return {
+      user,
+      rank: usersWithMoreRaids + 1,
+      totalUsers
+    };
   }
 
   // Raw query method for backwards compatibility during transition

@@ -4,7 +4,6 @@
 
 import { Router } from 'express';
 import RateLimiter from '../middleware/rateLimiter';
-// Removed Audius service - Spotify only
 import PrismaDatabase from '../database/prisma';
 import DMService from '../services/dmService';
 import config from '../config/environment';
@@ -53,7 +52,6 @@ router.get('/spotify/callback', async (req, res): Promise<void> => {
   }
 });
 
-// Removed Audius OAuth callback - Spotify only
 
 router.get('/status', (req, res) => {
   res.json({ 

@@ -30,7 +30,7 @@ import SpotifyAuthService from './services/spotify/SpotifyAuthService';
 import SpotifyApiService from './services/spotify/SpotifyApiService';
 import config from './config/environment';
 
-class AudiusBot {
+class SpotifyBot {
   public client: Client;
   private oauthServer: OAuthServer;
   private raidMonitor: RaidMonitor;
@@ -67,7 +67,7 @@ class AudiusBot {
       this.oauthServer.start();
       this.raidMonitor.start();
       
-      console.log('🎵 Audius Discord Bot fully operational!');
+      console.log('🎵 Spotify Discord Bot fully operational!');
     });
 
     this.client.on('error', (error: Error) => {
@@ -159,12 +159,6 @@ class AudiusBot {
         await this.handleJoinRaid(interaction);
       } else if (customId.startsWith('claim_reward_')) {
         await this.handleClaimReward(interaction);
-      } else if (customId.startsWith('followers_')) {
-        await this.handleFollowers(interaction);
-      } else if (customId.startsWith('following_')) {
-        await this.handleFollowing(interaction);
-      } else if (customId.startsWith('wallets_')) {
-        await this.handleWallets(interaction);
       } else if (customId === 'logout_account') {
         await this.handleLogout(interaction);
       } else if (customId === 'login_spotify') {
@@ -419,12 +413,12 @@ class AudiusBot {
       return;
     }
 
-    // Check if user is linked to Audius
+    // Check if user is linked to Spotify
     const user = await PrismaDatabase.getUser(userId);
     if (!user || !user.spotify_user_id) {
       const embed = EmbedBuilder.createErrorEmbed(
         'Account Not Linked',
-        'You need to link your Audius account to claim rewards!\n\nUse `/login` to connect your account.'
+        'You need to link your Spotify account to claim rewards!\n\nUse `/login` to connect your account.'
       );
       
       await interaction.editReply({ embeds: [embed] });
@@ -520,172 +514,8 @@ class AudiusBot {
     }
   }
 
-  private async handleFollowers(interaction: ButtonInteraction): Promise<any> {
-    await interaction.deferReply({ ephemeral: true });
 
-    const audiusUserId = interaction.customId.split('_')[1];
-    const AudiusService = require('./services/audiusService');
 
-    try {
-      const followers = await AudiusService.getFollowers(audiusUserId, 10);
-      
-      if (!followers || followers.length === 0) {
-        await interaction.editReply({
-          embeds: [EmbedBuilder.createInfoEmbed('No Followers', 'This user has no followers yet.')]
-        });
-        return;
-      }
-
-      const embed = {
-        title: '👥 Recent Followers',
-        color: 0x8B5DFF,
-        description: `Showing ${followers.length} recent followers:`,
-        fields: followers.map((follower: any, index: number) => ({
-          name: `${index + 1}. ${follower.name}`,
-          value: `@${follower.handle} • ${follower.followerCount} followers`,
-          inline: false
-        })),
-        timestamp: new Date().toISOString()
-      };
-
-      await interaction.editReply({ embeds: [embed] });
-    } catch (error) {
-      console.error('Error fetching followers:', error);
-      await interaction.editReply({
-        embeds: [EmbedBuilder.createErrorEmbed('Error', 'Failed to fetch followers. Please try again.')]
-      });
-    }
-  }
-
-  private async handleFollowing(interaction: ButtonInteraction): Promise<any> {
-    await interaction.deferReply({ ephemeral: true });
-
-    const audiusUserId = interaction.customId.split('_')[1];
-    const AudiusService = require('./services/audiusService');
-
-    try {
-      const following = await AudiusService.getFollowing(audiusUserId, 10);
-      
-      if (!following || following.length === 0) {
-        await interaction.editReply({
-          embeds: [EmbedBuilder.createInfoEmbed('Not Following Anyone', 'This user is not following anyone yet.')]
-        });
-        return;
-      }
-
-      const embed = {
-        title: '👤 Following',
-        color: 0x8B5DFF,
-        description: `Showing ${following.length} accounts being followed:`,
-        fields: following.map((user: any, index: number) => ({
-          name: `${index + 1}. ${user.name}`,
-          value: `@${user.handle} • ${user.followerCount} followers`,
-          inline: false
-        })),
-        timestamp: new Date().toISOString()
-      };
-
-      await interaction.editReply({ embeds: [embed] });
-    } catch (error) {
-      console.error('Error fetching following:', error);
-      await interaction.editReply({
-        embeds: [EmbedBuilder.createErrorEmbed('Error', 'Failed to fetch following list. Please try again.')]
-      });
-    }
-  }
-
-  private async handleWallets(interaction: ButtonInteraction): Promise<any> {
-    await interaction.deferReply({ ephemeral: true });
-
-    const audiusUserId = interaction.customId.split('_')[1];
-    
-    // SECURITY FIX: Only allow viewing own wallet data
-    const requestingUser = await PrismaDatabase.getUser(interaction.user.id);
-    if (!requestingUser || requestingUser.spotify_user_id !== audiusUserId) {
-      const embed = EmbedBuilder.createErrorEmbed(
-        'Access Denied',
-        'You can only view your own wallet information.'
-      );
-      await interaction.editReply({ embeds: [embed] });
-      return;
-    }
-
-    const WalletService = require('./services/wallet');
-    const AudiusService = require('./services/audiusService');
-    const jupiterApi = require('./services/jupiterApi');
-
-    try {
-      const walletService = new WalletService();
-      
-      // Get Discord bot crypto wallet
-      const cryptoWallet = await walletService.createOrGetWallet(interaction.user.id, false);
-      const balances = await walletService.getWalletBalances(cryptoWallet.publicKey);
-      
-      // Get Audius connected wallets
-      let audiusWallets = null;
-      try {
-        audiusWallets = await AudiusService.getConnectedWallets(audiusUserId);
-      } catch (audiusError: any) {
-        console.warn('Error fetching Audius wallets:', audiusError.message);
-      }
-
-      // Calculate total SOL equivalent
-      const solPrice = await jupiterApi.getTokenPrice('So11111111111111111111111111111111111111112');
-      let totalSOLEquivalent = balances.sol;
-      
-      for (const token of balances.tokens) {
-        const tokenPrice = await jupiterApi.getTokenPrice(token.mint);
-        if (tokenPrice && solPrice) {
-          const tokenValueSOL = (token.amount * tokenPrice) / solPrice;
-          totalSOLEquivalent += tokenValueSOL;
-        }
-      }
-
-      const embed = {
-        title: '💰 Your Wallets',
-        color: 0x8B5DFF,
-        fields: [
-          {
-            name: '🤖 Discord Bot Crypto Wallet',
-            value: `**Address:** \`${cryptoWallet.publicKey}\`\n**Balance:** ${totalSOLEquivalent.toFixed(4)} SOL equivalent\n**Tokens:** ${balances.tokens.length} different tokens\n\n*Use \`/wallet\` for detailed balance*`,
-            inline: false
-          }
-        ],
-        timestamp: new Date().toISOString()
-      };
-
-      // Add Audius connected wallets if available
-      if (audiusWallets) {
-        if (audiusWallets.ercWallets && audiusWallets.ercWallets.length > 0) {
-          embed.fields.push({
-            name: '🔷 Audius Connected - Ethereum',
-            value: audiusWallets.ercWallets.map((wallet: string) => `\`${wallet.slice(0, 6)}...${wallet.slice(-4)}\``).join('\n'),
-            inline: true
-          });
-        }
-
-        if (audiusWallets.splWallets && audiusWallets.splWallets.length > 0) {
-          embed.fields.push({
-            name: '🟡 Audius Connected - Solana',
-            value: audiusWallets.splWallets.map((wallet: string) => `\`${wallet.slice(0, 6)}...${wallet.slice(-4)}\``).join('\n'),
-            inline: true
-          });
-        }
-      }
-
-      await interaction.editReply({ embeds: [embed] });
-      
-    } catch (error) {
-      console.error('Error fetching wallets:', error);
-      
-      const embed = EmbedBuilder.createErrorEmbed(
-        'Error Loading Wallets',
-        'There was an error loading wallet data. Please try again.'
-      );
-      
-      await interaction.editReply({ embeds: [embed] });
-    }
-  }
 
   private async handleLogout(interaction: ButtonInteraction): Promise<any> {
     await interaction.deferReply({ ephemeral: true });
@@ -697,7 +527,7 @@ class AudiusBot {
       if (!user || !user.spotify_user_id) {
         const embed = EmbedBuilder.createErrorEmbed(
           'Not Logged In',
-          'You don\'t have an Audius account connected to logout from.'
+          'You don\'t have a Spotify account connected to logout from.'
         );
         await interaction.editReply({ embeds: [embed] });
       return;
@@ -709,14 +539,14 @@ class AudiusBot {
       // Send confirmation
       const embed = EmbedBuilder.createSuccessEmbed(
         'Successfully Logged Out',
-        `Your Audius account **@${user.spotify_display_name}** has been disconnected from Discord.\n\n` +
+        `Your Spotify account **@${user.spotify_display_name}** has been disconnected from Discord.\n\n` +
         `**Note:** Your raid tokens (${user.tokens_balance || 0}) have been reset.\n\n` +
-        `Use \`/login\` anytime to connect a new Audius account.`
+        `Use \`/login\` anytime to connect a new Spotify account.`
       );
 
       await interaction.editReply({ embeds: [embed] });
 
-      console.log(`🚪 User ${interaction.user.tag} (${interaction.user.id}) logged out from Audius account @${user.spotify_display_name}`);
+      console.log(`🚪 User ${interaction.user.tag} (${interaction.user.id}) logged out from Spotify account @${user.spotify_display_name}`);
 
     } catch (error) {
       console.error('Error handling logout:', error);
@@ -849,45 +679,6 @@ class AudiusBot {
     }
   }
 
-  private async handleAudiusLogout(interaction: ButtonInteraction): Promise<void> {
-    await interaction.deferReply({ ephemeral: true });
-
-    try {
-      const user = await PrismaDatabase.getUser(interaction.user.id);
-      
-      if (!user || !user.spotify_user_id) {
-        const embed = EmbedBuilder.createErrorEmbed(
-          'Not Connected',
-          'You don\'t have an Audius account connected.'
-        );
-        await interaction.editReply({ embeds: [embed] });
-        return;
-      }
-
-      await PrismaDatabase.deleteUser(interaction.user.id);
-
-      const embed = EmbedBuilder.createSuccessEmbed(
-        'Audius Disconnected',
-        `🎵 **Audius account disconnected**\n\n` +
-        `Your account **@${user.spotify_display_name}** has been disconnected.\n` +
-        `${user.spotify_user_id ? '\n✅ Your Spotify account remains connected.' : ''}\n\n` +
-        `Use \`/login\` to reconnect if needed.`
-      );
-
-      await interaction.editReply({ embeds: [embed] });
-      
-      console.log(`🚪 ${interaction.user.tag} logged out from Audius (@${user.spotify_display_name})`);
-    } catch (error) {
-      console.error('Error handling Audius logout:', error);
-      
-      const embed = EmbedBuilder.createErrorEmbed(
-        'Logout Error',
-        'There was an error logging you out from Audius. Please try again.'
-      );
-      
-      await interaction.editReply({ embeds: [embed] });
-    }
-  }
 
   private async handleSpotifyLogout(interaction: ButtonInteraction): Promise<void> {
     await interaction.deferReply({ ephemeral: true });
@@ -910,7 +701,7 @@ class AudiusBot {
         'Spotify Disconnected',
         `🎶 **Spotify account disconnected**\n\n` +
         `Your account **${user.spotify_display_name}** has been disconnected.\n` +
-        `${user.spotify_user_id ? '\n✅ Your Audius account remains connected.' : ''}\n\n` +
+        '\n\n' +
         `Use \`/login\` to reconnect if needed.`
       );
 
@@ -949,7 +740,6 @@ class AudiusBot {
       const embed = EmbedBuilder.createSuccessEmbed(
         'All Accounts Disconnected',
         `🚪 **All music accounts disconnected**\n\n` +
-        `${user.spotify_user_id ? `🎵 Audius: @${user.spotify_display_name}\n` : ''}` +
         `${user.spotify_user_id ? `🎶 Spotify: ${user.spotify_display_name}\n` : ''}` +
         `\n**Your raid history and tokens remain saved.**\n\n` +
         `Use \`/login\` to reconnect your accounts anytime.`
@@ -1067,7 +857,6 @@ class AudiusBot {
     }
   }
 
-  // Removed Audius OAuth success DM - Spotify only
 
 
 
@@ -1160,7 +949,9 @@ class AudiusBot {
       // Auto-delete the message after 5 minutes for security
       setTimeout(async () => {
         try {
-          await message.delete();
+          if (message.deletable) {
+            await message.delete();
+          }
         } catch (deleteError) {
           console.warn('Failed to auto-delete private key message:', deleteError);
         }
@@ -1246,7 +1037,6 @@ class AudiusBot {
         `**Discord:** ${interaction.user.tag}\n` +
         `**Role:** ${role}\n\n` +
         `**Connected Platforms:**\n` +
-        `🎵 **Audius:** ${user.spotify_display_name ? `@${user.spotify_display_name}` : '❌ Not connected'}\n` +
         `🎶 **Spotify:** ${user.spotify_display_name || '❌ Not connected'} ${user.spotify_is_premium ? '👑' : user.spotify_display_name ? '🆓' : ''}\n\n` +
         `**Raid Statistics:**\n` +
         `🎯 **Raids Participated:** ${user.total_raids_participated}\n` +
@@ -1390,8 +1180,8 @@ declare module 'discord.js' {
 
 // Start the bot if this file is run directly
 if (require.main === module) {
-  const bot = new AudiusBot();
+  const bot = new SpotifyBot();
   bot.start();
 }
 
-export default AudiusBot;
+export default SpotifyBot;

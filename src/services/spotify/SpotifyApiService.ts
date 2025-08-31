@@ -117,7 +117,10 @@ class SpotifyApiService {
         }
       });
 
+      console.log(`🔍 Spotify API response for user ${discordId}: status=${response.status}`);
+
       if (response.status === 204) {
+        console.log(`🎵 User ${discordId} not playing anything (204 No Content)`);
         return null; // No content - user not playing anything
       }
 
@@ -152,6 +155,7 @@ class SpotifyApiService {
       const currentlyPlaying = await this.getCurrentlyPlaying(discordId);
       
       if (!currentlyPlaying || !currentlyPlaying.item || !currentlyPlaying.is_playing) {
+        console.log(`🎵 User ${discordId} not playing or no track info available`);
         return { isPlaying: false };
       }
 
@@ -160,6 +164,8 @@ class SpotifyApiService {
       const isOriginalTrack = currentTrackId === trackId;
       const isLinkedTrack = linkedTrackId && currentTrackId === linkedTrackId;
       const isMatch = isOriginalTrack || isLinkedTrack;
+      
+      console.log(`🎵 User ${discordId} playing: ${currentlyPlaying.item.name} (${currentTrackId}) - Match: ${isMatch} (target: ${trackId})`);
       
       return {
         isPlaying: Boolean(isMatch),
@@ -342,6 +348,13 @@ class SpotifyApiService {
   private async ensureClientCredentials(): Promise<void> {
     try {
       if (!this.spotifyApi.getAccessToken()) {
+        // Debug: Log client configuration (safely)
+        console.log('🔍 Spotify API client config:', {
+          hasClientId: !!this.spotifyApi.getClientId(),
+          hasClientSecret: !!this.spotifyApi.getClientSecret(),
+          clientIdLength: this.spotifyApi.getClientId()?.length || 0
+        });
+        
         const clientCredentials = await this.spotifyApi.clientCredentialsGrant();
         this.spotifyApi.setAccessToken(clientCredentials.body.access_token);
         
@@ -352,6 +365,8 @@ class SpotifyApiService {
       }
     } catch (error: any) {
       console.error('Failed to get client credentials:', error);
+      console.error('Client ID exists:', !!this.spotifyApi.getClientId());
+      console.error('Client Secret exists:', !!this.spotifyApi.getClientSecret());
       throw new Error('Failed to authenticate with Spotify API');
     }
   }
