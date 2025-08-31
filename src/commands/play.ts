@@ -247,67 +247,54 @@ const playCommand: Command = {
         return;
       }
 
-      // Get enhanced track metadata for better raid display
+      // Get enhanced Spotify track metadata
       let enhancedMetadata: any = {};
-      if (platform === 'AUDIUS') {
-        try {
-          const { default: AudiusService } = await import('../services/audiusService');
-          const audiusService = new AudiusService();
-          const enhanced = await audiusService.getEnhancedTrackData(trackInfo.id);
-          if (enhanced) {
-            enhancedMetadata = enhanced;
-          }
-        } catch (error) {
-          console.log('Using basic track info for Audius raid');
-        }
-      } else if (platform === 'SPOTIFY') {
-        try {
-          // Initialize Spotify services
-          const spotifyAuthService = new SpotifyAuthService({
-            clientId: config.spotify.clientId!,
-            clientSecret: config.spotify.clientSecret!,
-            redirectUri: config.spotify.redirectUri!
-          });
-          
-          const spotifyMetadataService = new SpotifyMetadataService(spotifyAuthService, {
-            clientId: config.spotify.clientId!,
-            clientSecret: config.spotify.clientSecret!,
-            redirectUri: config.spotify.redirectUri!
-          });
+      try {
+        // Initialize Spotify services
+        const spotifyAuthService = new SpotifyAuthService({
+          clientId: config.spotify.clientId!,
+          clientSecret: config.spotify.clientSecret!,
+          redirectUri: config.spotify.redirectUri!
+        });
+        
+        const spotifyMetadataService = new SpotifyMetadataService(spotifyAuthService, {
+          clientId: config.spotify.clientId!,
+          clientSecret: config.spotify.clientSecret!,
+          redirectUri: config.spotify.redirectUri!
+        });
 
-          // Get enhanced metadata with user context for market relinking
-          const metadata = await spotifyMetadataService.getEnhancedTrackMetadata(
-            trackInfo.id, 
-            interaction.user.id
-          );
+        // Get enhanced metadata with user context for market relinking
+        const metadata = await spotifyMetadataService.getEnhancedTrackMetadata(
+          trackInfo.id, 
+          interaction.user.id
+        );
 
-          enhancedMetadata = {
-            title: metadata.track.name,
-            artist: metadata.artistNames,
-            artwork: metadata.albumArtwork.large || metadata.albumArtwork.medium,
-            genre: 'Spotify Track',
-            verified: true,
-            duration: metadata.formattedDuration,
-            album: metadata.albumInfo.name,
-            releaseDate: metadata.albumInfo.releaseDate,
-            explicit: metadata.track.explicit,
-            isPlayable: metadata.isPlayable,
-            linkedTrackId: metadata.linkedTrackId,
-            spotifyUrl: metadata.track.external_urls.spotify,
-            fullMetadata: metadata
-          };
+        enhancedMetadata = {
+          title: metadata.track.name,
+          artist: metadata.artistNames,
+          artwork: metadata.albumArtwork.large || metadata.albumArtwork.medium,
+          genre: 'Spotify Track',
+          verified: true,
+          duration: metadata.formattedDuration,
+          album: metadata.albumInfo.name,
+          releaseDate: metadata.albumInfo.releaseDate,
+          explicit: metadata.track.explicit,
+          isPlayable: metadata.isPlayable,
+          linkedTrackId: metadata.linkedTrackId,
+          spotifyUrl: metadata.track.external_urls.spotify,
+          fullMetadata: metadata
+        };
 
-          console.log(`📊 Enhanced Spotify metadata loaded for ${trackInfo.id}`);
-        } catch (error) {
-          console.warn('Failed to get enhanced Spotify metadata, using basic info:', error);
-          enhancedMetadata = {
-            title: trackInfo.title,
-            artist: trackInfo.artist,
-            artwork: trackInfo.artwork_url,
-            genre: 'Spotify Track',
-            verified: false
-          };
-        }
+        console.log(`📊 Enhanced Spotify metadata loaded for ${trackInfo.id}`);
+      } catch (error) {
+        console.warn('Failed to get enhanced Spotify metadata, using basic info:', error);
+        enhancedMetadata = {
+          title: trackInfo.title,
+          artist: trackInfo.artist,
+          artwork: trackInfo.artwork_url,
+          genre: 'Spotify Track',
+          verified: false
+        };
       }
 
       // Create the raid in database with enhanced metadata
@@ -317,7 +304,7 @@ const playCommand: Command = {
         trackTitle: enhancedMetadata.title || trackInfo.title,
         trackArtist: enhancedMetadata.artist || trackInfo.artist,
         trackArtworkUrl: enhancedMetadata.artwork || trackInfo.artwork_url,
-        platform,
+        platform: 'SPOTIFY',
         premiumOnly,
         requiredListenTime: requiredTime,
         streamsGoal: goal,
@@ -341,7 +328,7 @@ const playCommand: Command = {
         ...raid,
         current_streams: 0, // New raid starts with 0 streams
         streams_goal: goal,
-        platform: platform,
+        platform: 'SPOTIFY',
         reward_amount: reward,
         required_listen_time: requiredTime,
         duration_minutes: duration,
@@ -390,23 +377,14 @@ const playCommand: Command = {
 
       const buttons = [joinButton];
 
-      // Add Spotify-specific buttons
-      if (platform === 'SPOTIFY') {
-        // Open in Spotify button (for all users)
-        buttons.push(
-          new ButtonBuilder()
-            .setLabel('Open in Spotify')
-            .setStyle(ButtonStyle.Link)
-            .setURL(`https://open.spotify.com/track/${trackInfo.id}`)
-            .setEmoji('🎶')
-        );
-
-        // Premium-only features notification in embed
-        if (premiumOnly) {
-          // Add premium badge to embed description or footer
-          // This will be handled in the embed builder
-        }
-      }
+      // Add Spotify buttons (always available since we're Spotify-only)
+      buttons.push(
+        new ButtonBuilder()
+          .setLabel('Open in Spotify')
+          .setStyle(ButtonStyle.Link)
+          .setURL(`https://open.spotify.com/track/${trackInfo.id}`)
+          .setEmoji('🎶')
+      );
 
       const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons);
 

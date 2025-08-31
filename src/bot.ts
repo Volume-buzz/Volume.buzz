@@ -167,16 +167,10 @@ class AudiusBot {
         await this.handleWallets(interaction);
       } else if (customId === 'logout_account') {
         await this.handleLogout(interaction);
-      } else if (customId === 'login_audius') {
-        await this.handleAudiusLogin(interaction);
       } else if (customId === 'login_spotify') {
         await this.handleSpotifyLogin(interaction);
-      } else if (customId === 'logout_audius') {
-        await this.handleAudiusLogout(interaction);
       } else if (customId === 'logout_spotify') {
         await this.handleSpotifyLogout(interaction);
-      } else if (customId === 'logout_both') {
-        await this.handleLogoutBoth(interaction);
       } else if (customId === 'export_private_key') {
         await this.handleExportPrivateKey(interaction);
       } else if (customId === 'view_transactions') {
@@ -250,37 +244,26 @@ class AudiusBot {
       return;
     }
 
-    // Platform-specific authentication checks
-    if (raid.platform === 'SPOTIFY') {
-      if (!user.spotify_user_id) {
-        const embed = EmbedBuilder.createErrorEmbed(
-          'Spotify Account Required',
-          'This is a Spotify raid! You need to connect your Spotify account first.\n\nUse `/login` to connect your Spotify account.'
-        );
-        await interaction.editReply({ embeds: [embed] });
-        return;
-      }
+    // Spotify authentication check (all raids are Spotify-only now)
+    if (!user.spotify_user_id) {
+      const embed = EmbedBuilder.createErrorEmbed(
+        'Spotify Account Required',
+        'You need to connect your Spotify account first.\n\nUse `/login` to connect your Spotify account.'
+      );
+      await interaction.editReply({ embeds: [embed] });
+      return;
+    }
 
-      // Check premium requirement for Spotify raids
-      if (raid.premium_only && !user.spotify_is_premium) {
-        const embed = EmbedBuilder.createErrorEmbed(
-          'Spotify Premium Required',
-          '🔒 **This raid requires Spotify Premium**\n\n' +
-          'Premium-only raids offer enhanced tracking with embedded players.\n\n' +
-          'Upgrade to Spotify Premium or wait for non-premium raids!'
-        );
-        await interaction.editReply({ embeds: [embed] });
-        return;
-      }
-    } else if (raid.platform === 'AUDIUS') {
-      if (!user.audius_user_id) {
-        const embed = EmbedBuilder.createErrorEmbed(
-          'Audius Account Required',
-          'This is an Audius raid! You need to connect your Audius account first.\n\nUse `/login` to connect your Audius account.'
-        );
-        await interaction.editReply({ embeds: [embed] });
-        return;
-      }
+    // Check premium requirement for premium-only raids
+    if (raid.premium_only && !user.spotify_is_premium) {
+      const embed = EmbedBuilder.createErrorEmbed(
+        'Spotify Premium Required',
+        '🔒 **This raid requires Spotify Premium**\n\n' +
+        'Premium-only raids offer enhanced tracking with embedded players.\n\n' +
+        'Upgrade to Spotify Premium or wait for non-premium raids!'
+      );
+      await interaction.editReply({ embeds: [embed] });
+      return;
     }
 
     // Continue with existing raid validation logic
@@ -340,8 +323,8 @@ class AudiusBot {
       return;
     }
 
-    // Add user as participant with platform-specific user ID
-    const platformUserId = raid.platform === 'SPOTIFY' ? user.spotify_user_id : user.audius_user_id;
+    // Add user as participant with Spotify user ID
+    const platformUserId = user.spotify_user_id;
     await PrismaDatabase.addRaidParticipant(raidId, userId, platformUserId || undefined);
 
     // Update user's raid participation count
@@ -350,13 +333,13 @@ class AudiusBot {
     // Start platform-specific tracking
     await this.raidMonitor.addParticipant(userId, raidId, platformUserId || undefined);
 
-    // Platform-specific messages
-    const platformIcon = raid.platform === 'SPOTIFY' ? '🎶' : '🎵';
-    const platformName = raid.platform === 'SPOTIFY' ? 'Spotify' : 'Audius';
+    // Spotify-only messages
+    const platformIcon = '🎶';
+    const platformName = 'Spotify';
     
     let trackingMessage = `🎧 **Raid Joined!**\nStart playing the track on **${platformName}** now! Your progress will be tracked once you begin listening.\n\n⏱️ **You have 20 seconds to start listening, or you'll be removed from the raid.**`;
     
-    if (raid.platform === 'SPOTIFY' && raid.premium_only && user.spotify_is_premium) {
+    if (raid.premium_only && user.spotify_is_premium) {
       trackingMessage += '\n\n👑 **Premium Mode:** Enhanced tracking with embedded player available!';
     }
 
@@ -371,47 +354,45 @@ class AudiusBot {
       `I'll send you DMs to track your progress!`
     );
 
-    // Create action buttons for Spotify raids
+    // Create action buttons for Spotify raids (always available since Spotify-only)
     const actionRows: any[] = [];
-    if (raid.platform === 'SPOTIFY') {
-      const buttons: ButtonBuilder[] = [];
+    const buttons: ButtonBuilder[] = [];
 
-      // Open in Spotify button (for all users)
+    // Open in Spotify button (for all users)
+    buttons.push(
+      new ButtonBuilder()
+        .setLabel('Open in Spotify')
+        .setStyle(ButtonStyle.Link)
+        .setURL(`https://open.spotify.com/track/${raid.track_id}`)
+        .setEmoji('🎶')
+    );
+
+    // Premium-only features
+    if (user.spotify_is_premium) {
+      // Add to Queue button
       buttons.push(
         new ButtonBuilder()
-          .setLabel('Open in Spotify')
-          .setStyle(ButtonStyle.Link)
-          .setURL(`https://open.spotify.com/track/${raid.track_id}`)
-          .setEmoji('🎶')
+          .setCustomId(`spotify_queue_${raidId}_${userId}`)
+          .setLabel('Add to Queue')
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji('➕')
       );
 
-      // Premium-only features
-      if (user.spotify_is_premium) {
-        // Add to Queue button
+      // Open Player button (if premium-only raid)
+      if (raid.premium_only) {
         buttons.push(
           new ButtonBuilder()
-            .setCustomId(`spotify_queue_${raidId}_${userId}`)
-            .setLabel('Add to Queue')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji('➕')
+            .setLabel('Open Player')
+            .setStyle(ButtonStyle.Link)
+            .setURL(`${process.env.BASE_URL || 'http://localhost:3000'}/player/${userId}/${raidId}/${raid.track_id}`)
+            .setEmoji('🎮')
         );
-
-        // Open Player button (if premium-only raid)
-        if (raid.premium_only) {
-          buttons.push(
-            new ButtonBuilder()
-              .setLabel('Open Player')
-              .setStyle(ButtonStyle.Link)
-              .setURL(`${process.env.BASE_URL || 'http://localhost:3000'}/player/${userId}/${raidId}/${raid.track_id}`)
-              .setEmoji('🎮')
-          );
-        }
       }
+    }
 
-      if (buttons.length > 0) {
-        const actionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons);
-        actionRows.push(actionRow);
-      }
+    if (buttons.length > 0) {
+      const actionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons);
+      actionRows.push(actionRow);
     }
 
     const replyOptions: any = { embeds: [embed] };
@@ -749,33 +730,38 @@ class AudiusBot {
     }
   }
 
-  private async handleAudiusLogin(interaction: ButtonInteraction): Promise<void> {
+  // Removed Audius login - Spotify only
+
+  private async handleSpotifyLogin(interaction: ButtonInteraction): Promise<void> {
     await interaction.deferReply({ ephemeral: true });
 
     try {
-      const authUrl = await this.oauthServer.generateAuthUrl(interaction.user.id, 'AUDIUS');
+      const authUrl = await this.oauthServer.generateAuthUrl(interaction.user.id, 'SPOTIFY');
       
       const embed = EmbedBuilder.createSuccessEmbed(
-        'Audius Login',
-        `🎵 **Click the link below to connect your Audius account:**\n\n` +
-        `[🔐 **Connect Audius Account**](${authUrl})\n\n` +
+        'Spotify Login',
+        `🎶 **Click the link below to connect your Spotify account:**\n\n` +
+        `[🔐 **Connect Spotify Account**](${authUrl})\n\n` +
         `**What happens next:**\n` +
-        `1. You'll be redirected to Audius\n` +
+        `1. You'll be redirected to Spotify\n` +
         `2. Authorize the Discord bot\n` +
         `3. You'll be redirected back (you can close that tab)\n` +
-        `4. Start participating in Audius raids!\n\n` +
+        `4. Start participating in Spotify raids!\n\n` +
+        `**Account Types:**\n` +
+        `👑 **Premium** - Enhanced tracking + embedded player\n` +
+        `🆓 **Free** - Basic tracking via Currently Playing API\n\n` +
         `*This link expires in 10 minutes.*`
       );
 
       await interaction.editReply({ embeds: [embed] });
       
-      console.log(`🔗 Generated Audius OAuth URL for ${interaction.user.tag}`);
+      console.log(`🔗 Generated Spotify OAuth URL for ${interaction.user.tag}`);
     } catch (error) {
-      console.error('Error generating Audius auth URL:', error);
+      console.error('Error generating Spotify auth URL:', error);
       
       const embed = EmbedBuilder.createErrorEmbed(
         'Login Error',
-        'Failed to generate Audius login URL. Please try again.'
+        'Failed to generate Spotify login URL. Please try again.'
       );
       
       await interaction.editReply({ embeds: [embed] });

@@ -10,9 +10,6 @@ datasource db {
 model User {
   id                       String? @default(uuid()) @map("id")
   discord_id               String  @id @map("discord_id")
-  audius_user_id          String? @map("audius_user_id")
-  audius_handle           String? @map("audius_handle")
-  audius_name             String? @map("audius_name")
   spotify_user_id         String? @map("spotify_user_id")
   spotify_display_name    String? @map("spotify_display_name")
   spotify_email           String? @map("spotify_email")
@@ -62,7 +59,7 @@ model Raid {
   track_title             String?   @map("track_title")
   track_artist            String?   @map("track_artist")
   track_artwork_url       String?   @map("track_artwork_url")
-  platform                Platform  @default(AUDIUS) @map("platform")
+  platform                Platform  @default(SPOTIFY) @map("platform")
   premium_only            Boolean   @default(false) @map("premium_only")
   required_listen_time    Int       @default(30) @map("required_listen_time")
   streams_goal            Int       @map("streams_goal")
@@ -101,7 +98,6 @@ model Raid {
 }
 
 enum Platform {
-  AUDIUS
   SPOTIFY
 }
 
@@ -116,7 +112,6 @@ model RaidParticipant {
   id                   Int       @id @default(autoincrement())
   raid_id              Int?      @map("raid_id")
   discord_id           String    @map("discord_id")
-  audius_user_id      String?   @map("audius_user_id")
   listen_start_time   DateTime? @map("listen_start_time")
   total_listen_duration Int      @default(0) @map("total_listen_duration")
   qualified           Boolean   @default(false) @map("qualified")
@@ -145,7 +140,7 @@ model RaidParticipant {
 model OAuthSession {
   state      String   @id @map("state")
   discord_id String   @map("discord_id")
-  platform   Platform @default(AUDIUS) @map("platform")
+  platform   Platform @default(SPOTIFY) @map("platform")
   expires_at DateTime @map("expires_at")
   created_at DateTime @default(now()) @map("created_at")
 

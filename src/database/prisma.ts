@@ -74,20 +74,7 @@ class PrismaDatabase {
 
   static async deleteUser(discordId: string): Promise<User> {
     // Instead of deleting the user (which would break foreign key constraints),
-    // we clear their Audius account data while preserving their raid history
-    return await prisma.user.update({
-      where: { discord_id: discordId },
-      data: {
-        audius_user_id: null,
-        audius_handle: null,
-        audius_name: null,
-        last_updated: new Date()
-      }
-    });
-  }
-
-  static async deleteSpotifyAccount(discordId: string): Promise<User> {
-    // Clear Spotify account data while preserving other data
+    // we clear their Spotify account data while preserving their raid history
     return await prisma.user.update({
       where: { discord_id: discordId },
       data: {
@@ -98,30 +85,15 @@ class PrismaDatabase {
         spotify_access_token: null,
         spotify_refresh_token: null,
         spotify_token_expires_at: null,
+        spotify_scope: null,
+        spotify_product: null,
+        spotify_country: null,
         last_updated: new Date()
       }
     });
   }
 
-  static async deleteAllAccounts(discordId: string): Promise<User> {
-    // Clear both Audius and Spotify account data
-    return await prisma.user.update({
-      where: { discord_id: discordId },
-      data: {
-        audius_user_id: null,
-        audius_handle: null,
-        audius_name: null,
-        spotify_user_id: null,
-        spotify_display_name: null,
-        spotify_email: null,
-        spotify_is_premium: false,
-        spotify_access_token: null,
-        spotify_refresh_token: null,
-        spotify_token_expires_at: null,
-        last_updated: new Date()
-      }
-    });
-  }
+
 
   static async updateUserRaidParticipation(discordId: string): Promise<User> {
     return await prisma.user.update({
@@ -184,9 +156,6 @@ class PrismaDatabase {
   }
 
   static async updateUser(discordId: string, updates: {
-    audiusUserId?: string;
-    audiusHandle?: string;
-    audiusName?: string;
     spotifyUserId?: string;
     spotifyDisplayName?: string;
     spotifyEmail?: string;
@@ -197,13 +166,11 @@ class PrismaDatabase {
     spotifyScope?: string;
     spotifyProduct?: string;
     spotifyCountry?: string;
+    discordUsername?: string;
   }): Promise<User | null> {
     try {
       const updateData: any = {};
       
-      if (updates.audiusUserId) updateData.audius_user_id = updates.audiusUserId;
-      if (updates.audiusHandle) updateData.audius_handle = updates.audiusHandle;
-      if (updates.audiusName) updateData.audius_name = updates.audiusName;
       if (updates.spotifyUserId) updateData.spotify_user_id = updates.spotifyUserId;
       if (updates.spotifyDisplayName) updateData.spotify_display_name = updates.spotifyDisplayName;
       if (updates.spotifyEmail) updateData.spotify_email = updates.spotifyEmail;
@@ -214,6 +181,7 @@ class PrismaDatabase {
       if (updates.spotifyScope !== undefined) updateData.spotify_scope = updates.spotifyScope;
       if (updates.spotifyProduct !== undefined) updateData.spotify_product = updates.spotifyProduct;
       if (updates.spotifyCountry !== undefined) updateData.spotify_country = updates.spotifyCountry;
+      if (updates.discordUsername) updateData.discord_username = updates.discordUsername;
 
       return await prisma.user.update({
         where: { discord_id: discordId },
@@ -407,7 +375,6 @@ class PrismaDatabase {
       create: {
         raid_id: parseInt(raidId.toString()),
         discord_id: discordId,
-        audius_user_id: platformUserId,
         listen_start_time: new Date(),
         last_check: new Date(),
         is_listening: true,
@@ -710,8 +677,6 @@ class PrismaDatabase {
       take: limit,
       select: {
         discord_id: true,
-        audius_handle: true,
-        audius_name: true,
         spotify_display_name: true,
         discord_username: true,
         tokens_balance: true,
@@ -747,8 +712,6 @@ class PrismaDatabase {
       include: {
         user: {
           select: {
-            audius_handle: true,
-            audius_name: true,
             spotify_display_name: true,
             discord_username: true
           }
