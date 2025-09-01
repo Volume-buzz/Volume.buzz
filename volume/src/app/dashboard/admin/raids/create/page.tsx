@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+// Create raid page - Coming soon
 
 export default function CreateRaidPage() {
   return (

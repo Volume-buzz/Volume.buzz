@@ -1,5 +1,4 @@
-import { cookies } from "next/headers";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { Sidebar, SidebarBody } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
@@ -27,29 +26,43 @@ export default async function DashboardLayout({
 
   // Get user info for sidebar (role-based navigation)
   let userRole = "FAN";
+  let userInfo = null;
   try {
     const me = await apiGet<MeResponse>("/api/users/me");
     userRole = me.role;
+    userInfo = me;
   } catch (error) {
     console.error("Failed to fetch user role:", error);
   }
 
-  const cookieStore = await cookies();
-  const defaultOpen = cookieStore.get("sidebar_state")?.value === "true";
-
   return (
-    <SidebarProvider defaultOpen={defaultOpen}>
-      <AppSidebar userRole={userRole} />
-      <main className="flex flex-1 flex-col transition-all duration-300 ease-in-out">
-        <header className="flex h-16 items-center gap-4 border-b bg-background px-6">
-          <SidebarTrigger />
-          <div className="flex-1" />
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Welcome back, {session.name}</span>
+    <div className="flex flex-col md:flex-row bg-gray-100 dark:bg-neutral-800 w-full flex-1 max-w-7xl mx-auto border border-neutral-200 dark:border-neutral-700 overflow-hidden h-screen">
+      <Sidebar open={false} setOpen={() => {}}>
+        <SidebarBody className="justify-between gap-10">
+          <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
+            <AppSidebar userRole={userRole} />
           </div>
-        </header>
-        <div className="flex-1 p-6">{children}</div>
-      </main>
-    </SidebarProvider>
+          <div className="px-4 pb-4">
+            <div className="flex items-center gap-2 text-sm">
+              {userInfo?.image && (
+                <img
+                  src={userInfo.image}
+                  alt="Avatar"
+                  className="h-7 w-7 rounded-full"
+                />
+              )}
+              <span className="text-neutral-700 dark:text-neutral-200">
+                {session.name}
+              </span>
+            </div>
+          </div>
+        </SidebarBody>
+      </Sidebar>
+      <div className="flex flex-1 overflow-hidden">
+        <div className="p-2 md:p-10 rounded-tl-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 flex flex-col gap-2 flex-1 w-full h-full overflow-y-auto">
+          {children}
+        </div>
+      </div>
+    </div>
   );
 }

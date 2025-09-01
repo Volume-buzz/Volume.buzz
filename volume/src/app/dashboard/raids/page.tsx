@@ -20,7 +20,7 @@ export default async function MyRaidsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-foreground">My Raids</h1>
-        <p className="text-muted-foreground">View all the raids you've participated in</p>
+        <p className="text-muted-foreground">View all the raids you&apos;ve participated in</p>
       </div>
       
       <div className="space-y-3">

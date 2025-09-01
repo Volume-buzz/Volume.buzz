@@ -1,78 +1,9 @@
 "use client";
 
-import * as React from "react";
-import { Home, Wallet, Music, History, Settings, Shield } from "lucide-react";
-
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
-} from "@/components/ui/sidebar";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-// Menu items
-const data = {
-  navMain: [
-    {
-      title: "Overview",
-      url: "/dashboard",
-      icon: Home,
-    },
-    {
-      title: "Raids",
-      url: "/dashboard/raids",
-      icon: Music,
-    },
-    {
-      title: "History", 
-      url: "/dashboard/history",
-      icon: History,
-    },
-    {
-      title: "Wallet",
-      url: "/dashboard/wallet", 
-      icon: Wallet,
-    },
-    {
-      title: "Spotify",
-      url: "/dashboard/spotify",
-      icon: Music,
-    },
-  ],
-  adminNav: [
-    {
-      title: "Admin",
-      url: "#",
-      icon: Shield,
-      isActive: true,
-      items: [
-        {
-          title: "Create Raid",
-          url: "/dashboard/admin/raids/create",
-        },
-        {
-          title: "Manage Tokens", 
-          url: "/dashboard/admin/tokens",
-        },
-        {
-          title: "Manage Users",
-          url: "/dashboard/admin/users",
-        },
-      ],
-    },
-  ],
-};
+import { cn } from "@/lib/utils";
+import { SidebarLink } from "@/components/ui/sidebar";
 
 interface AppSidebarProps {
   userRole?: string;
@@ -82,91 +13,86 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
   const pathname = usePathname();
   const isAdmin = userRole === "SUPER_ADMIN" || userRole === "ARTIST";
 
+  const links = [
+    {
+      label: "Overview",
+      href: "/dashboard",
+      icon: <i className="fas fa-tachometer-alt text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
+    },
+    {
+      label: "Raids",
+      href: "/dashboard/raids",
+      icon: <i className="fas fa-music text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
+    },
+    {
+      label: "History",
+      href: "/dashboard/history", 
+      icon: <i className="fas fa-history text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
+    },
+    {
+      label: "Wallet",
+      href: "/dashboard/wallet",
+      icon: <i className="fas fa-wallet text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
+    },
+    {
+      label: "Spotify",
+      href: "/dashboard/spotify",
+      icon: <i className="fab fa-spotify text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
+    },
+  ];
+
+  const adminLinks = [
+    {
+      label: "Admin",
+      href: "/dashboard/admin",
+      icon: <i className="fas fa-shield-alt text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
+    },
+    {
+      label: "Create Raid",
+      href: "/dashboard/admin/raids/create",
+      icon: <i className="fas fa-plus text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
+    },
+    {
+      label: "Manage Tokens",
+      href: "/dashboard/admin/tokens", 
+      icon: <i className="fas fa-coins text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
+    },
+    {
+      label: "Manage Users",
+      href: "/dashboard/admin/users",
+      icon: <i className="fas fa-users text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
+    },
+  ];
+
+  const settingsLink = {
+    label: "Settings",
+    href: "/dashboard/settings",
+    icon: <i className="fas fa-cog text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
+  };
+
+  const allLinks = [
+    ...links,
+    ...(isAdmin ? adminLinks : []),
+    settingsLink,
+  ];
+
   return (
-    <Sidebar>
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <Link href="/dashboard">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <Music className="size-4" />
-                </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Volume</span>
-                  <span className="truncate text-xs">Dashboard</span>
-                </div>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
+    <div className="py-4">
+      <div className="px-4 mb-8">
+        <Link href="/dashboard" className="flex items-center gap-2">
+          <i className="fas fa-music text-2xl text-primary" />
+          <div>
+            <div className="font-semibold text-neutral-800 dark:text-neutral-200">Volume</div>
+            <div className="text-xs text-neutral-600 dark:text-neutral-400">Dashboard</div>
+          </div>
+        </Link>
+      </div>
       
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {data.navMain.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={pathname === item.url}>
-                    <Link href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {isAdmin && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Admin</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {data.adminNav.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild>
-                      <Link href={item.url}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                    {item.items?.length ? (
-                      <SidebarMenuSub>
-                        {item.items.map((subItem) => (
-                          <SidebarMenuSubItem key={subItem.title}>
-                            <SidebarMenuSubButton asChild isActive={pathname === subItem.url}>
-                              <Link href={subItem.url}>
-                                <span>{subItem.title}</span>
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                      </SidebarMenuSub>
-                    ) : null}
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-      </SidebarContent>
-
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"}>
-              <Link href="/dashboard/settings">
-                <Settings />
-                <span>Settings</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
-    </Sidebar>
+      <div className="flex flex-col gap-2">
+        {allLinks.map((link, idx) => (
+          <SidebarLink key={idx} link={link} />
+        ))}
+      </div>
+    </div>
   );
 }

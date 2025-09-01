@@ -23,7 +23,7 @@ export default async function AdminPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Access Denied</h1>
-          <p className="text-muted-foreground">You don't have permission to access admin features.</p>
+          <p className="text-muted-foreground">You don&apos;t have permission to access admin features.</p>
         </div>
       </div>
     );

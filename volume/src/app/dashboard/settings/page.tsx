@@ -1,6 +1,7 @@
 import { apiGet } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import Image from "next/image";
 
 interface MeResponse {
   discord_id: string;
@@ -29,9 +30,11 @@ export default async function SettingsPage() {
           <div className="space-y-4">
             <div className="flex items-center gap-4">
               {me?.image && (
-                <img
+                <Image
                   src={me.image}
                   alt="Profile"
+                  width={64}
+                  height={64}
                   className="w-16 h-16 rounded-full"
                 />
               )}
