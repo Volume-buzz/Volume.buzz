@@ -85,7 +85,7 @@ export default {
         });
       }
 
-      embed.setThumbnail('https://i.imgur.com/zKBVcSH.gif');
+      embed.setImage('https://cdn.discordapp.com/attachments/1397288085779251272/1412025706258632765/raidcompleted_3_2.gif');
       embed.setFooter({ text: `Last Updated: ${new Date().toLocaleString()}` });
 
       await interaction.editReply({ embeds: [embed] });

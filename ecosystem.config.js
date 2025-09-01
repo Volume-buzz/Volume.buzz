@@ -1,9 +1,9 @@
 module.exports = {
   apps: [
     {
-      name: 'spotify-bot',
+      name: 'volume',
       script: 'dist/app.js',  // This starts BOTH bot and API server
-      cwd: '/root/audius',
+      cwd: '/root/volume',
       instances: 1,
       exec_mode: 'fork',
       env: {
@@ -43,7 +43,7 @@ module.exports = {
       user: 'root',
       host: 'localhost',
       ref: 'origin/main',
-      repo: 'git@github.com:your-repo/spotify-discord-bot.git',
+      repo: 'git@github.com:your-repo/volume.git',
       path: '/root/audius',
       'pre-deploy-local': '',
       'post-deploy': 'npm install && npm run build && pm2 reload ecosystem.config.js --env production',

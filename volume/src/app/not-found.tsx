@@ -3,7 +3,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { CanvasRevealEffect } from "@/components/blocks/sign-in-flow-1";
+import { CanvasRevealEffect } from "@/components/login/sign-in-flow-1";
 
 export default function NotFound() {
   return (

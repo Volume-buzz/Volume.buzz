@@ -154,3 +154,5 @@ spotify-docs/
 CLAUDE.md
 logs/
 nginx/
+ecosystem.config.js
+.cursor/

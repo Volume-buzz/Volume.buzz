@@ -52,6 +52,7 @@ const accountCommand: Command = {
         .setTitle('👤 Your Account')
         .setDescription(description)
         .setColor(0x1DB954)
+        .setThumbnail(interaction.user.displayAvatarURL({ size: 256 }))
         .addFields(
           {
             name: '🏆 Raid Statistics',

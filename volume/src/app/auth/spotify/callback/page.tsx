@@ -3,7 +3,7 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { motion } from "framer-motion";
 import { useSearchParams } from "next/navigation";
-import { CanvasRevealEffect } from "@/components/blocks/sign-in-flow-1";
+import { CanvasRevealEffect } from "@/components/login/sign-in-flow-1";
 
 interface CallbackState {
   status: 'loading' | 'success' | 'error';
@@ -41,14 +41,38 @@ function SpotifyCallbackContent() {
       return;
     }
 
-    // Simulate processing (in real implementation, this would call your bot's API)
-    setTimeout(() => {
-      setCallbackState({
-        status: 'success',
-        message: 'Successfully Connected to Spotify!',
-        details: 'Your Spotify account has been linked to your Discord account. You can now participate in music raids and earn rewards!'
-      });
-    }, 2000);
+    // Call the bot's OAuth handler
+    const handleOAuth = async () => {
+      try {
+        // Forward the OAuth callback to the bot's API
+        const response = await fetch(`/api/auth/spotify/callback?code=${code}&state=${state}`, {
+          method: 'GET',
+        });
+
+        if (response.ok) {
+          setCallbackState({
+            status: 'success',
+            message: 'Successfully Connected to Spotify!',
+            details: 'Your Spotify account has been linked to your Discord account. You can now participate in music raids and earn rewards!'
+          });
+        } else {
+          await response.text(); // Consume the response
+          setCallbackState({
+            status: 'error',
+            message: 'Connection Failed',
+            details: 'Failed to link your Spotify account. Please try again in Discord.'
+          });
+        }
+      } catch {
+        setCallbackState({
+          status: 'error',
+          message: 'Connection Failed',
+          details: 'Network error occurred. Please try again in Discord.'
+        });
+      }
+    };
+
+    handleOAuth();
   }, [searchParams]);
 
   const getStatusIcon = () => {
@@ -61,13 +85,7 @@ function SpotifyCallbackContent() {
           </svg>
         );
       case 'success':
-        return (
-          <div className="w-16 h-16 rounded-full bg-[#1DB954] flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-          </div>
-        );
+        return null;
       case 'error':
         return (
           <div className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center">
@@ -121,14 +139,16 @@ function SpotifyCallbackContent() {
             className="text-center space-y-6"
           >
             {/* Status Icon */}
-            <motion.div 
-              className="flex justify-center"
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-            >
-              {getStatusIcon()}
-            </motion.div>
+            {getStatusIcon() && (
+              <motion.div 
+                className="flex justify-center"
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+              >
+                {getStatusIcon()}
+              </motion.div>
+            )}
 
             {/* Status Message */}
             <div className="space-y-2">

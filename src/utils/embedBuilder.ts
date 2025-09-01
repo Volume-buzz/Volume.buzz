@@ -39,6 +39,7 @@ interface TrackData {
 interface RaidWithTrack extends Raid {
   token_mint?: string;
   reward_per_completion?: number;
+  qualified_count?: number;
 }
 
 interface WinnerData {
@@ -57,6 +58,7 @@ class EmbedBuilderUtils {
       .setTitle('🏆 Raid Token Leaderboard')
       .setDescription('Top raiders by token count')
       .setColor(0xFFD700)
+      .setImage('https://cdn.discordapp.com/attachments/1397288085779251272/1412025706258632765/raidcompleted_3_2.gif')
       .setTimestamp();
 
     if (users.length === 0) {
@@ -162,7 +164,9 @@ class EmbedBuilderUtils {
   }
 
   static createRaidEmbed(raid: RaidWithTrack, track: TrackData, isActive: boolean = true): DiscordEmbedBuilder {
-    const progress = Math.min((raid.current_streams / raid.streams_goal) * 100, 100);
+    // Use qualified participants for progress, not total joiners
+    const qualifiedCount = raid.qualified_count || 0;
+    const progress = Math.min((qualifiedCount / raid.streams_goal) * 100, 100);
     const progressBar = this.createProgressBar(progress);
     
     const isCryptoRaid = raid.token_mint && raid.token_mint !== 'SOL';
@@ -221,7 +225,7 @@ class EmbedBuilderUtils {
     embed.addFields(
       {
         name: '📊 Raid Progress',
-        value: `${progressBar}\n**${raid.current_streams}/${raid.streams_goal}** streams (**${Math.floor(progress)}%** complete)`,
+        value: `${progressBar}\n**${qualifiedCount}/${raid.streams_goal}** qualified (**${Math.floor(progress)}%** complete)`,
         inline: false
       },
       {
@@ -264,12 +268,13 @@ class EmbedBuilderUtils {
     track: TrackData, 
     firstFinisher: string | null, 
     totalQualified: number, 
-    totalTokensDistributed: number
+    totalTokensDistributed: number,
+    top3Winners: WinnerData[] = []
   ): DiscordEmbedBuilder {
     const embed = new DiscordEmbedBuilder()
-      .setTitle('✅ RAID COMPLETED!')
-      .setColor(0x00FF00)
-      .setImage('https://i.imgur.com/N6HhP5R.gif')
+      .setTitle('🎉 RAID COMPLETED!')
+      .setColor(0xFFD700)
+      .setImage('https://cdn.discordapp.com/attachments/1397288085779251272/1412025706258632765/raidcompleted_3_2.gif')
       .setTimestamp();
 
     // Main description
@@ -279,13 +284,26 @@ class EmbedBuilderUtils {
       `🎉 **Raid successfully completed!**`
     );
 
-    // Add fields
+    // Add top 3 winners field if available
+    if (top3Winners.length > 0) {
+      let winnersText = '';
+      top3Winners.slice(0, 3).forEach((winner, index) => {
+        const rank = index + 1;
+        const emoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉';
+        const displayName = winner.spotify_display_name || winner.discord_username || 'Unknown User';
+        const listenTime = Math.floor(winner.total_listen_duration);
+        winnersText += `${emoji} **${displayName}** - ${listenTime}s\n`;
+      });
+      
+      embed.addFields({
+        name: '🏆 Top 3 Winners',
+        value: winnersText,
+        inline: false
+      });
+    }
+
+    // Add summary fields
     const fields = [
-      {
-        name: '🏁 First Finisher',
-        value: firstFinisher ? `🥇 **${firstFinisher}**` : 'No finishers',
-        inline: true
-      },
       {
         name: '👥 Qualified Users',
         value: `**${totalQualified}**`,
@@ -294,6 +312,11 @@ class EmbedBuilderUtils {
       {
         name: '💰 Tokens Distributed',
         value: `**${totalTokensDistributed}** tokens`,
+        inline: true
+      },
+      {
+        name: '🏁 First Finisher',
+        value: firstFinisher ? `🥇 **${firstFinisher}**` : 'No finishers',
         inline: true
       }
     ];
@@ -312,12 +335,13 @@ class EmbedBuilderUtils {
     track: TrackData, 
     firstFinisher: string | null, 
     totalQualified: number, 
-    totalTokensDistributed: number
+    totalTokensDistributed: number,
+    top3Winners: WinnerData[] = []
   ): DiscordEmbedBuilder {
     const embed = new DiscordEmbedBuilder()
-      .setTitle('✅ RAID COMPLETED!')
-      .setColor(0x00FF00)
-      .setImage('https://i.imgur.com/N6HhP5R.gif')
+      .setTitle('🎉 RAID COMPLETED!')
+      .setColor(0xFFD700)
+      .setImage('https://cdn.discordapp.com/attachments/1397288085779251272/1412025706258632765/raidcompleted_3_2.gif')
       .setTimestamp();
 
     // Main description
@@ -328,13 +352,26 @@ class EmbedBuilderUtils {
       `**Qualified participants can now claim their rewards!**`
     );
 
+    // Add top 3 winners field if available
+    if (top3Winners.length > 0) {
+      let winnersText = '';
+      top3Winners.slice(0, 3).forEach((winner, index) => {
+        const rank = index + 1;
+        const emoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉';
+        const displayName = winner.spotify_display_name || winner.discord_username || 'Unknown User';
+        const listenTime = Math.floor(winner.total_listen_duration);
+        winnersText += `${emoji} **${displayName}** - ${listenTime}s\n`;
+      });
+      
+      embed.addFields({
+        name: '🏆 Top 3 Winners',
+        value: winnersText,
+        inline: false
+      });
+    }
+
     // Add fields
     const fields = [
-      {
-        name: '🏁 First Finisher',
-        value: firstFinisher ? `🥇 **${firstFinisher}**` : 'No finishers',
-        inline: true
-      },
       {
         name: '👥 Qualified Users',
         value: `**${totalQualified}**`,
@@ -343,6 +380,11 @@ class EmbedBuilderUtils {
       {
         name: '💰 Total Tokens',
         value: `**${totalTokensDistributed}** tokens`,
+        inline: true
+      },
+      {
+        name: '🏁 First Finisher',
+        value: firstFinisher ? `🥇 **${firstFinisher}**` : 'No finishers',
         inline: true
       }
     ];

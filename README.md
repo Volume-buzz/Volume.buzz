@@ -110,9 +110,21 @@ volume/
 
 4. **Run Development**
    ```bash
-   npm run dev            # Bot only
-   npm run dev:api        # API server only  
-   npm run dev            # Bot + API together
+   # Development with TypeScript and auto-reload:
+   npm run dev           # Run both bot and API server
+   npm run dev:bot       # Run bot only
+   npm run dev:api       # Run API server only
+
+   # Production builds:
+   npm run build        # Build TypeScript to JavaScript
+   npm start           # Run both bot and API (after build)
+   npm run start:bot   # Run bot only (after build)
+   npm run start:api   # Run API only (after build)
+
+   # Production with pre-built files:
+   npm run start:prod      # Run both from dist/
+   npm run start:prod:bot  # Run bot from dist/
+   npm run start:prod:api  # Run API from dist/
    ```
 
 5. **Deploy with PM2**
@@ -248,8 +260,3 @@ The bot is designed for PM2 deployment with:
 1. Create a Spotify app at https://developer.spotify.com/dashboard
 2. Add your redirect URI: `https://yourdomain.com/auth/spotify/callback`
 3. Copy your Client ID and Client Secret to your `.env` file
-4. Ensure your app has the required scopes:
-   - `user-read-private`
-   - `user-read-email`
-   - `user-read-playback-state`
-   - `user-read-currently-playing`

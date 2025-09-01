@@ -316,7 +316,7 @@ class OAuthServer {
       response_type: 'code',
       client_id: config.spotify.clientId,
       scope: 'user-read-private user-read-email user-read-playback-state user-read-currently-playing',
-      redirect_uri: 'https://oauth.volume.epiclootlabs.com/auth/spotify/callback',
+      redirect_uri: 'https://volume.epiclootlabs.com/auth/spotify/callback',
       state: state
     })}`;
     return spotifyAuthUrl;

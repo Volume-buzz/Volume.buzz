@@ -270,9 +270,9 @@ class RaidMonitor {
           (winners.length > 5 ? `\n*...and ${winners.length - 5} more winners!*` : '') +
           `\n\n**🚀 Click "Claim Reward" below to get your tokens!**`,
         color: isCryptoRaid ? 0xFFD700 : (raid.platform === 'SPOTIFY' ? 0x1DB954 : 0x8B5DFF),
-        image: enhancedTrackData?.artwork ? { url: enhancedTrackData.artwork } : 
+        image: { url: 'https://cdn.discordapp.com/attachments/1397288085779251272/1412025706258632765/raidcompleted_3_2.gif' }, // Victory celebration GIF
+        thumbnail: enhancedTrackData?.artwork ? { url: enhancedTrackData.artwork } : 
                (raid.track_artwork_url ? { url: raid.track_artwork_url } : undefined),
-        thumbnail: { url: 'https://i.imgur.com/zKBVcSH.gif' }, // Victory celebration GIF
         timestamp: new Date().toISOString(),
         footer: {
           text: `Raid ID: ${raid.id} | Completed at`,
@@ -561,11 +561,11 @@ class RaidMonitor {
         try {
           if (!raid.message_id || !raid.channel_id) continue;
           
-          // Get current participant count
-          const currentStreams = await PrismaDatabase.getParticipantCount(raid.id);
+          // Get qualified participant count (not total joiners)
+          const qualifiedCount = await PrismaDatabase.getQualifiedParticipantCount(raid.id);
           
-          // Update raid current_streams in database
-          await PrismaDatabase.updateRaid(raid.id, { current_streams: currentStreams });
+          // Update raid current_streams in database with qualified count
+          await PrismaDatabase.updateRaid(raid.id, { current_streams: qualifiedCount });
           
           // Get the Discord channel and message
           const channel = await this.client.channels.fetch(raid.channel_id);
@@ -601,7 +601,8 @@ class RaidMonitor {
           // Create updated raid object
           const raidWithTrack = {
             ...raid,
-            current_streams: currentStreams,
+            current_streams: qualifiedCount,
+            qualified_count: qualifiedCount,
             token_mint: raid.token_mint || 'SOL',
             reward_per_completion: raid.reward_per_completion ? parseFloat(raid.reward_per_completion) : 0
           };
@@ -613,7 +614,7 @@ class RaidMonitor {
           // Update the message
           await message.edit({ embeds: [updatedEmbed] });
           
-          console.log(`📊 Updated progress embed for raid ${raid.id}: ${currentStreams}/${raid.streams_goal} participants`);
+          console.log(`📊 Updated progress embed for raid ${raid.id}: ${qualifiedCount}/${raid.streams_goal} participants`);
           
         } catch (updateError) {
           console.error(`Error updating progress embed for raid ${raid.id}:`, updateError);
