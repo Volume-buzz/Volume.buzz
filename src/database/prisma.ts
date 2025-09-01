@@ -49,7 +49,7 @@ class PrismaDatabase {
         spotify_display_name: userData.spotifyDisplayName,
         spotify_email: userData.spotifyEmail,
         discord_username: userData.discordUsername,
-        last_updated: new Date()
+        updatedAt: new Date()
       },
       create: {
         discord_id: userData.discordId,
@@ -70,7 +70,7 @@ class PrismaDatabase {
       data: {
         tokens_balance: { increment: tokens },
         total_rewards_claimed: { increment: 1 },
-        last_updated: new Date()
+        updatedAt: new Date()
       }
     });
   }
@@ -91,7 +91,7 @@ class PrismaDatabase {
         spotify_scope: null,
         spotify_product: null,
         spotify_country: null,
-        last_updated: new Date()
+        updatedAt: new Date()
       }
     });
   }
@@ -186,9 +186,18 @@ class PrismaDatabase {
       if (updates.spotifyCountry !== undefined) updateData.spotify_country = updates.spotifyCountry;
       if (updates.discordUsername) updateData.discord_username = updates.discordUsername;
 
-      return await prisma.user.update({
+      // Use upsert to handle both update and create cases
+      return await prisma.user.upsert({
         where: { discord_id: discordId },
-        data: updateData
+        update: updateData,
+        create: {
+          discord_id: discordId,
+          discord_username: updates.discordUsername,
+          tokens_balance: 0,
+          total_raids_participated: 0,
+          total_rewards_claimed: 0,
+          ...updateData
+        }
       });
     } catch (error) {
       console.error('Error updating user:', error);
@@ -864,14 +873,14 @@ class PrismaDatabase {
 
   // Wallet methods
   static async createWallet(walletData: {
-    userDiscordId: string;
+    userId: string;
     publicKey: string;
     encryptedPrivateKey: string;
     isArtistWallet: boolean;
   }): Promise<Wallet> {
     return await prisma.wallet.create({
       data: {
-        user_discord_id: walletData.userDiscordId,
+        user_id: walletData.userId,
         public_key: walletData.publicKey,
         encrypted_private_key: walletData.encryptedPrivateKey,
         is_artist_wallet: walletData.isArtistWallet
@@ -880,8 +889,18 @@ class PrismaDatabase {
   }
 
   static async getUserWallet(discordId: string): Promise<Wallet | null> {
+    // First find the user by discord_id to get their UUID id
+    const user = await prisma.user.findUnique({
+      where: { discord_id: discordId }
+    });
+    
+    if (!user) {
+      return null;
+    }
+    
+    // Then find wallet by user's UUID id
     return await prisma.wallet.findFirst({
-      where: { user_discord_id: discordId }
+      where: { user_id: user.id }
     });
   }
 
@@ -999,7 +1018,7 @@ class PrismaDatabase {
   }): Promise<Withdrawal> {
     return await prisma.withdrawal.create({
       data: {
-        user_discord_id: withdrawalData.userDiscordId,
+        user_id: withdrawalData.userDiscordId,
         to_address: withdrawalData.toAddress,
         requested_amount_sol: withdrawalData.requestedAmountSol,
         route: withdrawalData.route,
@@ -1011,7 +1030,7 @@ class PrismaDatabase {
   static async getPendingWithdrawals(discordId: string): Promise<Withdrawal[]> {
     return await prisma.withdrawal.findMany({
       where: { 
-        user_discord_id: discordId,
+        user_id: discordId,
         status: { in: ['PENDING', 'PROCESSING'] }
       },
       orderBy: { created_at: 'desc' }
@@ -1020,7 +1039,7 @@ class PrismaDatabase {
 
   static async getUserWithdrawals(discordId: string): Promise<Withdrawal[]> {
     return await prisma.withdrawal.findMany({
-      where: { user_discord_id: discordId },
+      where: { user_id: discordId },
       orderBy: { created_at: 'desc' }
     });
   }

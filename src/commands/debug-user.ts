@@ -70,8 +70,8 @@ const debugUserCommand: Command = {
       description += `👤 **Role:** ${user.role}\n\n`;
 
       description += `**Timestamps:**\n`;
-      description += `📅 **Created:** ${user.created_at.toLocaleString()}\n`;
-      description += `🔄 **Last Updated:** ${user.last_updated.toLocaleString()}\n`;
+      description += `📅 **Created:** ${user.createdAt.toLocaleString()}\n`;
+      description += `🔄 **Last Updated:** ${user.updatedAt.toLocaleString()}\n`;
       description += `🔑 **Token Expires:** ${user.spotify_token_expires_at?.toLocaleString() || 'N/A'}\n`;
 
       const embed = new DiscordEmbedBuilder()

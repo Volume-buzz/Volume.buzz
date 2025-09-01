@@ -89,7 +89,7 @@ class OAuthServer {
         state,
         discordId: sessionData.discord_id,
         platform: 'SPOTIFY',
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes
       });
       
       // Generate Spotify OAuth URL

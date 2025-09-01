@@ -363,14 +363,8 @@ export const SignInPage = ({ className }: SignInPageProps) => {
     }, 50);
     
     try {
-      // Import auth client dynamically to avoid SSR issues
-      const { signIn } = await import("@/lib/auth-client");
-      
-      // Trigger Discord OAuth with Better Auth
-      await signIn.social({
-        provider: "discord",
-        callbackURL: "/dashboard",
-      });
+      // Redirect to Discord OAuth
+      window.location.href = '/api/auth/login/discord';
     } catch (error) {
       console.error("Discord login error:", error);
       setIsLoading(false);

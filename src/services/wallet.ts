@@ -23,7 +23,7 @@ import SecurityService, { TransactionSecurityContext } from './security';
 import { Wallet, TokenBalance, WalletBalance } from '../types';
 
 interface CreateWalletData {
-  userDiscordId: string;
+  userId: string; // Changed to use User's UUID id
   publicKey: string;
   encryptedPrivateKey: string;
   isArtistWallet: boolean;
@@ -105,7 +105,7 @@ class WalletService {
       }
 
       const walletData: CreateWalletData = {
-        userDiscordId: discordId,
+        userId: user.id, // Use the User's UUID id instead of discord_id
         publicKey: keypair.publicKey.toString(),
         encryptedPrivateKey: encryptedDataString,
         isArtistWallet

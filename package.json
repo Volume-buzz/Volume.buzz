@@ -25,6 +25,9 @@
     "db:studio": "npx prisma studio",
     "postinstall": "npx prisma generate"
   },
+  "prisma": {
+    "schema": "./volume/prisma/schema.prisma"
+  },
   "keywords": [
     "discord",
     "spotify",

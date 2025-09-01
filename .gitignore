@@ -150,9 +150,10 @@ prisma/generated/
 #myleftovers
 spotify-docs/
 .claude/
-CLAUDE.md
-logs/
+/root/volume/CLAUDE.mdlogs/
 nginx/
 ecosystem.config.js
-.cursor/
-betterauth-docs
+.cursor
+.cursor/*
+.cursorignore
+ecosystem.config.js

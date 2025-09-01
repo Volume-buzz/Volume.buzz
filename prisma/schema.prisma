@@ -11,7 +11,7 @@ model User {
   id                       String @id @default(uuid()) @map("id")
   name                     String? @map("name")
   email                    String? @map("email")
-  emailVerified            DateTime? @map("email_verified")
+  emailVerified            Boolean @default(false) @map("email_verified")
   image                    String? @map("image")
   createdAt                DateTime @default(now()) @map("created_at")
   updatedAt                DateTime @updatedAt @map("updated_at")
@@ -38,10 +38,7 @@ model User {
   raids_created     Raid[] @relation("RaidCreator")
   reward_accruals   RewardAccrual[] @relation("UserRewards")
   withdrawals       Withdrawal[] @relation("UserWithdrawals")
-  
-  // Better Auth relations
-  sessions          Session[]
-  accounts          Account[]
+
 
   @@map("users")
 }
@@ -302,50 +299,4 @@ enum WebhookEventStatus {
   FAILED
 }
 
-// Better Auth required tables
-model Session {
-  id         String   @id @default(uuid()) @map("id")
-  token      String   @unique @map("token")
-  userId     String   @map("user_id")
-  expiresAt  DateTime @map("expires_at")
-  ipAddress  String?  @map("ip_address")
-  userAgent  String?  @map("user_agent")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("sessions")
-}
-
-model Account {
-  id                String  @id @default(uuid()) @map("id")
-  userId            String  @map("user_id")
-  providerId        String  @map("provider_id")
-  accountId         String  @map("account_id")
-  accessToken       String? @map("access_token")
-  refreshToken      String? @map("refresh_token")
-  idToken           String? @map("id_token")
-  expiresAt         Int?    @map("expires_at")
-  tokenType         String? @map("token_type")
-  scope             String?
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([providerId, accountId])
-  @@map("accounts")
-}
-
-model Verification {
-  id         String   @id @default(uuid()) @map("id")
-  identifier String
-  value      String
-  expiresAt  DateTime @map("expires_at")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-
-  @@unique([identifier, value])
-  @@map("verifications")
-} 
+ 

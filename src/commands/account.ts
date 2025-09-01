@@ -84,7 +84,7 @@ const accountCommand: Command = {
         )
         .setTimestamp()
         .setFooter({
-          text: `Member since ${user.created_at.toLocaleDateString()}`,
+          text: `Member since ${user.createdAt.toLocaleDateString()}`,
           iconURL: interaction.user.displayAvatarURL()
         });
 
