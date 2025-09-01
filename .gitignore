@@ -157,3 +157,4 @@ ecosystem.config.js
 .cursor/*
 .cursorignore
 ecosystem.config.js
+/root/volume/.cursor
