@@ -3,9 +3,8 @@
     "shadcn": {
       "command": "npx",
       "args": [
-        "-y",
-        "shadcn@canary",
-        "registry:mcp"
+        "shadcn@latest",
+        "mcp"
       ],
       "env": {
         "REGISTRY_URL": "https://tweakcn.com/r/themes/registry.json"

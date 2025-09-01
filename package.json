@@ -76,7 +76,7 @@
     "@types/spotify-web-api-node": "^5.0.11",
     "@types/uuid": "^9.0.8",
     "nodemon": "^3.0.2",
-    "shadcn": "^3.0.0",
+    "shadcn": "^3.1.0",
     "tsx": "^4.7.1",
     "typescript": "^5.4.3"
   }

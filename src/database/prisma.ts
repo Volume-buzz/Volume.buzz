@@ -1070,6 +1070,16 @@ class PrismaDatabase {
     await prisma.$disconnect();
   }
 
+  // Rewards methods
+  static async getUserRecentRewards(discordId: string, limit: number = 5) {
+    return await prisma.rewardAccrual.findMany({
+      where: { user_discord_id: discordId },
+      include: { token: true, raid: true },
+      orderBy: { created_at: 'desc' },
+      take: limit
+    });
+  }
+
   // Action tokens (step-up auth)
   static async createActionToken(params: { userDiscordId: string; action: string; code: string; expiresAt: Date; }): Promise<ActionToken> {
     return await prisma.actionToken.create({

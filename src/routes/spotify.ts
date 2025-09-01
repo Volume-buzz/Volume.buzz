@@ -13,6 +13,18 @@ const authService = new SpotifyAuthService({
 });
 const apiService = new SpotifyApiService(authService, { clientId: config.spotify.clientId, clientSecret: config.spotify.clientSecret });
 
+// Provide a short-lived access token for Web Playback SDK
+router.get('/token', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const discordId = (req as any).sessionUser.discordId as string;
+    const access = await authService.getValidAccessToken(discordId);
+    if (!access) return res.status(401).json({ error: 'Not authenticated with Spotify' });
+    return res.json({ access_token: access });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to get token' });
+  }
+});
+
 router.get('/devices', requireAuth, async (req: Request, res: Response) => {
   try {
     const devices = await apiService.getUserDevices((req as any).sessionUser.discordId as string);

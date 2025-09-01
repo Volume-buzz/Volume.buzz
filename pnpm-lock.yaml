@@ -121,8 +121,8 @@ importers:
         specifier: ^3.0.2
         version: 3.1.10
       shadcn:
-        specifier: ^3.0.0
-        version: 3.0.0(@types/node@20.19.11)(typescript@5.9.2)
+        specifier: ^3.1.0
+        version: 3.1.0(@types/node@20.19.11)(typescript@5.9.2)
       tsx:
         specifier: ^4.7.1
         version: 4.20.5
@@ -2266,8 +2266,8 @@ packages:
   setprototypeof@1.2.0:
     resolution: {integrity: sha512-E5LDX7Wrp85Kil5bhZv46j8jOeboKq5JMmYM3gVGdGH8xFpPWXUMsNrlODCrkoxMEeNi/XZIwuRvY4XNwYMJpw==}
 
-  shadcn@3.0.0:
-    resolution: {integrity: sha512-GhMwMwcxR3GpDO2ctocvyetQ7BJAxSakaznBtYM/1mPRTjN0I0TAZCGSXdfj0VXOW4PaHbFEHsyUCnFcEf/1Ag==}
+  shadcn@3.1.0:
+    resolution: {integrity: sha512-tYem+5cR8kSo0g3V3JbVpZ5NmblrH+b52UX9pgYkpyalotjejldZCAIoCszF3VoKTvHRRxrifmTO8gdOpmkz1w==}
     hasBin: true
 
   shebang-command@2.0.0:
@@ -4053,7 +4053,7 @@ snapshots:
       body-parser: 2.2.0
       content-disposition: 1.0.0
       content-type: 1.0.5
-      cookie: 0.7.1
+      cookie: 0.7.2
       cookie-signature: 1.2.2
       debug: 4.4.1(supports-color@5.5.0)
       encodeurl: 2.0.0
@@ -4966,7 +4966,7 @@ snapshots:
 
   setprototypeof@1.2.0: {}
 
-  shadcn@3.0.0(@types/node@20.19.11)(typescript@5.9.2):
+  shadcn@3.1.0(@types/node@20.19.11)(typescript@5.9.2):
     dependencies:
       '@antfu/ni': 25.0.0
       '@babel/core': 7.28.3

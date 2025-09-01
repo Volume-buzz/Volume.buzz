@@ -2,7 +2,9 @@
  * Rewards management routes
  */
 
-import { Router, type Router as RouterType } from 'express';
+import { Router, type Router as RouterType, Request, Response } from 'express';
+import { requireAuth } from '../middleware/auth';
+import PrismaDatabase from '../database/prisma';
 
 const router: RouterType = Router();
 
@@ -14,9 +16,22 @@ router.get('/status', (req, res) => {
   });
 });
 
-// Placeholder rewards routes
-router.get('/pending', (req, res) => {
-  res.status(501).json({ error: 'Not implemented' });
+// Recent rewards for current user
+router.get('/mine', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const discordId = (req as any).sessionUser.discordId as string;
+    const items = await PrismaDatabase.getUserRecentRewards(discordId, 5);
+    return res.json(items.map(i => ({
+      id: i.id,
+      token: { mint: i.token_mint, symbol: i.token.symbol },
+      amount: i.amount,
+      raid_id: i.raid_id,
+      created_at: i.created_at
+    })));
+  } catch (err) {
+    console.error('rewards/mine error', err);
+    return res.status(500).json({ error: 'Failed to load rewards' });
+  }
 });
 
 export default router;
