@@ -134,5 +134,12 @@ prisma/generated/
 *.rar
 *.tar
 *.zip
+
+
+#myleftovers
+betterauth-docs/
 spotify-docs/
-/
+.claude/
+CLAUDE.md
+logs/
+nginx/

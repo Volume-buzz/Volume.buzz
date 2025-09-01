@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an Audius Discord Bot with crypto wallet integration that enables music raid campaigns with token rewards. The bot supports both Audius and Spotify platforms, includes OAuth authentication, real-time raid monitoring, and Solana-based cryptocurrency rewards.
+This is a **Spotify Discord Bot** with crypto wallet integration that enables music raid campaigns with token rewards. The bot is **Spotify-only** (previously supported Audius but has transitioned away), includes OAuth authentication, real-time raid monitoring, and Solana-based cryptocurrency rewards.
 
 ## Architecture
 
@@ -20,9 +20,8 @@ This is an Audius Discord Bot with crypto wallet integration that enables music 
 - `src/database/prisma.ts` - Database operations using Prisma ORM with PostgreSQL
 
 **Platform Integration:**
-- **Audius**: OAuth via `/oauth/audius/login/:sessionId`, track search, listening monitoring
-- **Spotify**: OAuth via `/oauth/spotify/login/:sessionId`, premium detection, player tracking
-- **Solana**: Wallet creation, token management, automated settlements via Jupiter API
+- **Spotify**: OAuth via `/oauth/spotify/login/:sessionId`, premium detection, player tracking, queue management
+- **Solana**: Wallet creation, token management, automated settlements via Jupiter API, Helius webhooks
 
 ## Common Commands
 
@@ -81,9 +80,11 @@ npm run start:prod   # Start compiled application
 - `DATABASE_URL` - PostgreSQL connection (supports Railway PostgreSQL and Prisma Postgres)
 - `DISCORD_TOKEN`, `DISCORD_CLIENT_ID` - Discord bot credentials
 - `HELIUS_API_KEY` - Solana RPC and webhook services
-- `ENCRYPTION_KEY` - For wallet private key encryption
+- `ENCRYPTION_KEY` - For wallet private key encryption (32-byte hex string)
 - `JWT_SECRET` - API authentication
 - `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` - Spotify integration
+- `SPOTIFY_REDIRECT_URI` - OAuth callback URL
+- `BASE_URL` - Base URL for OAuth redirects and embedded players
 
 **Key Settings:**
 - `MINIMUM_LISTEN_TIME` - Seconds required to qualify for rewards (default: 60)
@@ -107,14 +108,70 @@ Discord commands in `src/commands/` follow this pattern:
 5. **Completion**: Raid goal reached → Status changed to COMPLETED → Rewards become claimable
 6. **Settlement**: Users claim rewards → `RewardAccrual` created → Automated settlement transfers tokens
 
-## Multi-Platform Support
+## Spotify Integration Details
 
-**Audius Integration:**
-- OAuth flow: `/oauth/audius/login/:sessionId` → Audius authorization → `/auth/audius/callback`
-- "Now Playing" API monitoring for raid participation tracking
-- Track search and profile lookup functionality
-
-**Spotify Integration:**
+**Authentication Flow:**
 - OAuth with premium detection: `/oauth/spotify/login/:sessionId` → Spotify authorization → `/auth/spotify/callback`
-- Premium-only raid support with enhanced tracking
+- CSRF protection via state parameters in `OAuthSession` table
+- Automatic detection of Premium vs Free accounts
+
+**Tracking Capabilities:**
+- **Free Users**: Currently Playing API monitoring with 10-second polling intervals
+- **Premium Users**: Enhanced Web Playback SDK integration with real-time tracking
+- Premium-only raid support with embedded players and queue management
 - Player state monitoring for qualified listening verification
+
+**Key Services:**
+- `SpotifyAuthService` - OAuth token management and refresh
+- `SpotifyApiService` - Web API interactions and data fetching  
+- `SpotifyTrackingService` - Real-time listening progress monitoring
+- `SpotifyPlayerService` - Premium user playback control
+- `SpotifyMetadataService` - Track data enrichment and caching
+
+## Testing and Quality
+
+**Type Checking:**
+```bash
+npm run typecheck    # Run TypeScript compiler without output
+```
+
+**No Automated Tests:** This codebase currently has no test framework configured. Integration testing is done manually through Discord bot interactions and database inspection.
+
+## Important File Patterns
+
+**Command Structure:**
+- Commands in `src/commands/*.ts` export `{ data, execute }` objects
+- Use `SlashCommandBuilder` for command definitions  
+- Always include comprehensive error handling with `EmbedBuilder.createErrorEmbed()`
+- Security checks: admin verification, guild validation, platform authentication
+
+**Route Structure:**
+- API routes in `src/routes/*.ts` use Express Router pattern
+- Rate limiting applied via `rateLimiter` middleware
+- CORS configured for cross-origin requests
+- Webhook signature verification for Helius events
+
+**Service Layer:**
+- Services are singleton classes with dependency injection
+- Database operations isolated in `PrismaDatabase` static methods
+- Spotify services organized by functionality (auth, API, tracking, etc.)
+- Error handling with structured logging
+
+## Deployment and Production
+
+**PM2 Deployment:**
+```bash
+npm run deploy       # Build and start with PM2 using ecosystem.config.js
+```
+
+**Process Management:**
+- `src/app.ts` - Main orchestrator that starts both bot and API server
+- `src/bot.ts` - Can run standalone for Discord bot only
+- `src/server.ts` - Can run standalone for API server only
+- Graceful shutdown handling for all entry points
+
+**Production Considerations:**
+- PostgreSQL database required (no SQLite support)
+- Helius API key needed for Solana blockchain operations
+- SSL/TLS termination handled by reverse proxy (nginx)
+- Environment-specific configuration via `.env` files

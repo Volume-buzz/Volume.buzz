@@ -1,6 +1,28 @@
-# Spotify Discord Bot
+# Volume - Discord Bot & Dashboard
 
-A Discord bot for creating music raid campaigns on the Spotify platform. Users can connect their Spotify accounts, participate in listening raids, and earn tokens for engagement.
+A comprehensive Discord bot ecosystem with an advanced Next.js dashboard for creating music raid campaigns on the Spotify platform. Users can connect their Spotify accounts, participate in listening raids, and earn cryptocurrency tokens for engagement.
+
+## Project Structure
+
+```
+audius/
+├── src/                    # Discord Bot (Node.js + TypeScript)
+│   ├── bot.ts             # Main bot entry point
+│   ├── commands/          # Slash commands
+│   ├── services/          # OAuth, Spotify, Wallet services
+│   ├── database/          # Prisma database layer
+│   └── routes/            # Express API routes
+├── volume/                # Next.js Dashboard
+│   ├── src/
+│   │   ├── app/           # App Router pages
+│   │   ├── components/    # React components
+│   │   └── lib/           # Utilities
+│   ├── public/            # Static assets
+│   └── package.json       # Dashboard dependencies
+├── prisma/                # Database schema & migrations
+├── package.json           # Bot dependencies
+└── README.md              # This file
+```
 
 ## Features
 

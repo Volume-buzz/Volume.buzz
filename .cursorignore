@@ -128,3 +128,8 @@ jspm_packages/
 *.rar
 *.tar
 *.zip
+
+#myleftovers
+betterauth-docs/
+spotify-docs/
+.claude
