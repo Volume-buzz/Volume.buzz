@@ -2,9 +2,9 @@
  * Wallet management routes
  */
 
-import { Router } from 'express';
+import { Router, type Router as RouterType } from 'express';
 
-const router = Router();
+const router: RouterType = Router();
 
 router.get('/status', (req, res) => {
   res.json({ 

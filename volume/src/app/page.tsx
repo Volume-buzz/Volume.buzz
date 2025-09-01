@@ -4,15 +4,15 @@ export default function Home() {
   return (
     <main>
       <Hero
-        title="Volume Discord Bot"
-        description="Take control of your Discord server with advanced moderation, music, and utility features. Built for communities that demand more."
+        title="Command your server like never before"
+        description="Volume brings next-generation Discord bot capabilities to your community. Advanced moderation, seamless music streaming, and intelligent automation — all in one powerful package."
         badgeText="Volume Bot Dashboard"
         badgeLabel="Live"
         ctaButtons={[
-          { text: "Get started", href: "/login", primary: true },
-          { text: "View features", href: "#features" }
+          { text: "Add to Discord", href: "/login", primary: true },
+          { text: "Explore features", href: "#features" }
         ]}
-        microDetails={["Discord Integration", "Real‑time Analytics", "Advanced Controls"]}
+        microDetails={["Advanced Moderation", "High‑Quality Music", "Smart Automation"]}
       />
     </main>
   );

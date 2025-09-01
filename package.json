@@ -1,5 +1,5 @@
 {
-  "name": "spotify-discord-bot",
+  "name": "volume",
   "version": "1.0.0",
   "description": "Discord bot for Spotify music raid campaigns",
   "main": "dist/app.js",

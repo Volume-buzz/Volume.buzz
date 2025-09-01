@@ -2,10 +2,10 @@
  * Webhook routes for external services
  */
 
-import { Router } from 'express';
+import { Router, type Router as RouterType } from 'express';
 import RateLimiter from '../middleware/rateLimiter';
 
-const router = Router();
+const router: RouterType = Router();
 
 // Apply webhook-specific rate limiting
 router.use(RateLimiter.webhook());

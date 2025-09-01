@@ -1,8 +1,12 @@
 # Dependencies
 node_modules/
+volume/node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+.pnpm-debug.log*
+.pnpm-store/
 
 # Environment variables
 .env
@@ -104,10 +108,17 @@ jspm_packages/
 .cache
 .parcel-cache
 
-# next.js build output
-.next
+# Next.js
+.next/
+out/
+volume/.next/
+volume/out/
+volume/.env.local
+volume/.env.development.local
+volume/.env.test.local
+volume/.env.production.local
 
-# nuxt.js build output
+# Nuxt.js
 .nuxt
 
 # vuepress build output

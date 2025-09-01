@@ -5,7 +5,7 @@ A comprehensive Discord bot ecosystem with an advanced Next.js dashboard for cre
 ## Project Structure
 
 ```
-audius/
+volume/
 ├── src/                    # Discord Bot (Node.js + TypeScript)
 │   ├── bot.ts             # Main bot entry point
 │   ├── commands/          # Slash commands
@@ -25,6 +25,15 @@ audius/
 ```
 
 ## Features
+
+### 🌐 Next.js Dashboard
+- **Modern UI**: Beautiful landing page with neural network animations
+- **Discord OAuth**: Secure Discord login integration 
+- **Spotify OAuth**: Seamless Spotify account connection flow
+- **Real-time Analytics**: Live bot performance and user engagement metrics
+- **Admin Controls**: Advanced bot management and configuration
+- **Responsive Design**: Mobile-first design with modern animations
+- **TypeScript**: Full type safety across the dashboard
 
 ### 🔐 Authentication & Profiles
 - **OAuth Integration**: Secure Spotify account linking with CSRF protection
@@ -73,45 +82,106 @@ audius/
 
 ## Setup
 
+### Prerequisites
+- Node.js 18.18+ 
+- PostgreSQL database
+- Discord Application ([Discord Developer Portal](https://discord.com/developers/applications))
+- Spotify Application ([Spotify Developer Dashboard](https://developer.spotify.com/dashboard))
+- pnpm (for dashboard) or npm (for bot)
+
+### 🤖 Discord Bot Setup
+
 1. **Install Dependencies**
    ```bash
    npm install
    ```
 
 2. **Configure Environment**
-   - Copy `.env.example` to `.env`
-   - Fill in all required values:
-     - Discord bot token and client ID
-     - Spotify client ID and secret
-     - Database connection string
-     - OAuth callback URL
+   ```bash
+   cp .env.example .env
+   # Edit .env with your values
+   ```
 
 3. **Database Setup**
    ```bash
-   npx prisma db push  # Sync schema to database
-   npx prisma generate # Generate Prisma client
+   npx prisma db push     # Sync schema to database
+   npx prisma generate    # Generate Prisma client
    ```
 
-4. **Deploy with PM2**
+4. **Run Development**
+   ```bash
+   npm run dev            # Bot only
+   npm run dev:api        # API server only  
+   npm run dev            # Bot + API together
+   ```
+
+5. **Deploy with PM2**
    ```bash
    npm run deploy
    ```
+
+### 🌐 Dashboard Setup
+
+1. **Navigate to Dashboard**
+   ```bash
+   cd volume
+   ```
+
+2. **Install Dependencies**
+   ```bash
+   pnpm install
+   ```
+
+3. **Run Development**
+   ```bash
+   pnpm dev
+   ```
+
+4. **Build for Production**
+   ```bash
+   pnpm build
+   pnpm start
+   ```
+
+### 🚀 Railway Deployment
+
+The dashboard is configured for Railway deployment:
+
+1. Connect your GitHub repository to Railway
+2. Set root directory to `/volume` in Railway settings
+3. Environment variables are automatically detected
+4. Deploy with automatic builds on push
 
 ## Configuration
 
 ### Environment Variables
 
-- `DISCORD_TOKEN` - Discord bot token
+#### Required for Both Bot & Dashboard
+- `DATABASE_URL` - PostgreSQL connection string
 - `DISCORD_CLIENT_ID` - Discord application client ID
-- `SPOTIFY_CLIENT_ID` - Spotify application client ID
+- `DISCORD_CLIENT_SECRET` - Discord application client secret
+- `SPOTIFY_CLIENT_ID` - Spotify application client ID  
 - `SPOTIFY_CLIENT_SECRET` - Spotify application client secret
 - `SPOTIFY_REDIRECT_URI` - OAuth callback URL (https://yourdomain.com/auth/spotify/callback)
-- `DATABASE_URL` - PostgreSQL connection string
+
+#### Bot-Specific
+- `DISCORD_TOKEN` - Discord bot token
 - `HELIUS_API_KEY` - Helius API key for Solana operations
-- `ENCRYPTION_KEY` - 32-byte encryption key for wallet security
+- `ENCRYPTION_KEY` - 32-byte encryption key for wallet security (base64)
+- `JWT_SECRET` - Secret for JWT token signing
 - `SUPER_ADMIN_IDS` - Comma-separated Discord IDs with admin privileges
-- `PORT` - Server port (default: 3000)
-- `MINIMUM_LISTEN_TIME` - Minimum listen time to qualify in seconds (default: 30)
+- `PORT` - Bot server port (default: 4003)
+- `MINIMUM_LISTEN_TIME` - Minimum listen time to qualify in seconds (default: 60)
+
+#### Dashboard-Specific (Next.js)
+- `NEXTAUTH_SECRET` - NextAuth.js secret (when using Better Auth)
+- `NEXTAUTH_URL` - Dashboard URL for OAuth callbacks
+
+#### Optional Configuration
+- `SOLANA_NETWORK` - mainnet, devnet, or testnet (default: mainnet)
+- `SOLANA_RPC_URL` - Custom Solana RPC endpoint
+- `NODE_ENV` - Environment (development, production)
+- `LOG_LEVEL` - Logging level (info, debug, error)
 
 ## How It Works
 
@@ -121,22 +191,41 @@ audius/
 4. **Progress Tracking**: Bot monitors user activity via Spotify Web API
 5. **Reward Distribution**: Qualified users can claim cryptocurrency rewards when raids complete
 
-## Technical Details
+## Technical Stack
 
-- **Database**: Prisma ORM with PostgreSQL and type-safe queries
-- **OAuth**: Secure Spotify account linking with state verification
-- **Monitoring**: Real-time tracking of Spotify listening activity
-- **Real-time Updates**: Discord messages update with live raid progress
-- **Crypto Integration**: Solana blockchain for token rewards
-- **Type Safety**: Full TypeScript implementation with generated types
+### 🤖 Discord Bot (Node.js + TypeScript)
+- **Framework**: Node.js with TypeScript
+- **Discord**: Discord.js v14 with slash commands
+- **Database**: Prisma ORM with PostgreSQL
+- **Authentication**: Custom OAuth implementation with CSRF protection
+- **Crypto**: Solana Web3.js for blockchain operations
+- **Security**: AES-256-GCM encryption for private keys
+- **Deployment**: PM2 with auto-restart and log management
+
+### 🌐 Dashboard (Next.js + TypeScript)
+- **Framework**: Next.js 15 with App Router
+- **Styling**: Tailwind CSS with custom design system
+- **UI Components**: Custom React components with animations
+- **3D Graphics**: Three.js with React Three Fiber
+- **Animations**: Framer Motion + GSAP
+- **Fonts**: Inter font with variable font support
+- **Authentication**: Better Auth (planned) for Discord OAuth
+- **Deployment**: Railway with automatic builds
+
+### 🗄️ Shared Infrastructure
+- **Database**: PostgreSQL with Prisma schema
+- **OAuth Providers**: Discord & Spotify OAuth 2.0
+- **APIs**: Spotify Web API, Discord API, Solana RPC
+- **Security**: JWT tokens, encrypted storage, rate limiting
 
 ## API Integration
 
-- **Spotify Web API**: For track data and user listening tracking
-- **Spotify Web Playback SDK**: For premium users with embedded player
-- **Discord.js**: For bot functionality and slash commands
-- **Express**: For OAuth callback handling
-- **Solana Web3.js**: For cryptocurrency operations
+- **Spotify Web API**: Track data and user listening tracking
+- **Spotify Web Playback SDK**: Premium users with embedded player
+- **Discord.js**: Bot functionality and slash commands
+- **Express**: OAuth callback handling and API routes
+- **Solana Web3.js**: Cryptocurrency operations and wallet management
+- **Helius**: Enhanced Solana API with webhooks
 
 ## Security
 

@@ -2,13 +2,13 @@
  * Authentication routes for OAuth callbacks
  */
 
-import { Router } from 'express';
+import { Router, type Router as RouterType } from 'express';
 import RateLimiter from '../middleware/rateLimiter';
 import PrismaDatabase from '../database/prisma';
 import DMService from '../services/dmService';
 import config from '../config/environment';
 
-const router = Router();
+const router: RouterType = Router();
 
 // Apply auth-specific rate limiting
 router.use(RateLimiter.auth());
