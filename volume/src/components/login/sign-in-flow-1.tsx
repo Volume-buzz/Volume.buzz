@@ -356,18 +356,28 @@ export const SignInPage = ({ className }: SignInPageProps) => {
     setIsLoading(true);
     
     // Show reverse animation
-          setReverseCanvasVisible(true);
-          
-          setTimeout(() => {
-            setInitialCanvasVisible(false);
-          }, 50);
-          
-    // TODO: Implement actual Discord OAuth
-          setTimeout(() => {
-      console.log("Discord login initiated");
-      // This will be replaced with actual Better Auth Discord login
+    setReverseCanvasVisible(true);
+    
+    setTimeout(() => {
+      setInitialCanvasVisible(false);
+    }, 50);
+    
+    try {
+      // Import auth client dynamically to avoid SSR issues
+      const { signIn } = await import("@/lib/auth-client");
+      
+      // Trigger Discord OAuth with Better Auth
+      await signIn.social({
+        provider: "discord",
+        callbackURL: "/dashboard",
+      });
+    } catch (error) {
+      console.error("Discord login error:", error);
       setIsLoading(false);
-          }, 2000);
+      // Reset animations on error
+      setReverseCanvasVisible(false);
+      setInitialCanvasVisible(true);
+    }
   };
 
   return (

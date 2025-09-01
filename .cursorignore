@@ -130,6 +130,5 @@ jspm_packages/
 *.zip
 
 #myleftovers
-betterauth-docs/
 spotify-docs/
 .claude

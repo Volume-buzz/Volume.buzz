@@ -9,7 +9,11 @@ datasource db {
 
 model User {
   id                       String? @default(uuid()) @map("id")
-  discord_id               String  @id @map("discord_id")
+  discord_id               String @id @map("discord_id")
+  name                     String? @map("name")
+  email                    String? @map("email")
+  emailVerified            DateTime? @map("email_verified")
+  image                    String? @map("image")
   spotify_user_id         String? @map("spotify_user_id")
   spotify_display_name    String? @map("spotify_display_name")
   spotify_email           String? @map("spotify_email")
@@ -34,6 +38,10 @@ model User {
   raids_created     Raid[] @relation("RaidCreator")
   reward_accruals   RewardAccrual[] @relation("UserRewards")
   withdrawals       Withdrawal[] @relation("UserWithdrawals")
+  
+  // Better Auth relations
+  sessions          Session[]
+  accounts          Account[]
 
   @@map("users")
 }
@@ -292,4 +300,52 @@ enum WebhookEventStatus {
   PENDING
   PROCESSED
   FAILED
+}
+
+// Better Auth required tables
+model Session {
+  id         String   @id @default(uuid()) @map("id")
+  token      String   @unique @map("token")
+  userId     String   @map("user_id")
+  expiresAt  DateTime @map("expires_at")
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [discord_id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Account {
+  id                String  @id @default(uuid()) @map("id")
+  userId            String  @map("user_id")
+  providerId        String  @map("provider_id")
+  providerAccountId String  @map("provider_account_id")
+  accessToken       String? @map("access_token")
+  refreshToken      String? @map("refresh_token")
+  idToken           String? @map("id_token")
+  expiresAt         Int?    @map("expires_at")
+  tokenType         String? @map("token_type")
+  scope             String?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [discord_id], onDelete: Cascade)
+
+  @@unique([providerId, providerAccountId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @default(uuid()) @map("id")
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([identifier, value])
+  @@map("verifications")
 } 

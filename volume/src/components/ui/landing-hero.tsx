@@ -6,7 +6,7 @@ import gsap from 'gsap';
 import { SplitText } from 'gsap/SplitText';
 import { BeamsBackground } from './beams-background';
 import TextMarquee from './text-marque';
-import { InteractiveHoverButton } from './interactive-hover-button';
+import { RainbowButton } from './rainbow-button';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -170,13 +170,19 @@ export default function Hero({
       <div className="relative z-10 h-full flex flex-col items-center justify-center text-center px-6">
         <div className="max-w-3xl mx-auto space-y-8">
           
-          {/* Main Title */}
-          <h1 
-            ref={headerRef} 
-            className="text-6xl md:text-7xl lg:text-8xl font-outfit font-extralight leading-[0.9] tracking-tight text-white"
-          >
-            {title}
-          </h1>
+          {/* Main Title with Gradient Fade */}
+          <div className="relative">
+            <h1 
+              ref={headerRef} 
+              className="text-6xl md:text-7xl lg:text-8xl font-outfit font-extralight leading-[0.9] tracking-tight text-white bg-gradient-to-b from-white via-white to-transparent bg-clip-text text-transparent"
+              style={{
+                maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 70%, rgba(0,0,0,0) 100%)',
+                WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 70%, rgba(0,0,0,0) 100%)'
+              }}
+            >
+              {title}
+            </h1>
+          </div>
 
           {/* Description */}
           <p 
@@ -189,10 +195,9 @@ export default function Hero({
           {/* CTA Button */}
           <div ref={ctaRef} className="pt-4">
             <Link href="/login" className="inline-block">
-              <InteractiveHoverButton 
-                text="Get Started" 
-                className="w-48 text-lg py-6 px-8 text-white border-white/30 bg-black/20 hover:bg-primary"
-              />
+              <RainbowButton className="text-lg py-6 min-w-[200px] shadow-lg">
+                Get Started
+              </RainbowButton>
             </Link>
           </div>
 
