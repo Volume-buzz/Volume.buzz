@@ -11,10 +11,13 @@ import rateLimiter from './middleware/rateLimiter';
 // Import routes
 import authRoutes, { setOAuthServer, setDMService } from './routes/auth';
 import walletRoutes from './routes/wallet';
+import usersRoutes from './routes/users';
+import raidsRoutes from './routes/raids';
 import adminRoutes from './routes/admin';
 import rewardsRoutes from './routes/rewards';
 import withdrawalRoutes from './routes/withdrawals';
 import webhookRoutes from './routes/webhooks';
+import spotifyRoutes from './routes/spotify';
 
 // Import OAuth server
 import OAuthServer from './services/oauthServer';
@@ -79,7 +82,8 @@ class ApiServer {
 
     // CORS configuration
     this.app.use(cors({
-      origin: config.api.corsOrigins.includes('*') ? '*' : config.api.corsOrigins,
+      // If '*' is present, reflect the request origin (works with credentials)
+      origin: config.api.corsOrigins.includes('*') ? true : config.api.corsOrigins,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'helius-signature']
@@ -132,9 +136,12 @@ class ApiServer {
     // API routes
     this.app.use('/api/auth', authRoutes);
     this.app.use('/api/wallet', walletRoutes);
+    this.app.use('/api/users', usersRoutes);
+    this.app.use('/api/raids', raidsRoutes);
     this.app.use('/api/admin', adminRoutes);
     this.app.use('/api/rewards', rewardsRoutes);
     this.app.use('/api/withdrawals', withdrawalRoutes);
+    this.app.use('/api/spotify', spotifyRoutes);
     this.app.use('/api/webhooks', webhookRoutes);
 
     // 404 handler

@@ -1,4 +1,4 @@
-import { PrismaClient, User, Raid, RaidParticipant, Admin, OAuthSession, Wallet, Token, ArtistDeposit, Withdrawal } from '@prisma/client';
+import { PrismaClient, User, Raid, RaidParticipant, Admin, OAuthSession, Wallet, Token, ArtistDeposit, Withdrawal, ActionToken } from '@prisma/client';
 import { DatabaseUser, Raid as RaidType, RaidParticipant as RaidParticipantType, UserRole } from '../types';
 
 // Initialize Prisma client with proper configuration
@@ -306,6 +306,27 @@ class PrismaDatabase {
         status: 'ACTIVE',
         expires_at: { gt: new Date() }
       }
+    });
+  }
+
+  static async getUserRaids(discordId: string) {
+    return await prisma.raidParticipant.findMany({
+      where: { discord_id: discordId },
+      include: {
+        raid: true
+      },
+      orderBy: { created_at: 'desc' }
+    });
+  }
+
+  static async getUserRaidHistory(discordId: string) {
+    return await prisma.raidParticipant.findMany({
+      where: {
+        discord_id: discordId,
+        raid: { status: { in: ['COMPLETED', 'EXPIRED', 'CANCELLED'] } }
+      },
+      include: { raid: true },
+      orderBy: { created_at: 'desc' }
     });
   }
 
@@ -1047,6 +1068,49 @@ class PrismaDatabase {
   // Utility methods
   static async disconnect(): Promise<void> {
     await prisma.$disconnect();
+  }
+
+  // Action tokens (step-up auth)
+  static async createActionToken(params: { userDiscordId: string; action: string; code: string; expiresAt: Date; }): Promise<ActionToken> {
+    return await prisma.actionToken.create({
+      data: {
+        user_discord_id: params.userDiscordId,
+        action: params.action,
+        code: params.code,
+        expires_at: params.expiresAt
+      }
+    });
+  }
+
+  static async validateAndConsumeActionToken(params: { userDiscordId: string; action: string; code: string; }): Promise<boolean> {
+    const token = await prisma.actionToken.findFirst({
+      where: {
+        user_discord_id: params.userDiscordId,
+        action: params.action,
+        used_at: null,
+        expires_at: { gt: new Date() }
+      },
+      orderBy: { created_at: 'desc' }
+    });
+
+    if (!token) return false;
+
+    // Increment attempts
+    await prisma.actionToken.update({
+      where: { id: token.id },
+      data: { attempts: { increment: 1 }, last_attempt_at: new Date() }
+    });
+
+    if (token.code !== params.code) {
+      return false;
+    }
+
+    await prisma.actionToken.update({
+      where: { id: token.id },
+      data: { used_at: new Date() }
+    });
+
+    return true;
   }
 
   // Helper to update Discord username when missing

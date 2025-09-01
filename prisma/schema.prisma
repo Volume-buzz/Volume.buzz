@@ -299,4 +299,20 @@ enum WebhookEventStatus {
   FAILED
 }
 
+/// One-time action tokens for step-up confirmation on sensitive actions
+model ActionToken {
+  id              String   @id @default(uuid()) @map("id")
+  user_discord_id String   @map("user_discord_id")
+  action          String   @map("action") // e.g., EXPORT_WALLET, TRANSFER_SOL
+  code            String   @map("code")   // short code users enter to confirm
+  created_at      DateTime @default(now()) @map("created_at")
+  expires_at      DateTime @map("expires_at")
+  used_at         DateTime? @map("used_at")
+  attempts        Int      @default(0) @map("attempts")
+  last_attempt_at DateTime? @map("last_attempt_at")
+
+  @@index([user_discord_id, action, expires_at], map: "idx_action_tokens_lookup")
+  @@map("action_tokens")
+}
+
  

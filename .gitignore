@@ -158,3 +158,4 @@ ecosystem.config.js
 .cursorignore
 ecosystem.config.js
 /root/volume/.cursor
+/root/volume/AGENTS.md
