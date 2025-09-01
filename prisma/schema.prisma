@@ -8,12 +8,14 @@ datasource db {
 }
 
 model User {
-  id                       String? @default(uuid()) @map("id")
-  discord_id               String @id @map("discord_id")
+  id                       String @id @default(uuid()) @map("id")
   name                     String? @map("name")
   email                    String? @map("email")
   emailVerified            DateTime? @map("email_verified")
   image                    String? @map("image")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+  discord_id               String? @unique @map("discord_id")
   spotify_user_id         String? @map("spotify_user_id")
   spotify_display_name    String? @map("spotify_display_name")
   spotify_email           String? @map("spotify_email")
@@ -29,8 +31,6 @@ model User {
   tokens_balance          Int     @default(0) @map("tokens_balance")
   total_raids_participated Int     @default(0) @map("total_raids_participated")
   total_rewards_claimed   Int     @default(0) @map("total_rewards_claimed")
-  created_at              DateTime @default(now()) @map("created_at")
-  last_updated            DateTime @default(now()) @updatedAt @map("last_updated")
 
   raid_participants RaidParticipant[]
   wallets           Wallet[] @relation("UserWallets")
@@ -157,14 +157,14 @@ model OAuthSession {
 
 model Wallet {
   id                    String   @id @default(uuid()) @map("id")
-  user_discord_id       String   @map("user_discord_id")
+  user_id               String   @map("user_id")
   public_key            String   @unique @map("public_key")
   encrypted_private_key String   @map("encrypted_private_key")
   is_artist_wallet      Boolean  @default(false) @map("is_artist_wallet")
   created_at            DateTime @default(now()) @map("created_at")
   exported_at           DateTime? @map("exported_at")
 
-  user User @relation("UserWallets", fields: [user_discord_id], references: [discord_id], onDelete: Cascade)
+  user User @relation("UserWallets", fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("wallets")
 }
@@ -256,7 +256,7 @@ enum SettlementStatus {
 
 model Withdrawal {
   id                   String           @id @default(uuid()) @map("id")
-  user_discord_id      String           @map("user_discord_id")
+  user_id              String           @map("user_id")
   to_address           String           @map("to_address")
   requested_amount_sol String           @map("requested_amount_sol") // Decimal as string
   route                WithdrawalRoute  @default(SOL) @map("route")
@@ -266,7 +266,7 @@ model Withdrawal {
   created_at           DateTime         @default(now()) @map("created_at")
   completed_at         DateTime?        @map("completed_at")
 
-  user User @relation("UserWithdrawals", fields: [user_discord_id], references: [discord_id], onDelete: Cascade)
+  user User @relation("UserWithdrawals", fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("withdrawals")
 }
@@ -313,7 +313,7 @@ model Session {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [discord_id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("sessions")
 }
@@ -322,7 +322,7 @@ model Account {
   id                String  @id @default(uuid()) @map("id")
   userId            String  @map("user_id")
   providerId        String  @map("provider_id")
-  providerAccountId String  @map("provider_account_id")
+  accountId         String  @map("account_id")
   accessToken       String? @map("access_token")
   refreshToken      String? @map("refresh_token")
   idToken           String? @map("id_token")
@@ -332,9 +332,9 @@ model Account {
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [discord_id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([providerId, providerAccountId])
+  @@unique([providerId, accountId])
   @@map("accounts")
 }
 

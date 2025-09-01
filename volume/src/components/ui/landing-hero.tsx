@@ -174,7 +174,7 @@ export default function Hero({
           <div className="relative">
             <h1 
               ref={headerRef} 
-              className="text-6xl md:text-7xl lg:text-8xl font-outfit font-extralight leading-[0.9] tracking-tight text-white bg-gradient-to-b from-white via-white to-transparent bg-clip-text text-transparent"
+              className="text-6xl md:text-7xl lg:text-8xl font-outfit font-bold leading-[0.9] tracking-tight text-white bg-gradient-to-b from-white via-white to-transparent bg-clip-text text-transparent"
               style={{
                 maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 70%, rgba(0,0,0,0) 100%)',
                 WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 70%, rgba(0,0,0,0) 100%)'
