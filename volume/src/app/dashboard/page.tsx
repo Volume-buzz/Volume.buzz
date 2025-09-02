@@ -50,10 +50,12 @@ export default async function DashboardPage() {
             
       <div className="flex items-center justify-center space-x-4 p-4 bg-muted rounded-lg">
         {me?.image ? (
-          <img
+          <Image
             src={me.image}
             alt="Profile" 
-            className="w-12 h-12 rounded-full"
+            width={48}
+            height={48}
+            className="rounded-full"
             referrerPolicy="no-referrer"
           />
         ) : (

@@ -19,7 +19,7 @@ export async function middleware(request: NextRequest) {
       
       // Session is valid, continue
       return NextResponse.next();
-    } catch (error) {
+    } catch {
       // Session is invalid, redirect to login
       const response = NextResponse.redirect(new URL('/login', request.url));
       response.cookies.delete('session');

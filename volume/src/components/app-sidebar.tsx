@@ -1,8 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
 import { SidebarLink } from "@/components/ui/sidebar";
 
 interface AppSidebarProps {
@@ -10,7 +8,6 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ userRole }: AppSidebarProps) {
-  const pathname = usePathname();
   const isAdmin = userRole === "SUPER_ADMIN" || userRole === "ARTIST";
 
   const links = [

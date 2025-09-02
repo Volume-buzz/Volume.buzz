@@ -40,10 +40,12 @@ export default async function SettingsPage() {
           <div className="space-y-4">
             <div className="flex items-center gap-4">
               {me?.image ? (
-                <img
+                <Image
                   src={me.image}
                   alt="Profile"
-                  className="w-16 h-16 rounded-full"
+                  width={64}
+                  height={64}
+                  className="rounded-full"
                   referrerPolicy="no-referrer"
                 />
               ) : (
