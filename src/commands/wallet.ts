@@ -53,39 +53,27 @@ const walletCommand: Command = {
         `**💳 Token Balances**\n` +
         `SOL: ${balances.sol.toFixed(4)} SOL\n` +
         `${tokenDetails.length > 0 ? tokenDetails.join('\n') : 'No SPL tokens found'}\n\n` +
-        `**💎 Total Value**\n` +
-        `${totalSOLEquivalent.toFixed(4)} SOL equivalent\n\n` +
-        `**📤 Withdrawal Status**\n` +
-        `${totalSOLEquivalent >= 1.0 
-          ? '✅ Eligible for withdrawal' 
-          : `❌ Need ${(1.0 - totalSOLEquivalent).toFixed(4)} SOL more to withdraw`}\n\n` +
+        `**💎 Portfolio Value**\n` +
+        `${totalSOLEquivalent.toFixed(4)} SOL equivalent total\n\n` +
         `**🔑 Wallet Type**\n` +
         `${role === 'Super Admin' ? '👑' : role === 'Artist' ? '🎨' : '👤'} ${role} Wallet`
       );
 
-      // Add action buttons
+      // Safe action buttons only
       const buttons = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(
           new ButtonBuilder()
-            .setCustomId('export_private_key')
-            .setLabel('🔐 Export Private Key')
-            .setStyle(ButtonStyle.Secondary),
-          new ButtonBuilder()
             .setCustomId('view_transactions')
             .setLabel('📋 View Transactions')
-            .setStyle(ButtonStyle.Primary)
-        );
-
-      if (totalSOLEquivalent >= 1.0) {
-        buttons.addComponents(
+            .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
-            .setCustomId('start_withdrawal')
-            .setLabel('💸 Withdraw')
-            .setStyle(ButtonStyle.Success)
+            .setCustomId('wallet_coming_soon')
+            .setLabel('💸 Transfers - Coming Soon')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(true)
         );
-      }
 
-      embed.setFooter({ text: 'Use /withdraw to cash out • Minimum withdrawal: 1 SOL equivalent' });
+      embed.setFooter({ text: 'Secure wallet features coming soon! Use /wallet to view your portfolio 📊' });
 
       await interaction.editReply({ 
         embeds: [embed],

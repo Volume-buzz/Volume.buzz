@@ -104,6 +104,10 @@ class WalletService {
         throw new Error('Failed to serialize encrypted private key - data corruption detected');
       }
 
+      if (!user.id) {
+        throw new Error('User ID is required to create wallet');
+      }
+
       const walletData: CreateWalletData = {
         userId: user.id, // Use the User's UUID id instead of discord_id
         publicKey: keypair.publicKey.toString(),

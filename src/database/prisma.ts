@@ -1,4 +1,4 @@
-import { PrismaClient, User, Raid, RaidParticipant, Admin, OAuthSession, Wallet, Token, ArtistDeposit, Withdrawal, ActionToken } from '@prisma/client';
+import { PrismaClient, User, Raid, RaidParticipant, Admin, OAuthSession, Wallet, Token, ArtistDeposit } from '@prisma/client';
 import { DatabaseUser, Raid as RaidType, RaidParticipant as RaidParticipantType, UserRole } from '../types';
 
 // Initialize Prisma client with proper configuration
@@ -48,8 +48,7 @@ class PrismaDatabase {
         spotify_user_id: userData.spotifyUserId,
         spotify_display_name: userData.spotifyDisplayName,
         spotify_email: userData.spotifyEmail,
-        discord_username: userData.discordUsername,
-        updatedAt: new Date()
+        discord_username: userData.discordUsername
       },
       create: {
         discord_id: userData.discordId,
@@ -69,8 +68,7 @@ class PrismaDatabase {
       where: { discord_id: discordId },
       data: {
         tokens_balance: { increment: tokens },
-        total_rewards_claimed: { increment: 1 },
-        updatedAt: new Date()
+        total_rewards_claimed: { increment: 1 }
       }
     });
   }
@@ -90,8 +88,7 @@ class PrismaDatabase {
         spotify_token_expires_at: null,
         spotify_scope: null,
         spotify_product: null,
-        spotify_country: null,
-        updatedAt: new Date()
+        spotify_country: null
       }
     });
   }
@@ -901,7 +898,7 @@ class PrismaDatabase {
   }): Promise<Wallet> {
     return await prisma.wallet.create({
       data: {
-        user_id: walletData.userId,
+        user: { connect: { id: walletData.userId } },
         public_key: walletData.publicKey,
         encrypted_private_key: walletData.encryptedPrivateKey,
         is_artist_wallet: walletData.isArtistWallet
@@ -1031,39 +1028,7 @@ class PrismaDatabase {
   }
 
   // Withdrawal methods
-  static async createWithdrawal(withdrawalData: {
-    userDiscordId: string;
-    toAddress: string;
-    requestedAmountSol: string;
-    route: 'SOL' | 'TOKENS';
-  }): Promise<Withdrawal> {
-    return await prisma.withdrawal.create({
-      data: {
-        user_id: withdrawalData.userDiscordId,
-        to_address: withdrawalData.toAddress,
-        requested_amount_sol: withdrawalData.requestedAmountSol,
-        route: withdrawalData.route,
-        status: 'PENDING'
-      }
-    });
-  }
-
-  static async getPendingWithdrawals(discordId: string): Promise<Withdrawal[]> {
-    return await prisma.withdrawal.findMany({
-      where: { 
-        user_id: discordId,
-        status: { in: ['PENDING', 'PROCESSING'] }
-      },
-      orderBy: { created_at: 'desc' }
-    });
-  }
-
-  static async getUserWithdrawals(discordId: string): Promise<Withdrawal[]> {
-    return await prisma.withdrawal.findMany({
-      where: { user_id: discordId },
-      orderBy: { created_at: 'desc' }
-    });
-  }
+  // REMOVED: Withdrawal operations - to be implemented later with proper security
 
   // Utility methods
   static async disconnect(): Promise<void> {
@@ -1080,48 +1045,7 @@ class PrismaDatabase {
     });
   }
 
-  // Action tokens (step-up auth)
-  static async createActionToken(params: { userDiscordId: string; action: string; code: string; expiresAt: Date; }): Promise<ActionToken> {
-    return await prisma.actionToken.create({
-      data: {
-        user_discord_id: params.userDiscordId,
-        action: params.action,
-        code: params.code,
-        expires_at: params.expiresAt
-      }
-    });
-  }
-
-  static async validateAndConsumeActionToken(params: { userDiscordId: string; action: string; code: string; }): Promise<boolean> {
-    const token = await prisma.actionToken.findFirst({
-      where: {
-        user_discord_id: params.userDiscordId,
-        action: params.action,
-        used_at: null,
-        expires_at: { gt: new Date() }
-      },
-      orderBy: { created_at: 'desc' }
-    });
-
-    if (!token) return false;
-
-    // Increment attempts
-    await prisma.actionToken.update({
-      where: { id: token.id },
-      data: { attempts: { increment: 1 }, last_attempt_at: new Date() }
-    });
-
-    if (token.code !== params.code) {
-      return false;
-    }
-
-    await prisma.actionToken.update({
-      where: { id: token.id },
-      data: { used_at: new Date() }
-    });
-
-    return true;
-  }
+  // REMOVED: Action tokens for unsafe wallet operations - to be implemented later with proper security
 
   // Helper to update Discord username when missing
   static async ensureDiscordUsername(discordId: string, username: string): Promise<void> {

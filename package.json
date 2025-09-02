@@ -4,7 +4,7 @@
   "description": "Discord bot for Spotify music raid campaigns",
   "main": "dist/app.js",
   "scripts": {
-    "build": "tsc && npm run db:generate",
+    "build": "npm run db:generate && tsc",
     "start": "npm run build && node dist/app.js",
     "start:bot": "npm run build && node dist/bot.js",
     "start:api": "npm run build && node dist/server.js",
@@ -26,7 +26,7 @@
     "postinstall": "npx prisma generate"
   },
   "prisma": {
-    "schema": "./volume/prisma/schema.prisma"
+    "schema": "./prisma/schema.prisma"
   },
   "keywords": [
     "discord",

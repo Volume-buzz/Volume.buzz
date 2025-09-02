@@ -15,7 +15,7 @@ import usersRoutes from './routes/users';
 import raidsRoutes from './routes/raids';
 import adminRoutes from './routes/admin';
 import rewardsRoutes from './routes/rewards';
-import withdrawalRoutes from './routes/withdrawals';
+// REMOVED: import withdrawalRoutes from './routes/withdrawals'; // Unsafe - to be implemented later
 import webhookRoutes from './routes/webhooks';
 import spotifyRoutes from './routes/spotify';
 
@@ -140,7 +140,7 @@ class ApiServer {
     this.app.use('/api/raids', raidsRoutes);
     this.app.use('/api/admin', adminRoutes);
     this.app.use('/api/rewards', rewardsRoutes);
-    this.app.use('/api/withdrawals', withdrawalRoutes);
+    // REMOVED: this.app.use('/api/withdrawals', withdrawalRoutes); // Unsafe - to be implemented later
     this.app.use('/api/spotify', spotifyRoutes);
     this.app.use('/api/webhooks', webhookRoutes);
 

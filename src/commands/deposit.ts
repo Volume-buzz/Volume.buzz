@@ -1,72 +1,48 @@
 import { 
   SlashCommandBuilder, 
-  ChatInputCommandInteraction,
-  EmbedBuilder as DiscordEmbedBuilder 
+  ChatInputCommandInteraction
 } from 'discord.js';
-import PrismaDatabase from '../database/prisma';
 import EmbedBuilder from '../utils/embedBuilder';
-import WalletService from '../services/wallet';
 import { Command } from '../types';
 
 const depositCommand: Command = {
   data: new SlashCommandBuilder()
     .setName('deposit')
-    .setDescription('💳 View your admin wallet address for manual token deposits (Admins only)'),
+    .setDescription('💳 View deposit information for your wallet'),
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
-      await interaction.deferReply({ ephemeral: true });
-
-      // Check if user has admin permissions
-      const isAdmin = await PrismaDatabase.isAdmin(interaction.user.id);
-      
-      if (!isAdmin) {
-        const embed = EmbedBuilder.createErrorEmbed(
-          'Permission Denied',
-          'Only admins can view deposit wallet addresses.\n\nContact a super admin to get admin permissions.'
-        );
-        await interaction.editReply({ embeds: [embed] });
-        return;
-      }
-
-      // Get admin's wallet
-      const walletService = new WalletService();
-      const adminWallet = await walletService.createOrGetWallet(interaction.user.id, true);
-
       const embed = EmbedBuilder.createInfoEmbed(
-        '💳 Admin Deposit Wallet',
-        `**Your Admin Wallet Address:**\n` +
-        `\`${adminWallet.publicKey}\`\n\n` +
-        `**How to deposit tokens:**\n` +
-        `1. Send any SPL tokens to the above address\n` +
-        `2. Use \`/tokens add\` to register new token types\n` +
-        `3. Create raids with \`/play\` using the token mint address\n\n` +
-        `**Supported Networks:**\n` +
-        `✅ Solana Mainnet\n` +
-        `✅ All SPL Tokens\n\n` +
-        `**Security:**\n` +
-        `🔐 This wallet is encrypted and stored securely\n` +
-        `🗝️ Use \`/wallet\` to export private key if needed\n\n` +
-        `*Only deposit tokens you intend to use for raid rewards*`
+        '🚧 Feature Coming Soon',
+        `**Wallet deposits will be implemented later!**\n\n` +
+        `🔐 **Why it's disabled:**\n` +
+        `• Enhanced security measures being implemented\n` +
+        `• Advanced fraud protection systems\n` +
+        `• Multi-signature verification process\n` +
+        `• Compliance and audit requirements\n\n` +
+        `**For now, you can:**\n` +
+        `✅ View your wallet with \`/wallet\`\n` +
+        `✅ Participate in raids to earn tokens\n` +
+        `✅ Check balances and transaction history\n\n` +
+        `**Coming Soon:**\n` +
+        `🚀 Secure deposit system\n` +
+        `🚀 Multi-factor authentication\n` +
+        `🚀 Advanced security features`
       );
 
-      embed.setFooter({ 
-        text: 'Use /tokens to manage token configurations • Use /play to create raids' 
-      });
+      embed.setFooter({ text: 'Stay tuned for updates! 🎵' });
 
-      await interaction.editReply({ embeds: [embed] });
-
-      console.log(`💳 Admin ${interaction.user.tag} viewed deposit wallet address`);
+      await interaction.reply({ embeds: [embed], ephemeral: true });
 
     } catch (error: any) {
-      console.error('Error showing deposit info:', error);
+      console.error('Error in deposit command:', error);
       
       const embed = EmbedBuilder.createErrorEmbed(
-        'Deposit Error',
-        `Failed to load deposit information: ${error.message}\n\nPlease try again or contact support.`
+        'Command Error',
+        `Something went wrong: ${error.message}`
       );
       
-      await interaction.editReply({ embeds: [embed] });
+      await interaction.reply({ embeds: [embed], ephemeral: true });
     }
   }
 };
