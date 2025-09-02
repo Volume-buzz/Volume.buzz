@@ -4,8 +4,8 @@ import { useRef } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import { SplitText } from 'gsap/SplitText';
-import { BeamsBackground } from './beams-background';
-import TextMarquee from './text-marque';
+import { BeamsBackground } from '@/components/effects/beams-background';
+import TextMarquee from '@/components/effects/text-marquee';
 
 import Image from 'next/image';
 import Link from 'next/link';

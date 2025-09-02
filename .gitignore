@@ -154,8 +154,8 @@ spotify-docs/
 nginx/
 ecosystem.config.js
 .cursor
-.cursor/*
+.cursor/
 .cursorignore
 ecosystem.config.js
-/root/volume/.cursor
-/root/volume/AGENTS.md
+.cursor
+AGENTS.md

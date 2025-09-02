@@ -3,7 +3,7 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { motion } from "framer-motion";
 import { useSearchParams } from "next/navigation";
-import { CanvasRevealEffect } from "@/components/login/sign-in-flow-1";
+import { CanvasRevealEffect } from "@/components/forms/auth-form";
 
 interface CallbackState {
   status: 'loading' | 'success' | 'error';

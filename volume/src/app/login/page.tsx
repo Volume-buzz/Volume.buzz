@@ -1,5 +1,13 @@
-import { SignInPage } from "@/components/login/sign-in-flow-1";
+import { SignInPage } from "@/components/forms/auth-form";
+import { getSession } from "@/lib/session";
+import { redirect } from "next/navigation";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  // If user is already authenticated, redirect to dashboard
+  const session = await getSession();
+  if (session) {
+    redirect("/dashboard");
+  }
+
   return <SignInPage />;
 }

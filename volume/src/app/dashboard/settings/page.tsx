@@ -2,7 +2,7 @@ import { apiGet } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import Image from "next/image";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeToggle } from "@/components/core/theme-toggle";
 
 interface MeResponse {
   discord_id: string;

@@ -7,7 +7,7 @@ const securityHeaders = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: https:",
+      "img-src 'self' data: https: https://cdn.discordapp.com https://i.scdn.co",
       "font-src 'self' data:",
       `connect-src 'self' ${process.env.NEXT_PUBLIC_API_BASE || ''}`,
       "frame-ancestors 'self'",
@@ -25,6 +25,25 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'cdn.discordapp.com',
+        pathname: '/avatars/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.discordapp.com',
+        pathname: '/embed/avatars/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.scdn.co',
+        pathname: '/image/**',
+      },
+    ],
+  },
   async headers() {
     return [
       {

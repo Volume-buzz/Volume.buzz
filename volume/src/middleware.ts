@@ -5,6 +5,20 @@ import { jwtVerify } from 'jose';
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
+  // Redirect authenticated users away from login page
+  if (path === '/login') {
+    const session = request.cookies.get('session')?.value;
+    if (session) {
+      try {
+        const secret = new TextEncoder().encode(process.env.JWT_SECRET!);
+        await jwtVerify(session, secret);
+        return NextResponse.redirect(new URL('/dashboard', request.url));
+      } catch {
+        // Invalid session, let them access login page
+      }
+    }
+  }
+
   // Only protect dashboard routes
   if (path.startsWith('/dashboard')) {
     const session = request.cookies.get('session')?.value;
@@ -31,5 +45,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*']
+  matcher: ['/dashboard/:path*', '/login']
 };

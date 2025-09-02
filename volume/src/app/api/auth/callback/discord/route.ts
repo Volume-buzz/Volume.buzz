@@ -78,6 +78,7 @@ export async function GET(request: NextRequest) {
       .sign(secret);
 
     console.log(`✅ Discord authentication successful for user ${discordUser.username} (${discordUser.id})`);
+    console.log(`🖼️ Discord user image: ${user.image}`);
     
     // Create response and set session cookie
     const response = NextResponse.redirect(`${process.env.APP_URL}/dashboard`);

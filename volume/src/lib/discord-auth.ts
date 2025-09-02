@@ -78,10 +78,14 @@ export class DiscordAuth {
     };
   }
 
-  static getAvatarUrl(user: DiscordUser): string {
+  static getAvatarUrl(user: DiscordUser): string | null {
     if (!user.avatar) {
-      return `https://cdn.discordapp.com/embed/avatars/${parseInt(user.discriminator) % 5}.png`;
+      // Use default avatar based on user ID for new Discord username system
+      const defaultAvatarNumber = (BigInt(user.id) >> BigInt(22)) % BigInt(6);
+      return `https://cdn.discordapp.com/embed/avatars/${defaultAvatarNumber}.png`;
     }
-    return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`;
+    // Use higher quality avatar with size parameter and format detection
+    const extension = user.avatar.startsWith('a_') ? 'gif' : 'png';
+    return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${extension}?size=256`;
   }
 }

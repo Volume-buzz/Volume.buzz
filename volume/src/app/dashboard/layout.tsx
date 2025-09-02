@@ -1,9 +1,9 @@
 import { Sidebar, SidebarBody } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
+import { AppSidebar } from "@/components/layout/app-sidebar";
 import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import { apiGet } from "@/lib/api-client";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeToggle } from "@/components/core/theme-toggle";
 import Image from "next/image";
 
 interface MeResponse {
@@ -46,7 +46,7 @@ export default async function DashboardLayout({
           <div className="px-2 md:px-4 pb-2 md:pb-4">
             <div className="flex items-center justify-between gap-1 md:gap-2 text-xs md:text-sm">
               <div className="flex items-center gap-1 md:gap-2 min-w-0">
-                {session.image && (
+                {session.image ? (
                   <Image
                     src={session.image}
                     alt="Avatar"
@@ -55,6 +55,12 @@ export default async function DashboardLayout({
                     className="rounded-full flex-shrink-0"
                     referrerPolicy="no-referrer"
                   />
+                ) : (
+                  <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                    <span className="text-xs text-primary-foreground">
+                      {session.name?.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
                 )}
                 <span className="text-sidebar-foreground truncate">
                   {session.name}
