@@ -14,9 +14,9 @@ export function ThemeToggle() {
 
   if (!mounted) {
     return (
-      <button className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
+      <button className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 w-8 md:h-10 md:w-10 p-0">
         <span className="sr-only">Toggle theme</span>
-        <div className="h-[1.2rem] w-[1.2rem]" />
+        <div className="h-4 w-4 md:h-[1.2rem] md:w-[1.2rem]" />
       </button>
     )
   }
@@ -24,7 +24,7 @@ export function ThemeToggle() {
   return (
     <button
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-      className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
+      className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 w-8 md:h-10 md:w-10 p-0"
     >
       <span className="sr-only">Toggle theme</span>
       {theme === "dark" ? (
@@ -34,7 +34,7 @@ export function ThemeToggle() {
           viewBox="0 0 24 24"
           strokeWidth={1.5}
           stroke="currentColor"
-          className="h-[1.2rem] w-[1.2rem]"
+          className="h-4 w-4 md:h-[1.2rem] md:w-[1.2rem]"
         >
           <path
             strokeLinecap="round"
@@ -49,7 +49,7 @@ export function ThemeToggle() {
           viewBox="0 0 24 24"
           strokeWidth={1.5}
           stroke="currentColor"
-          className="h-[1.2rem] w-[1.2rem]"
+          className="h-4 w-4 md:h-[1.2rem] md:w-[1.2rem]"
         >
           <path
             strokeLinecap="round"
