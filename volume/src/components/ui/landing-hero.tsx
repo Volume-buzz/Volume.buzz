@@ -6,7 +6,7 @@ import gsap from 'gsap';
 import { SplitText } from 'gsap/SplitText';
 import { BeamsBackground } from './beams-background';
 import TextMarquee from './text-marque';
-import { RainbowButton } from './rainbow-button';
+
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -195,9 +195,9 @@ export default function Hero({
           {/* CTA Button */}
           <div ref={ctaRef} className="pt-4">
             <Link href="/login" className="inline-block">
-              <RainbowButton className="text-lg py-6 min-w-[200px] shadow-lg">
+              <span className="text-4xl font-inter font-bold text-white hover:text-white/80 transition-colors duration-200">
                 Get Started
-              </RainbowButton>
+              </span>
             </Link>
           </div>
 

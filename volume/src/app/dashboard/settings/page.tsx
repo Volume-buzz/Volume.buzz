@@ -2,11 +2,13 @@ import { apiGet } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import Image from "next/image";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface MeResponse {
   discord_id: string;
   role: string;
   spotify_is_premium: boolean;
+  spotify_is_connected: boolean;
   name?: string | null;
   image?: string | null;
   balances: { tokens_balance: number };
@@ -24,19 +26,30 @@ export default async function SettingsPage() {
       </div>
 
       <div className="grid gap-6">
+        {/* Theme Section */}
+        <div className="bg-card border rounded-lg p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Appearance</h2>
+          <div className="space-y-4">
+            <ThemeToggle />
+          </div>
+        </div>
+
         {/* Profile Section */}
         <div className="bg-card border rounded-lg p-6">
           <h2 className="text-lg font-semibold text-foreground mb-4">Profile</h2>
           <div className="space-y-4">
             <div className="flex items-center gap-4">
-              {me?.image && (
-                <Image
+              {me?.image ? (
+                <img
                   src={me.image}
                   alt="Profile"
-                  width={64}
-                  height={64}
                   className="w-16 h-16 rounded-full"
+                  referrerPolicy="no-referrer"
                 />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center">
+                  <i className="fab fa-discord text-white text-2xl" />
+                </div>
               )}
               <div>
                 <p className="font-medium text-foreground">{me?.name}</p>
@@ -55,18 +68,27 @@ export default async function SettingsPage() {
               <div>
                 <p className="font-medium text-foreground">Spotify Status</p>
                 <p className="text-sm text-muted-foreground">
-                  {me?.spotify_is_premium 
-                    ? "Premium account connected - enjoy enhanced features!" 
+                  {me?.spotify_is_connected
+                    ? (me?.spotify_is_premium 
+                        ? "Premium account connected - enjoy enhanced features!" 
+                        : "Free account connected - upgrade to Premium for enhanced features!"
+                      )
                     : "Connect your Spotify account to participate in raids"
                   }
                 </p>
               </div>
               <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                me?.spotify_is_premium
-                  ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                me?.spotify_is_connected
+                  ? (me?.spotify_is_premium 
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                      : 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
+                    )
                   : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
               }`}>
-                {me?.spotify_is_premium ? 'Premium Connected' : 'Not Connected'}
+                {me?.spotify_is_connected 
+                  ? (me?.spotify_is_premium ? 'Premium Connected' : 'Free Connected') 
+                  : 'Not Connected'
+                }
               </div>
             </div>
             <div className="flex gap-2">

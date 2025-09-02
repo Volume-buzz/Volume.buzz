@@ -8,6 +8,7 @@ interface MeResponse {
   discord_id: string;
   role: string;
   spotify_is_premium: boolean;
+  spotify_is_connected: boolean;
   name?: string | null;
   image?: string | null;
   balances: { tokens_balance: number };
@@ -44,11 +45,12 @@ export default async function DashboardLayout({
           </div>
           <div className="px-4 pb-4">
             <div className="flex items-center gap-2 text-sm">
-              {userInfo?.image && (
+              {session.image && (
                 <img
-                  src={userInfo.image}
+                  src={session.image}
                   alt="Avatar"
                   className="h-7 w-7 rounded-full"
+                  referrerPolicy="no-referrer"
                 />
               )}
               <span className="text-neutral-700 dark:text-neutral-200">

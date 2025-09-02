@@ -18,6 +18,7 @@ router.get('/me', requireAuth, async (req: Request, res: Response) => {
       discord_id: user.discord_id,
       role: user.role,
       spotify_is_premium: user.spotify_is_premium,
+      spotify_is_connected: !!user.spotify_access_token,
       name: user.name,
       image: user.image,
       balances: {

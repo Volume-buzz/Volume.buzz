@@ -5,6 +5,7 @@ interface MeResponse {
   discord_id: string;
   role: string;
   spotify_is_premium: boolean;
+  spotify_is_connected: boolean;
   name?: string | null;
   image?: string | null;
   balances: { tokens_balance: number };
@@ -48,13 +49,18 @@ export default async function DashboardPage() {
       </div>
             
       <div className="flex items-center justify-center space-x-4 p-4 bg-muted rounded-lg">
-        <Image 
-          src={me?.image || "/default-avatar.png"} 
-          alt="Profile" 
-          width={48}
-          height={48}
-          className="w-12 h-12 rounded-full"
-        />
+        {me?.image ? (
+          <img
+            src={me.image}
+            alt="Profile" 
+            className="w-12 h-12 rounded-full"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center">
+            <i className="fab fa-discord text-white text-xl" />
+          </div>
+        )}
         <div className="text-left">
           <p className="font-medium text-foreground">{me?.name}</p>
           <p className="text-sm text-muted-foreground">Discord ID: {me?.discord_id}</p>
@@ -63,23 +69,40 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
         <div className="bg-muted rounded-lg p-4">
-          <h3 className="font-semibold text-foreground mb-2">💰 SOL Balance</h3>
+          <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+            <i className="fas fa-wallet text-primary" />
+            SOL Balance
+          </h3>
           <p className="text-2xl text-foreground">{wallet?.balances?.sol?.toFixed(4) ?? '0.0000'} SOL</p>
           <p className="text-xs text-muted-foreground mt-1">Wallet: {me?.wallet?.public_key ? me.wallet.public_key.slice(0,6)+"..."+me.wallet.public_key.slice(-4) : 'not created'}</p>
         </div>
         <div className="bg-muted rounded-lg p-4">
-          <h3 className="font-semibold text-foreground mb-2">🎵 Active Raids</h3>
+          <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+            <i className="fas fa-music text-primary" />
+            Active Raids
+          </h3>
           <p className="text-2xl text-foreground">{activeRaids?.length ?? 0}</p>
           <p className="text-xs text-muted-foreground mt-1">Join from the list below</p>
         </div>
         <div className="bg-muted rounded-lg p-4">
-          <h3 className="font-semibold text-foreground mb-2">✅ Qualified Raids</h3>
+          <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+            <i className="fas fa-check-circle text-primary" />
+            Qualified Raids
+          </h3>
           <p className="text-2xl text-foreground">{qualifiedCount}</p>
           <p className="text-xs text-muted-foreground mt-1">Ready to claim rewards</p>
         </div>
         <div className="bg-muted rounded-lg p-4">
-          <h3 className="font-semibold text-foreground mb-2">🛡️ Spotify</h3>
-          <p className="text-foreground">{me?.spotify_is_premium ? 'Premium connected' : 'Connect for premium perks'}</p>
+          <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+            <i className="fab fa-spotify text-primary" />
+            Spotify
+          </h3>
+          <p className="text-foreground">
+            {me?.spotify_is_connected 
+              ? (me?.spotify_is_premium ? 'Premium connected' : 'Free account connected')
+              : 'Connect for premium perks'
+            }
+          </p>
         </div>
       </div>
 
