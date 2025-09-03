@@ -62,10 +62,10 @@ export function validate(schemas: ValidationSchemas) {
         }
       }
 
-      next();
+      return next();
     } catch (error) {
       console.error('Validation middleware error:', error);
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Internal Server Error',
         message: 'Validation failed'
       });
