@@ -4,8 +4,10 @@
 
 import { Router, type Router as RouterType, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
+import { validate, commonSchemas } from '../middleware/validation';
 import PrismaDatabase from '../database/prisma';
 import WalletService from '../services/wallet';
+import Joi from 'joi';
 
 const router: RouterType = Router();
 
@@ -20,7 +22,7 @@ router.get('/status', (req, res) => {
 // Get current user's wallet summary and balances
 router.get('/me', requireAuth, async (req: Request, res: Response) => {
   try {
-    const discordId = (req as any).sessionUser.discordId as string;
+    const discordId = req.sessionUser!.discordId;
     const wallet = await PrismaDatabase.getUserWallet(discordId);
 
     if (!wallet) {
@@ -51,9 +53,16 @@ router.get('/me', requireAuth, async (req: Request, res: Response) => {
 });
 
 // Placeholder routes - implement as needed
-router.get('/balance/:discordId', (req, res) => {
-  res.status(501).json({ error: 'Not implemented' });
-});
+router.get('/balance/:discordId', 
+  validate({
+    params: Joi.object({
+      discordId: commonSchemas.discordId
+    })
+  }),
+  (req, res) => {
+    res.status(501).json({ error: 'Not implemented' });
+  }
+);
 
 router.post('/create', (req, res) => {
   res.status(501).json({ error: 'Not implemented' });

@@ -169,7 +169,12 @@ class PrismaDatabase {
     discordUsername?: string;
   }): Promise<User | null> {
     try {
-      const updateData: any = {};
+      const updateData: Partial<Pick<User, 
+        'spotify_user_id' | 'spotify_display_name' | 'spotify_email' | 
+        'spotify_is_premium' | 'spotify_access_token' | 'spotify_refresh_token' |
+        'spotify_token_expires_at' | 'spotify_scope' | 'spotify_product' | 'spotify_country' |
+        'discord_username'
+      >> = {};
       
       if (updates.spotifyUserId) updateData.spotify_user_id = updates.spotifyUserId;
       if (updates.spotifyDisplayName) updateData.spotify_display_name = updates.spotifyDisplayName;
@@ -644,7 +649,9 @@ class PrismaDatabase {
     listenStartTime: Date | null = null, 
     totalDuration: number | null = null
   ): Promise<RaidParticipant> {
-    const updateData: any = {
+    const updateData: Partial<Pick<RaidParticipant, 
+      'is_listening' | 'last_check' | 'listen_start_time' | 'total_listen_duration'
+    >> = {
       is_listening: isListening,
       last_check: new Date()
     };
@@ -1123,7 +1130,7 @@ class PrismaDatabase {
   }
 
   // Raw query method for backwards compatibility during transition
-  static async query(sql: string, params: any[] = []): Promise<any> {
+  static async query(sql: string, params: unknown[] = []): Promise<unknown> {
     console.warn('Raw SQL query used - consider migrating to Prisma:', sql);
     return await prisma.$queryRawUnsafe(sql, ...params);
   }

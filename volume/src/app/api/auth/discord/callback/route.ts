@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
     console.error('Discord OAuth callback error:', error);
     // Never expose internal error details in production
     const errorParam = process.env.NODE_ENV === 'development' 
-      ? `callback_error&details=${encodeURIComponent((error as any).message)}` 
+      ? `callback_error&details=${encodeURIComponent(error instanceof Error ? error.message : String(error))}` 
       : 'callback_error';
     return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/login?error=${errorParam}`);
   }

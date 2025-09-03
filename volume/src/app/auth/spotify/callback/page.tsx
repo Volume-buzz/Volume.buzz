@@ -3,7 +3,12 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { motion } from "framer-motion";
 import { useSearchParams } from "next/navigation";
-import { CanvasRevealEffect } from "@/components/forms/auth-form";
+import dynamic from "next/dynamic";
+
+const CanvasRevealEffect = dynamic(
+  () => import("@/components/forms/auth-form").then((mod) => ({ default: mod.CanvasRevealEffect })),
+  { ssr: false }
+);
 
 interface CallbackState {
   status: 'loading' | 'success' | 'error';

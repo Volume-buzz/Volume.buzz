@@ -1,26 +1,39 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { CanvasRevealEffect } from "@/components/forms/auth-form";
+import dynamic from "next/dynamic";
+
+const CanvasRevealEffect = dynamic(
+  () => import("@/components/forms/auth-form").then((mod) => ({ default: mod.CanvasRevealEffect })),
+  { ssr: false }
+);
 
 export default function NotFound() {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   return (
     <div className="flex w-full flex-col min-h-screen bg-black relative">
       {/* Background Effect */}
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0">
-          <CanvasRevealEffect
-            animationSpeed={2}
-            containerClassName="bg-black"
-            colors={[
-              [255, 255, 255],
-              [255, 255, 255],
-            ]}
-            dotSize={4}
-            reverse={false}
-          />
+          {isMounted && (
+            <CanvasRevealEffect
+              animationSpeed={2}
+              containerClassName="bg-black"
+              colors={[
+                [255, 255, 255],
+                [255, 255, 255],
+              ]}
+              dotSize={4}
+              reverse={false}
+            />
+          )}
         </div>
         
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(0,0,0,0.8)_0%,_transparent_100%)]" />

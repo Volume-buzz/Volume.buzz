@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import PrismaDatabase from '../database/prisma';
 import { requireAuth } from '../middleware/auth';
+import { validate, commonSchemas } from '../middleware/validation';
+import Joi from 'joi';
 
 const router: Router = Router();
 
@@ -32,21 +34,36 @@ router.get('/active', requireAuth, async (_req: Request, res: Response) => {
 });
 
 // GET /api/raids/:id
-router.get('/:id', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const raid = await PrismaDatabase.getRaid(req.params.id);
-    if (!raid) return res.status(404).json({ error: 'Raid not found' });
-    return res.json(raid);
-  } catch (err) {
-    console.error('raids/:id error', err);
-    return res.status(500).json({ error: 'Failed to load raid' });
+router.get('/:id', 
+  requireAuth, 
+  validate({
+    params: Joi.object({
+      id: commonSchemas.raidId
+    })
+  }),
+  async (req: Request, res: Response) => {
+    try {
+      const raid = await PrismaDatabase.getRaid(req.params.id);
+      if (!raid) return res.status(404).json({ error: 'Raid not found' });
+      return res.json(raid);
+    } catch (err) {
+      console.error('raids/:id error', err);
+      return res.status(500).json({ error: 'Failed to load raid' });
+    }
   }
-});
+);
 
 // POST /api/raids/:id/join
-router.post('/:id/join', requireAuth, async (req: Request, res: Response) => {
+router.post('/:id/join', 
+  requireAuth, 
+  validate({
+    params: Joi.object({
+      id: commonSchemas.raidId
+    })
+  }),
+  async (req: Request, res: Response) => {
   try {
-    const discordId = (req as any).sessionUser.discordId as string;
+    const discordId = req.sessionUser!.discordId;
     const raidId = req.params.id;
 
     const raid = await PrismaDatabase.getRaid(raidId);

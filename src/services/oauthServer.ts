@@ -27,6 +27,7 @@ class OAuthServer {
   private bot: any; // Reference to the main bot instance
   private spotifyAuthService: SpotifyAuthService;
   private walletService: WalletService;
+  private cleanupInterval: NodeJS.Timeout | null = null;
 
   constructor(bot: any) {
     this.bot = bot;
@@ -40,7 +41,7 @@ class OAuthServer {
     this.walletService = new WalletService();
 
     // Clean up expired sessions every 5 minutes
-    setInterval(() => {
+    this.cleanupInterval = setInterval(() => {
       this.cleanupExpiredSessions();
     }, 5 * 60 * 1000);
   }
@@ -331,9 +332,13 @@ class OAuthServer {
   }
 
   /**
-   * Stop the OAuth server
+   * Stop the OAuth server and clean up resources
    */
   stop(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
     console.log('🔐 OAuth service stopped');
   }
 

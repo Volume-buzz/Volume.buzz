@@ -240,6 +240,12 @@ class ApiServer {
       // Close service connections
       await this.heliusService.disconnect();
       await this.rewardsService.disconnect();
+      
+      // Stop OAuth server if it exists
+      if (this.oauthServer) {
+        this.oauthServer.stop();
+      }
+      
       console.log('✅ Services disconnected successfully');
     } catch (error) {
       console.error('❌ Error during shutdown:', error);
