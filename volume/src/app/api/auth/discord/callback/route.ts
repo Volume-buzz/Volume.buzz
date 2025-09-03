@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Create session JWT
-    const secret = new TextEncoder().encode(process.env.BETTER_AUTH_SECRET!);
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET!);
     const token = await new SignJWT({ 
       userId: user.id, 
       discordId: user.discord_id,
@@ -93,6 +93,10 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Discord OAuth callback error:', error);
-    return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/login?error=callback_error`);
+    // Never expose internal error details in production
+    const errorParam = process.env.NODE_ENV === 'development' 
+      ? `callback_error&details=${encodeURIComponent((error as any).message)}` 
+      : 'callback_error';
+    return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/login?error=${errorParam}`);
   }
 }

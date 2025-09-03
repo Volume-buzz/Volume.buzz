@@ -82,8 +82,10 @@ class ApiServer {
 
     // CORS configuration
     this.app.use(cors({
-      // If '*' is present, reflect the request origin (works with credentials)
-      origin: config.api.corsOrigins.includes('*') ? true : config.api.corsOrigins,
+      // Use explicit allowlist for origins, never use wildcard in production
+      origin: config.api.nodeEnv === 'production' 
+        ? config.api.corsOrigins.filter(origin => origin !== '*')
+        : config.api.corsOrigins.includes('*') ? true : config.api.corsOrigins,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'helius-signature']

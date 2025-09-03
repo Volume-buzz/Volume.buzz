@@ -45,7 +45,7 @@ router.get('/spotify/callback', async (req, res): Promise<void> => {
         <body style="font-family: Arial; text-align: center; padding: 50px; background: #1DB954; color: white;">
           <h2>❌ Server Error</h2>
           <p>Something went wrong. Please try again in Discord.</p>
-          <p>Error: ${(error as any).message}</p>
+          ${config.api.nodeEnv === 'development' ? `<p>Error: ${(error as any).message}</p>` : ''}
         </body>
       </html>
     `);

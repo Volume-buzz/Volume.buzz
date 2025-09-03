@@ -100,7 +100,11 @@ class SpotifyBot {
 
   private loadCommands(): void {
     const commandsPath = path.join(__dirname, 'commands');
-    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js') && !file.endsWith('.d.ts'));
+    // In development, load .ts files; in production, load compiled .js files
+    const fileExtension = config.api.nodeEnv === 'development' ? '.ts' : '.js';
+    const commandFiles = fs.readdirSync(commandsPath).filter(file => 
+      file.endsWith(fileExtension) && !file.endsWith('.d.ts')
+    );
 
     for (const file of commandFiles) {
       const filePath = path.join(commandsPath, file);
@@ -870,7 +874,11 @@ class SpotifyBot {
   private async deployCommands(): Promise<void> {
     const commands: any[] = [];
     const commandsPath = path.join(__dirname, 'commands');
-    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js') && !file.endsWith('.d.ts'));
+    // In development, deploy .ts files; in production, deploy compiled .js files
+    const fileExtension = config.api.nodeEnv === 'development' ? '.ts' : '.js';
+    const commandFiles = fs.readdirSync(commandsPath).filter(file => 
+      file.endsWith(fileExtension) && !file.endsWith('.d.ts')
+    );
 
     for (const file of commandFiles) {
       const filePath = path.join(commandsPath, file);
