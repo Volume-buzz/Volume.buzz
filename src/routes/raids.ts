@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import PrismaDatabase from '../database/prisma';
+import CachedDatabase from '../services/cachedDatabase';
 import { requireAuth } from '../middleware/auth';
 import { validate, commonSchemas } from '../middleware/validation';
 import Joi from 'joi';
@@ -9,7 +10,7 @@ const router: Router = Router();
 // GET /api/raids/active
 router.get('/active', requireAuth, async (_req: Request, res: Response) => {
   try {
-    const raids = await PrismaDatabase.getActiveRaids();
+    const raids = await CachedDatabase.getActiveRaids();
     return res.json(
       raids.map(r => ({
         id: r.id,
@@ -43,7 +44,7 @@ router.get('/:id',
   }),
   async (req: Request, res: Response) => {
     try {
-      const raid = await PrismaDatabase.getRaid(req.params.id);
+      const raid = await CachedDatabase.getRaid(req.params.id);
       if (!raid) return res.status(404).json({ error: 'Raid not found' });
       return res.json(raid);
     } catch (err) {

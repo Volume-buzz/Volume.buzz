@@ -1,11 +1,18 @@
 "use client";
 
-import React, { useState, useMemo, useRef } from "react";
-import { motion } from "framer-motion";
+import React, { useState, useMemo, useRef, lazy, Suspense } from "react";
 import { cn } from "@/lib/utils";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-
 import * as THREE from "three";
+import { useThree, useFrame } from "@react-three/fiber";
+import { motion } from "framer-motion";
+
+// Lazy load heavy components
+const Canvas = lazy(() => import("@react-three/fiber").then(mod => ({ default: mod.Canvas })));
+
+// Loading fallback component
+const LoadingCanvas = () => (
+  <div className="absolute inset-0 bg-gradient-to-br from-cyan-900/20 to-blue-900/20" />
+);
 
 type Uniforms = {
   [key: string]: {
@@ -337,9 +344,11 @@ const ShaderMaterial = ({
 
 const Shader: React.FC<ShaderProps> = ({ source, uniforms }) => {
   return (
-    <Canvas className="absolute inset-0  h-full w-full">
-      <ShaderMaterial source={source} uniforms={uniforms} />
-    </Canvas>
+    <Suspense fallback={<LoadingCanvas />}>
+      <Canvas className="absolute inset-0  h-full w-full">
+        <ShaderMaterial source={source} uniforms={uniforms} />
+      </Canvas>
+    </Suspense>
   );
 };
 

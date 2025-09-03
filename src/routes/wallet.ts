@@ -6,6 +6,7 @@ import { Router, type Router as RouterType, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { validate, commonSchemas } from '../middleware/validation';
 import PrismaDatabase from '../database/prisma';
+import CachedDatabase from '../services/cachedDatabase';
 import WalletService from '../services/wallet';
 import Joi from 'joi';
 
@@ -23,7 +24,7 @@ router.get('/status', (req, res) => {
 router.get('/me', requireAuth, async (req: Request, res: Response) => {
   try {
     const discordId = req.sessionUser!.discordId;
-    const wallet = await PrismaDatabase.getUserWallet(discordId);
+    const wallet = await CachedDatabase.getUserWallet(discordId);
 
     if (!wallet) {
       // Lazily create a wallet for the user (non-artist)

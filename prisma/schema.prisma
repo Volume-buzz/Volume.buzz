@@ -15,7 +15,7 @@ model User {
   image                    String? @map("image")
   createdAt                DateTime @default(now()) @map("created_at")
   updatedAt                DateTime @updatedAt @map("updated_at")
-  discord_id               String? @unique @map("discord_id")
+  discord_id               String @unique @map("discord_id")
   spotify_user_id         String? @map("spotify_user_id")
   spotify_display_name    String? @map("spotify_display_name")
   spotify_email           String? @map("spotify_email")
@@ -39,7 +39,9 @@ model User {
   reward_accruals   RewardAccrual[] @relation("UserRewards")
   withdrawals       Withdrawal[] @relation("UserWithdrawals")
 
-
+  // Performance indexes for frequent queries
+  @@index([role, createdAt], map: "users_role_created_idx")
+  @@index([total_raids_participated], map: "users_raids_count_idx")
   @@map("users")
 }
 
@@ -99,6 +101,11 @@ model Raid {
   creator         User?            @relation("RaidCreator", fields: [artist_discord_id], references: [discord_id])
   reward_accruals RewardAccrual[]
 
+  // Performance indexes for frequent queries
+  @@index([status, expires_at], map: "raids_status_expires_idx")
+  @@index([guild_id, status], map: "raids_guild_status_idx")
+  @@index([creator_id, created_at], map: "raids_creator_created_idx")
+  @@index([created_at], map: "raids_created_at_idx")
   @@map("raids")
 }
 
@@ -139,6 +146,10 @@ model RaidParticipant {
   user User  @relation(fields: [discord_id], references: [discord_id])
 
   @@unique([raid_id, discord_id])
+  // Performance indexes for frequent queries
+  @@index([discord_id, created_at], map: "participants_user_created_idx")
+  @@index([raid_id, qualified], map: "participants_raid_qualified_idx")
+  @@index([is_listening, last_check], map: "participants_listening_check_idx")
   @@map("raid_participants")
 }
 
@@ -219,6 +230,10 @@ model RewardAccrual {
   raid  Raid  @relation(fields: [raid_id], references: [id], onDelete: Cascade)
   token Token @relation(fields: [token_mint], references: [mint])
 
+  // Performance indexes for frequent queries
+  @@index([user_discord_id, created_at], map: "rewards_user_created_idx")
+  @@index([status, created_at], map: "rewards_status_created_idx")
+  @@index([raid_id, status], map: "rewards_raid_status_idx")
   @@map("reward_accruals")
 }
 

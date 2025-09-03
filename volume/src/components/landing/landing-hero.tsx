@@ -1,16 +1,11 @@
 'use client';
 
-import { useRef } from 'react';
-import { useGSAP } from '@gsap/react';
-import gsap from 'gsap';
-import { SplitText } from 'gsap/SplitText';
+import { useRef, useEffect, useState } from 'react';
 import { BeamsBackground } from '@/components/effects/beams-background';
 import TextMarquee from '@/components/effects/text-marquee';
 
 import Image from 'next/image';
 import Link from 'next/link';
-
-gsap.registerPlugin(SplitText, useGSAP);
 
 // ===================== HERO =====================
 interface HeroProps {
@@ -28,9 +23,26 @@ export default function Hero({
   const ctaRef = useRef<HTMLDivElement | null>(null);
   const logoRef1 = useRef<HTMLDivElement | null>(null);
   const logoRef2 = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    let gsap: typeof import('gsap').default;
+    let SplitText: typeof import('gsap/SplitText').SplitText;
+    let useGSAP: typeof import('@gsap/react').useGSAP;
 
-  useGSAP(
-    () => {
+    const loadAndInitialize = async () => {
+      // Dynamically import GSAP libraries
+      const [gsapModule, { useGSAP: useGSAPHook }, { SplitText: SplitTextClass }] = await Promise.all([
+        import('gsap'),
+        import('@gsap/react'),
+        import('gsap/SplitText')
+      ]);
+      
+      gsap = gsapModule.default;
+      SplitText = SplitTextClass;
+      useGSAP = useGSAPHook;
+
+      // Register plugins
+      gsap.registerPlugin(SplitText, useGSAP);
+
       if (!headerRef.current) return;
 
       document.fonts.ready.then(() => {
@@ -123,9 +135,10 @@ export default function Hero({
           });
         }
       });
-    },
-    { scope: sectionRef },
-  );
+    };
+
+    loadAndInitialize().catch(console.error);
+  }, []);
 
   return (
     <section ref={sectionRef} className="relative h-screen w-screen overflow-hidden">

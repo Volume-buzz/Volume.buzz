@@ -26,6 +26,8 @@ import OAuthServer from './services/oauthServer';
 import HeliusService from './services/helius';
 import RewardsService from './services/rewards';
 import DMService from './services/dmService';
+import cacheService from './services/cache';
+import CachedDatabase from './services/cachedDatabase';
 
 interface ApiError extends Error {
   status?: number;
@@ -179,7 +181,7 @@ class ApiServer {
   /**
    * Initialize background services
    */
-  private initializeServices(): void {
+  private async initializeServices(): Promise<void> {
     try {
       // Initialize Helius WebSocket connection
       if (config.features.enableWebhooks) {
@@ -191,6 +193,9 @@ class ApiServer {
         this.rewardsService.startAutomatedSettlement();
       }
 
+      // Warm up cache with frequently accessed data
+      await CachedDatabase.warmUpCache();
+
       console.log('✅ Background services initialized successfully');
     } catch (error) {
       console.error('❌ Failed to initialize background services:', error);
@@ -200,18 +205,18 @@ class ApiServer {
   /**
    * Initialize the API server
    */
-  private initialize(): void {
+  private async initialize(): Promise<void> {
     this.initializeMiddleware();
     this.initializeRoutes();
     this.initializeErrorHandling();
-    this.initializeServices();
+    await this.initializeServices();
   }
 
   /**
    * Start the server
    */
-  start(): void {
-    this.initialize();
+  async start(): Promise<void> {
+    await this.initialize();
 
     this.server = this.app.listen(this.port, () => {
       console.log(`🚀 Spotify Crypto API server running on port ${this.port}`);
@@ -245,6 +250,9 @@ class ApiServer {
       if (this.oauthServer) {
         this.oauthServer.stop();
       }
+
+      // Disconnect cache service
+      await cacheService.disconnect();
       
       console.log('✅ Services disconnected successfully');
     } catch (error) {
