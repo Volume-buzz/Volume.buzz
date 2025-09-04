@@ -813,23 +813,60 @@ class PrismaDatabase {
     platform: 'SPOTIFY';
     expiresAt: Date;
   }): Promise<OAuthSession> {
-    return await prisma.oAuthSession.create({
-      data: {
-        state: sessionData.state,
-        discord_id: sessionData.discordId,
-        platform: 'SPOTIFY',
-        expires_at: sessionData.expiresAt
-      }
-    });
+    try {
+      // Delete any existing sessions for this Discord user to prevent duplicates
+      await prisma.oAuthSession.deleteMany({
+        where: {
+          discord_id: sessionData.discordId,
+          platform: 'SPOTIFY'
+        }
+      });
+
+      const session = await prisma.oAuthSession.create({
+        data: {
+          state: sessionData.state,
+          discord_id: sessionData.discordId,
+          platform: 'SPOTIFY',
+          expires_at: sessionData.expiresAt
+        }
+      });
+      
+      console.log(`📝 Created OAuth session for Discord user ${sessionData.discordId} with state ${sessionData.state.substring(0, 8)}...`);
+      return session;
+    } catch (error) {
+      console.error('Error creating OAuth session:', error);
+      throw error;
+    }
   }
 
   static async getOAuthSession(state: string): Promise<OAuthSession | null> {
-    return await prisma.oAuthSession.findFirst({
-      where: {
-        state: state,
-        expires_at: { gt: new Date() }
+    try {
+      const now = new Date();
+      const session = await prisma.oAuthSession.findFirst({
+        where: {
+          state: state,
+          expires_at: { gt: now }
+        }
+      });
+      
+      if (!session) {
+        // Check if there's an expired session with this state
+        const expiredSession = await prisma.oAuthSession.findFirst({
+          where: { state: state }
+        });
+        
+        if (expiredSession) {
+          console.warn(`⏰ Found expired OAuth session for state ${state.substring(0, 8)}... (expired at ${expiredSession.expires_at})`);
+        } else {
+          console.warn(`🔍 No OAuth session found for state ${state.substring(0, 8)}...`);
+        }
       }
-    });
+      
+      return session;
+    } catch (error) {
+      console.error('Error retrieving OAuth session:', error);
+      return null;
+    }
   }
 
   static async deleteOAuthSession(state: string) {

@@ -356,10 +356,7 @@ class RaidMonitor {
         console.log(`🧹 Removed inactive participant: ${participant.discord_id}`);
       }
 
-      // Clean up expired OAuth sessions
-      await PrismaDatabase.cleanupExpiredSessions();
-
-      // Clean up Spotify tracking sessions
+      // Clean up Spotify tracking sessions (OAuth sessions cleaned up by OAuth server)
       this.spotifyTrackingService.cleanupInactiveSessions();
       
     } catch (error) {

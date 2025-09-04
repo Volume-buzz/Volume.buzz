@@ -40,10 +40,10 @@ class OAuthServer {
     });
     this.walletService = new WalletService();
 
-    // Clean up expired sessions every 5 minutes
+    // Clean up expired sessions every 15 minutes (reduced frequency to avoid race conditions)
     this.cleanupInterval = setInterval(() => {
       this.cleanupExpiredSessions();
-    }, 5 * 60 * 1000);
+    }, 15 * 60 * 1000);
   }
 
   // No need for separate middleware and routes - they'll be handled by the main API server
@@ -53,7 +53,9 @@ class OAuthServer {
    */
   private async cleanupExpiredSessions(): Promise<void> {
     try {
+      console.log('🧹 Cleaning up expired OAuth sessions...');
       await PrismaDatabase.cleanupExpiredSessions();
+      console.log('✅ OAuth session cleanup completed');
     } catch (error) {
       console.error('Error cleaning up expired sessions:', error);
     }
@@ -139,18 +141,37 @@ class OAuthServer {
       }
 
       // Get session to find Discord user
+      console.log(`🔍 Looking up OAuth session for state: ${state.substring(0, 8)}...`);
       const session = await PrismaDatabase.getOAuthSession(state);
-      if (!session || session.platform !== 'SPOTIFY') {
+      
+      if (!session) {
+        console.error(`❌ OAuth session not found for state: ${state.substring(0, 8)}... - session may have expired or been cleaned up`);
         res.status(400).send(`
           <html>
             <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #191414; color: white;">
               <h1>❌ Invalid Session</h1>
               <p>OAuth session not found or expired. Please try again.</p>
+              <p><small>If this continues happening, please contact support.</small></p>
             </body>
           </html>
         `);
         return;
       }
+
+      if (session.platform !== 'SPOTIFY') {
+        console.error(`❌ Wrong platform for session ${state.substring(0, 8)}...: expected SPOTIFY, got ${session.platform}`);
+        res.status(400).send(`
+          <html>
+            <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #191414; color: white;">
+              <h1>❌ Invalid Session</h1>
+              <p>OAuth session platform mismatch. Please try again.</p>
+            </body>
+          </html>
+        `);
+        return;
+      }
+
+      console.log(`✅ Found valid OAuth session for Discord user: ${session.discord_id}`);
 
       // Check if session has expired
       if (session.expires_at && session.expires_at < new Date()) {
@@ -229,13 +250,14 @@ class OAuthServer {
       `);
 
     } catch (error: any) {
+      const errorMessage = error.message || error.toString() || 'Unknown error';
       console.error('Error handling Spotify callback:', error);
       res.status(500).send(`
         <html>
           <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #191414; color: white;">
             <h1>❌ Server Error</h1>
             <p>An error occurred while processing your Spotify authentication.</p>
-            <p>Error: ${error.message}</p>
+            <p>Error: ${errorMessage}</p>
             <p>Please try again later.</p>
           </body>
         </html>
@@ -305,12 +327,14 @@ class OAuthServer {
     const state = crypto.randomBytes(32).toString('hex');
     
     // Store OAuth session directly (this is what the callback expects)
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes instead of 10
     await PrismaDatabase.createOAuthSession({
       state,
       discordId,
       platform,
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000)
+      expiresAt
     });
+    console.log(`🔐 Created OAuth session for Discord user ${discordId}, expires at ${expiresAt.toISOString()}`);
     
     // Direct Spotify OAuth URL - redirect to Vercel frontend
     const spotifyAuthUrl = `https://accounts.spotify.com/authorize?${new URLSearchParams({

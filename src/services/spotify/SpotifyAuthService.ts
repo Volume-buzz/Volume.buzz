@@ -52,7 +52,9 @@ class SpotifyAuthService {
    */
   async exchangeCodeForTokens(authCode: string): Promise<SpotifyAuthTokens> {
     try {
+      console.log('🔑 Exchanging Spotify authorization code for tokens...');
       const data = await this.spotifyApi.authorizationCodeGrant(authCode);
+      console.log('✅ Successfully exchanged authorization code for tokens');
       
       return {
         access_token: data.body.access_token,
@@ -71,8 +73,10 @@ class SpotifyAuthService {
    */
   async getUserProfile(accessToken: string): Promise<SpotifyUser> {
     try {
+      console.log('🎵 Fetching Spotify user profile...');
       this.spotifyApi.setAccessToken(accessToken);
       const data = await this.spotifyApi.getMe();
+      console.log('✅ Successfully fetched Spotify user profile:', data.body.id);
       
       return {
         id: data.body.id,
@@ -89,7 +93,9 @@ class SpotifyAuthService {
         external_urls: data.body.external_urls || { spotify: '' }
       };
     } catch (error: any) {
-      throw new Error(`Failed to get user profile: ${error.message}`);
+      const errorMessage = error.message || error.toString() || 'Unknown error';
+      console.error('Spotify getUserProfile error:', error);
+      throw new Error(`Failed to get user profile: ${errorMessage}`);
     }
   }
 
@@ -288,7 +294,7 @@ class SpotifyAuthService {
    */
   async createOAuthSession(discordId: string): Promise<string> {
     const state = this.generateState();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
 
     await PrismaDatabase.createOAuthSession({
       state,

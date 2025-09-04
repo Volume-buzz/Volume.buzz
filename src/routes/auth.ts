@@ -10,9 +10,6 @@ import config from '../config/environment';
 
 const router: RouterType = Router();
 
-// Apply auth-specific rate limiting
-router.use(RateLimiter.auth());
-
 // DM service instance (will be set by server)
 let dmService: DMService;
 
@@ -20,7 +17,8 @@ let dmService: DMService;
 let oauthServer: any;
 
 // SPOTIFY OAUTH CALLBACK - Delegate to OAuthServer
-router.get('/spotify/callback', async (req, res): Promise<void> => {
+// Use lenient OAuth rate limiting for callback endpoints
+router.get('/spotify/callback', RateLimiter.oauth(), async (req, res): Promise<void> => {
   try {
     if (!oauthServer) {
       console.error('OAuth server not initialized');
@@ -53,7 +51,8 @@ router.get('/spotify/callback', async (req, res): Promise<void> => {
 });
 
 
-router.get('/status', (req, res) => {
+// Status endpoint with general auth rate limiting
+router.get('/status', RateLimiter.auth(), (req, res) => {
   res.json({ 
     status: 'ok', 
     service: 'auth-routes',

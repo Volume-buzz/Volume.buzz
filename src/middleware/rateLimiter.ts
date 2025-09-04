@@ -77,6 +77,24 @@ class RateLimiter {
   }
 
   /**
+   * Lenient rate limiting for OAuth callbacks
+   */
+  static oauth() {
+    return rateLimit({
+      store: this.getStore(),
+      windowMs: 60 * 1000, // 1 minute
+      max: 50, // Allow 50 OAuth callbacks per minute
+      message: {
+        error: 'Too Many OAuth Requests',
+        message: 'OAuth rate limit exceeded. Please try again later.',
+        retryAfter: 60
+      },
+      standardHeaders: true,
+      legacyHeaders: false,
+    });
+  }
+
+  /**
    * Lenient rate limiting for webhook endpoints
    */
   static webhook() {
