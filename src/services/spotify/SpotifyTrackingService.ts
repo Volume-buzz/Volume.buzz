@@ -351,7 +351,44 @@ class SpotifyTrackingService {
         embed.setImage('https://i.imgur.com/N6HhP5R.gif');
       }
 
-      await discordUser.send({ embeds: [embed] });
+      // Send or edit the existing DM message to avoid spamming the user
+      const dmChannel = await discordUser.createDM();
+
+      // Fetch existing participant record to get saved dm_message_id
+      let participantRecord: any = null;
+      try {
+        participantRecord = await PrismaDatabase.checkExistingParticipant(session.raidId, session.userId);
+      } catch (e) {
+        // Non-fatal: proceed without participant record
+      }
+
+      const now = new Date();
+      let sentOrEdited = false;
+
+      if (participantRecord && participantRecord.dm_message_id) {
+        try {
+          const existingMessage: any = await dmChannel.messages.fetch(participantRecord.dm_message_id);
+          if (existingMessage) {
+            await existingMessage.edit({ embeds: [embed] });
+            // Update last DM sent timestamp
+            await PrismaDatabase.updateRaidParticipant(session.raidId, session.userId, {
+              last_dm_sent: now
+            });
+            sentOrEdited = true;
+          }
+        } catch (fetchOrEditError) {
+          // If the message was deleted or cannot be fetched, fall back to sending a new one
+        }
+      }
+
+      if (!sentOrEdited) {
+        const newMessage = await dmChannel.send({ embeds: [embed] });
+        // Persist the new dm_message_id and timestamp for future edits
+        await PrismaDatabase.updateRaidParticipant(session.raidId, session.userId, {
+          dm_message_id: newMessage.id,
+          last_dm_sent: now
+        });
+      }
     } catch (error) {
       console.error('Failed to send enhanced Spotify progress DM:', error);
     }

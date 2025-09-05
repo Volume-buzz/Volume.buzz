@@ -846,7 +846,7 @@ class SpotifyBot {
       .setFooter({ 
         text: listenTime >= requiredTime ? 
           `Raid ID: ${raid.id} | 🎉 Claim rewards in Discord!` : 
-          `Raid ID: ${raid.id} | 🔄 Updates every 10 seconds`
+          `Raid ID: ${raid.id} | 🔄 Updates every 2 seconds`
       });
 
       // Add completion celebration if qualified

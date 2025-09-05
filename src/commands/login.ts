@@ -6,9 +6,11 @@ import {
   ButtonStyle,
   EmbedBuilder as DiscordEmbedBuilder
 } from 'discord.js';
+import * as Sentry from '@sentry/node';
 import PrismaDatabase from '../database/prisma';
 import EmbedBuilder from '../utils/embedBuilder';
 import { Command } from '../types';
+import { createUserLogger } from '../utils/logger';
 
 const loginCommand: Command = {
   data: new SlashCommandBuilder()
@@ -16,8 +18,29 @@ const loginCommand: Command = {
     .setDescription('🔐 Connect your Spotify account to participate in raids'),
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
-    try {
-      await interaction.deferReply({ ephemeral: true });
+    return Sentry.startSpan(
+      {
+        op: "discord.command",
+        name: "Discord Command: /login",
+        attributes: {
+          "discord.user_id": interaction.user.id,
+          "discord.username": interaction.user.username,
+          "discord.guild_id": interaction.guildId || "dm",
+          "command.name": "login"
+        }
+      },
+      async () => {
+        const logger = createUserLogger('LoginCommand', {
+          id: interaction.user.id,
+          username: interaction.user.username
+        }).withGuild({ 
+          id: interaction.guildId || undefined,
+          name: interaction.guild?.name 
+        });
+        
+        try {
+          logger.discordCommand('login', interaction.user, interaction.guild);
+          await interaction.deferReply({ ephemeral: true });
 
       // Check if user already has Spotify connected
       const user = await PrismaDatabase.getUser(interaction.user.id);
@@ -106,16 +129,36 @@ const loginCommand: Command = {
         components: [row]
       });
 
-    } catch (error) {
-      console.error('Error in login command:', error);
-      
-      const embed = EmbedBuilder.createErrorEmbed(
-        'Login Error',
-        'There was an error processing your login request. Please try again.'
-      );
-      
-      await interaction.editReply({ embeds: [embed] });
-    }
+        } catch (error) {
+          logger.error('Error in login command', error as Error, {
+            command: 'login',
+            channel_id: interaction.channelId
+          });
+          
+          Sentry.captureException(error, {
+            tags: {
+              component: 'discord_command',
+              command: 'login'
+            },
+            user: {
+              id: interaction.user.id,
+              username: interaction.user.username
+            },
+            extra: {
+              guild_id: interaction.guildId,
+              channel_id: interaction.channelId
+            }
+          });
+          
+          const embed = EmbedBuilder.createErrorEmbed(
+            'Login Error',
+            'There was an error processing your login request. Please try again.'
+          );
+          
+          await interaction.editReply({ embeds: [embed] });
+        }
+      }
+    );
   }
 };
 

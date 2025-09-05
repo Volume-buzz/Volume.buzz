@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect } from 'react';
 import { BeamsBackground } from '@/components/effects/beams-background';
 import TextMarquee from '@/components/effects/text-marquee';
 

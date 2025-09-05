@@ -60,10 +60,10 @@ class RaidMonitor {
       await this.cleanupInactiveParticipants();
     }, 120000);
 
-    // Send progress DMs every 30 seconds
+    // Send progress DMs every 2 seconds for real-time updates
     this.dmInterval = setInterval(async () => {
       await this.sendProgressDMs();
-    }, 30000);
+    }, 2000);
 
     // Start Spotify-specific tracking
     this.spotifyTrackingService.startGlobalTracking();
@@ -478,7 +478,7 @@ class RaidMonitor {
         ],
         timestamp: new Date().toISOString(),
         footer: {
-          text: `Raid ID: ${raid.id} | 🔄 Updates every 10 seconds`
+          text: `Raid ID: ${raid.id} | 🔄 Updates every 2 seconds`
         }
       };
 
