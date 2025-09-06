@@ -36,6 +36,10 @@
   ],
   "author": "SlashRaid",
   "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.11.0",
   "dependencies": {
     "@prisma/client": "^6.15.0",
     "@sentry/node": "^10.10.0",

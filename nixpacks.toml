@@ -1,0 +1,22 @@
+# Nixpacks configuration for the root bot/API service
+
+[phases.install]
+cmds = [
+  "(test -f pnpm-lock.yaml && pnpm install --frozen-lockfile) || pnpm install --no-frozen-lockfile"
+]
+
+[phases.build]
+cmds = [
+  "pnpm run db:generate",
+  "pnpm run build"
+]
+
+[start]
+cmd = "pnpm run db:push && pnpm run start:prod"
+
+[variables]
+NODE_ENV = "production"
+[phases.setup]
+cmds = [
+  "corepack enable && corepack prepare pnpm@9.11.0 --activate"
+]

@@ -1,0 +1,23 @@
+# Nixpacks configuration for the dashboard service (volume/)
+
+[phases.install]
+cmds = [
+  "(test -f pnpm-lock.yaml && pnpm install --frozen-lockfile) || pnpm install --no-frozen-lockfile"
+]
+
+[phases.build]
+cmds = [
+  "pnpm prisma generate",
+  "pnpm build"
+]
+
+[start]
+cmd = "pnpm run db:push && pnpm start"
+
+[variables]
+NODE_ENV = "production"
+PORT = "3000"
+[phases.setup]
+cmds = [
+  "corepack enable && corepack prepare pnpm@9.11.0 --activate"
+]
