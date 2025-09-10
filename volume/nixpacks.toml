@@ -16,7 +16,6 @@ cmd = "pnpm run db:push && pnpm start"
 
 [variables]
 NODE_ENV = "production"
-PORT = "3000"
 [phases.setup]
 cmds = [
   "corepack enable && corepack prepare pnpm@9.11.0 --activate"
