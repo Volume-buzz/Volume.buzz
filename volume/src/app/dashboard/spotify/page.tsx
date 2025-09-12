@@ -17,10 +17,25 @@ interface Device {
   type?: string;
 }
 
+type OAuthTokenCallback = (token: string) => void;
+interface SpotifyPlayer {
+  addListener: (event: string, cb: (payload: any) => void) => void;
+  connect: () => Promise<boolean>;
+  activateElement: () => Promise<void>;
+}
+interface SpotifyGlobal {
+  Player: new (opts: { 
+    name: string; 
+    getOAuthToken: (cb: OAuthTokenCallback) => void; 
+    volume?: number;
+    enableMediaSession?: boolean;
+  }) => SpotifyPlayer;
+}
+
 declare global {
   interface Window {
-    Spotify: any;
-    onSpotifyWebPlaybackSDKReady: () => void;
+    Spotify?: SpotifyGlobal;
+    onSpotifyWebPlaybackSDKReady?: () => void;
   }
 }
 
@@ -245,7 +260,7 @@ export default function SpotifyPage() {
         const token = await getValidToken();
         
         // Create the player
-        const player = new window.Spotify.Player({
+        const player = new window.Spotify!.Player({
           name: 'Volume Dashboard Player',
           getOAuthToken: async (cb: (t: string) => void) => {
             try {
