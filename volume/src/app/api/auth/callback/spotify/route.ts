@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
 
     // Following Spotify documentation - use client-side storage instead of cookies
     // Create a redirect with tokens in URL (will be handled by client-side script)
-    const redirectUrl = new URL('/dashboard/spotify', request.url);
+    const redirectUrl = new URL('/dashboard/spotify', process.env.APP_URL || request.url);
     redirectUrl.searchParams.set('access_token', tokenData.access_token);
     if (tokenData.refresh_token) {
       redirectUrl.searchParams.set('refresh_token', tokenData.refresh_token);
