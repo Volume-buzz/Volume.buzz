@@ -12,6 +12,8 @@ export async function GET(request: NextRequest) {
     console.log('🔑 Generated state:', state);
     console.log('🔑 Code verifier length:', codeVerifier.length);
     console.log('🔗 Redirect URI from env:', process.env.SPOTIFY_REDIRECT_URI);
+    console.log('🔗 APP_URL from env:', process.env.APP_URL);
+    console.log('🔑 Client ID from env:', process.env.SPOTIFY_CLIENT_ID ? 'SET' : 'MISSING');
     
     // Store session
     authSessions.store(state, codeVerifier);

@@ -4,7 +4,7 @@ import crypto from 'crypto';
 export class SpotifyAuth {
   private static CLIENT_ID = process.env.SPOTIFY_CLIENT_ID!;
   private static CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET!;
-  private static REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI!;
+  private static REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI || `${process.env.APP_URL}/api/auth/callback/spotify`;
 
   // Generate code verifier and challenge for PKCE
   static generatePKCEChallenge() {
