@@ -122,7 +122,7 @@ export default function SpotifyPage() {
     }
 
     // Handle successful token exchange
-    if (tokenSuccess && accessToken && userProfile) {
+    if (tokenSuccess && accessToken) {
       console.log('🎉 Tokens received from callback, storing in localStorage');
       
       // Store tokens following Spotify documentation
@@ -135,22 +135,43 @@ export default function SpotifyPage() {
         localStorage.setItem('spotify_token_expiry', expiryTime.toString());
       }
       
-      // Store user profile
-      try {
-        const profile = JSON.parse(decodeURIComponent(userProfile));
+      // Store user profile if provided, otherwise fetch client-side
+      const setProfileFromJson = (profile: any) => {
         localStorage.setItem('spotify_user_profile', JSON.stringify(profile));
         setUser(profile);
         setConnected(true);
-        
-        // Initialize player if Premium
         if (profile.product === 'premium') {
           initializePlayer();
         }
-        
         setErr(null);
-      } catch (parseError) {
-        console.error('Failed to parse user profile:', parseError);
-        setErr('Failed to parse user profile');
+      };
+      
+      if (userProfile) {
+        try {
+          const profile = JSON.parse(decodeURIComponent(userProfile));
+          setProfileFromJson(profile);
+        } catch (parseError) {
+          console.error('Failed to parse user profile from URL:', parseError);
+        }
+      } else {
+        // Fetch profile using access token
+        (async () => {
+          try {
+            const resp = await fetch('https://api.spotify.com/v1/me', {
+              headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            if (resp.ok) {
+              const profile = await resp.json();
+              setProfileFromJson(profile);
+            } else {
+              console.error('Failed to fetch profile client-side:', resp.status);
+              setErr('Failed to fetch profile');
+            }
+          } catch (e) {
+            console.error('Profile fetch error:', e);
+            setErr('Failed to fetch profile');
+          }
+        })();
       }
       
       // Clean up URL
@@ -169,7 +190,7 @@ export default function SpotifyPage() {
       const userProfile = localStorage.getItem('spotify_user_profile');
       const tokenExpiry = localStorage.getItem('spotify_token_expiry');
 
-      if (accessToken && userProfile) {
+      if (accessToken) {
         // Check if token is still valid
         if (tokenExpiry && Date.now() > parseInt(tokenExpiry)) {
           console.log('🔄 Token expired, clearing localStorage');
@@ -181,13 +202,16 @@ export default function SpotifyPage() {
           return;
         }
 
-        // Validate token with Spotify API
+        // Validate token with Spotify API and hydrate profile if missing
         const testResponse = await fetch('https://api.spotify.com/v1/me', {
           headers: { 'Authorization': `Bearer ${accessToken}` }
         });
 
         if (testResponse.ok) {
-          const profile = JSON.parse(userProfile);
+          const profile = userProfile ? JSON.parse(userProfile) : await testResponse.json();
+          if (!userProfile) {
+            localStorage.setItem('spotify_user_profile', JSON.stringify(profile));
+          }
           setUser(profile);
           setConnected(true);
           console.log('✅ Restored session from localStorage:', profile.display_name);
@@ -519,6 +543,14 @@ export default function SpotifyPage() {
         )}
 
         <h1 className="text-3xl font-bold mb-6 text-foreground">🎵 Spotify Web Player</h1>
+
+        {user && user.product !== 'premium' && (
+          <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md">
+            <div className="text-amber-800 dark:text-amber-200 text-sm">
+              You are connected with a free Spotify account. Some actions and the Web Playback SDK require Spotify Premium. Upgrade to unlock full functionality.
+            </div>
+          </div>
+        )}
         
         {(err || playerError) && (
           <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-md">
@@ -556,31 +588,33 @@ export default function SpotifyPage() {
           </div>
 
           {/* Playback Controls */}
-          <div className="p-6 bg-card rounded-lg border">
-            <h2 className="text-xl font-semibold mb-4 text-foreground">Playback Control</h2>
-            
-            <div className="flex gap-3 mb-4">
-              <button 
-                disabled={!ready} 
-                onClick={() => playTrack("spotify:track:11dFghVXANMlKmJXsNCbNl")}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-              >
-                🎵 Play Demo Track
-              </button>
+          {user?.product === 'premium' && (
+            <div className="p-6 bg-card rounded-lg border">
+              <h2 className="text-xl font-semibold mb-4 text-foreground">Playback Control</h2>
               
-              <button 
-                onClick={transferToThisDevice} 
-                disabled={!deviceId}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-              >
-                📱 Transfer Here
-              </button>
+              <div className="flex gap-3 mb-4">
+                <button 
+                  disabled={!ready} 
+                  onClick={() => playTrack("spotify:track:11dFghVXANMlKmJXsNCbNl")}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                >
+                  🎵 Play Demo Track
+                </button>
+                
+                <button 
+                  onClick={transferToThisDevice} 
+                  disabled={!deviceId}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                >
+                  📱 Transfer Here
+                </button>
+              </div>
+              
+              <p className="text-xs text-muted-foreground">
+                Use "Transfer Here" to make this browser your active Spotify device, then play music from any Spotify client or use the demo track.
+              </p>
             </div>
-            
-            <p className="text-xs text-muted-foreground">
-              Use "Transfer Here" to make this browser your active Spotify device, then play music from any Spotify client or use the demo track.
-            </p>
-          </div>
+          )}
 
           {/* Current Track */}
           {trackName && (
