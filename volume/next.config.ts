@@ -13,7 +13,7 @@ const securityHeaders = [
       "font-src 'self' data:",
       `connect-src 'self' ${process.env.NEXT_PUBLIC_API_BASE || ''} https://o4509957715460096.ingest.de.sentry.io https://api.spotify.com https://accounts.spotify.com https://sdk.scdn.co`,
       "frame-ancestors 'self'",
-      "frame-src 'self' https://open.spotify.com",
+      "frame-src 'self' https://open.spotify.com https://sdk.scdn.co",
       "media-src 'self' https:",
       "object-src 'none'",
       "base-uri 'self'",
