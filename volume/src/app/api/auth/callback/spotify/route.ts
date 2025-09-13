@@ -19,12 +19,14 @@ export async function GET(request: NextRequest) {
     // Handle authorization errors
     if (error) {
       console.error('Spotify authorization error:', error);
-      return NextResponse.redirect(new URL('/dashboard/spotify?error=access_denied', request.url));
+      const appUrl = process.env.APP_URL || request.url;
+      return NextResponse.redirect(new URL('/dashboard/spotify?error=access_denied', appUrl));
     }
 
     if (!code || !state) {
       console.error('❌ Missing code or state parameter');
-      return NextResponse.redirect(new URL('/dashboard/spotify?error=invalid_request', request.url));
+      const appUrl = process.env.APP_URL || request.url;
+      return NextResponse.redirect(new URL('/dashboard/spotify?error=invalid_request', appUrl));
     }
 
     // Validate state parameter using session storage
@@ -40,7 +42,8 @@ export async function GET(request: NextRequest) {
       console.error('   - Session found:', !!session);
       console.error('   - Received state:', state);
       console.error('   - Code verifier present:', !!codeVerifier);
-      return NextResponse.redirect(new URL('/dashboard/spotify?error=state_mismatch', request.url));
+      const appUrl = process.env.APP_URL || request.url;
+      return NextResponse.redirect(new URL('/dashboard/spotify?error=state_mismatch', appUrl));
     }
 
     // Clean up the used session
@@ -59,7 +62,12 @@ export async function GET(request: NextRequest) {
 
     // Following Spotify documentation - use client-side storage instead of cookies
     // Create a redirect with tokens in URL (will be handled by client-side script)
-    const redirectUrl = new URL('/dashboard/spotify', process.env.APP_URL || request.url);
+    const appUrl = process.env.APP_URL;
+    if (!appUrl) {
+      console.error('APP_URL not configured');
+      return NextResponse.redirect(new URL('/dashboard/spotify?error=server_misconfigured', request.url));
+    }
+    const redirectUrl = new URL('/dashboard/spotify', appUrl);
     redirectUrl.searchParams.set('access_token', tokenData.access_token);
     if (tokenData.refresh_token) {
       redirectUrl.searchParams.set('refresh_token', tokenData.refresh_token);
@@ -79,8 +87,7 @@ export async function GET(request: NextRequest) {
     return response;
   } catch (error) {
     console.error('Spotify callback error:', error);
-    return NextResponse.redirect(
-      new URL('/dashboard/spotify?error=token_exchange_failed', request.url)
-    );
+    const appUrl = process.env.APP_URL || request.url;
+    return NextResponse.redirect(new URL('/dashboard/spotify?error=token_exchange_failed', appUrl));
   }
 }

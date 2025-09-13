@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { SpotifyAuth } from '@/lib/spotify-auth';
 import { authSessions } from '@/lib/auth-sessions';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     // Generate PKCE challenge and state
     const { codeVerifier, codeChallenge } = SpotifyAuth.generatePKCEChallenge();

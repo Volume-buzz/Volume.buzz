@@ -160,3 +160,4 @@ ecosystem.config.js
 .cursor
 AGENTS.md
 CLAUDE.md
+components.json

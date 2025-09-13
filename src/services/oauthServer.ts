@@ -319,10 +319,6 @@ class OAuthServer {
    * Generate OAuth URLs for Discord commands
    */
   async generateAuthUrl(discordId: string, platform: Platform): Promise<string> {
-    const baseUrl = config.api.nodeEnv === 'production' 
-      ? 'https://volume.epiclootlabs.com' 
-      : `http://localhost:${config.api.port}`;
-    
     // Generate CSRF state for OAuth callback
     const state = crypto.randomBytes(32).toString('hex');
     
@@ -336,14 +332,8 @@ class OAuthServer {
     });
     console.log(`🔐 Created OAuth session for Discord user ${discordId}, expires at ${expiresAt.toISOString()}`);
     
-    // Direct Spotify OAuth URL - redirect to Vercel frontend
-    const spotifyAuthUrl = `https://accounts.spotify.com/authorize?${new URLSearchParams({
-      response_type: 'code',
-      client_id: config.spotify.clientId,
-      scope: 'user-read-private user-read-email user-read-playback-state user-read-currently-playing',
-      redirect_uri: 'https://volume.epiclootlabs.com/auth/spotify/callback',
-      state: state
-    })}`;
+    // Generate Spotify OAuth URL using configured redirect URI
+    const spotifyAuthUrl = this.spotifyAuthService.generateAuthUrl(state);
     return spotifyAuthUrl;
   }
 
@@ -352,7 +342,7 @@ class OAuthServer {
    */
   start(): void {
     console.log(`🔐 OAuth service initialized`);
-    console.log(`🎶 Spotify callback: https://volume.epiclootlabs.com/auth/spotify/callback`);
+    console.log(`🎶 Spotify callback: ${config.spotify.redirectUri}`);
   }
 
   /**
