@@ -18,16 +18,25 @@ export class SpotifyAuth {
   }
 
   // Generate Spotify authorization URL
-  static generateAuthUrl(state: string, codeChallenge: string) {
-    // Request full scopes needed by Premium users; UI gates features for free users
-    const scope = [
-      'streaming',
+  static getScopes(mode: 'minimal' | 'premium' = 'minimal') {
+    if (mode === 'premium') {
+      return [
+        'streaming',
+        'user-read-private',
+        'user-read-email',
+        'user-modify-playback-state',
+        'user-read-playback-state',
+        'user-read-currently-playing'
+      ];
+    }
+    return [
       'user-read-private',
-      'user-read-email',
-      'user-modify-playback-state',
-      'user-read-playback-state',
-      'user-read-currently-playing'
-    ].join(' ');
+      'user-read-email'
+    ];
+  }
+
+  static generateAuthUrl(state: string, codeChallenge: string, mode: 'minimal' | 'premium' = 'minimal') {
+    const scope = this.getScopes(mode).join(' ');
 
     const params = new URLSearchParams({
       client_id: this.CLIENT_ID,
