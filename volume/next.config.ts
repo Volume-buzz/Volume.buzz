@@ -7,7 +7,7 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // Next.js needs unsafe-eval and unsafe-inline
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://sdk.scdn.co", // Next.js needs unsafe-eval and unsafe-inline
       "style-src 'self' 'unsafe-inline'", // Keep for now, can be refined later
       "img-src 'self' data: https: https://cdn.discordapp.com https://i.scdn.co",
       "font-src 'self' data:",

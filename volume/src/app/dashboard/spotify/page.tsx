@@ -11,40 +11,14 @@ interface SpotifyUser {
   images: { url: string }[];
 }
 
-interface Device { 
-  id: string; 
-  name: string; 
-  type?: string;
-}
-
-type OAuthTokenCallback = (token: string) => void;
-interface SpotifyPlayer {
-  addListener: (event: string, cb: (payload: any) => void) => void;
-  connect: () => Promise<boolean>;
-  activateElement: () => Promise<void>;
-}
-interface SpotifyGlobal {
-  Player: new (opts: { 
-    name: string; 
-    getOAuthToken: (cb: OAuthTokenCallback) => void; 
-    volume?: number;
-    enableMediaSession?: boolean;
-  }) => SpotifyPlayer;
-}
-
 declare global {
   interface Window {
-    Spotify?: SpotifyGlobal;
-    onSpotifyWebPlaybackSDKReady?: () => void;
+    Spotify: any;
+    onSpotifyWebPlaybackSDKReady: () => void;
   }
 }
 
 export default function SpotifyPage() {
-  // Legacy device controls (maintain compatibility)
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [uri, setUri] = useState('');
-  const [legacyDeviceId, setLegacyDeviceId] = useState('');
-
   // User and connection state
   const [user, setUser] = useState<SpotifyUser | null>(null);
   const [connected, setConnected] = useState(false);
@@ -61,6 +35,7 @@ export default function SpotifyPage() {
   const [trackDuration, setTrackDuration] = useState<number>(0);
   const [playerError, setPlayerError] = useState<string>("");
 
+  const seqRef = useRef(0);
   const playerRef = useRef<any>(null);
   const searchParams = useSearchParams();
 
@@ -88,7 +63,7 @@ export default function SpotifyPage() {
             body: new URLSearchParams({
               grant_type: 'refresh_token',
               refresh_token: refreshToken,
-              client_id: process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID || ''
+              client_id: process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID || '0cbcfab23fce4d88901cb75b610e63b4'
             }),
           });
 
@@ -185,7 +160,6 @@ export default function SpotifyPage() {
 
   useEffect(() => {
     checkSpotifyConnection();
-    loadLegacyDevices();
   }, []);
 
   const checkSpotifyConnection = async () => {
@@ -241,17 +215,6 @@ export default function SpotifyPage() {
     }
   };
 
-  // Load legacy devices for backward compatibility
-  const loadLegacyDevices = async () => {
-    try {
-      const res = await fetch('/api/spotify/devices');
-      const json = await res.json();
-      setDevices((json.devices || []) as Device[]);
-    } catch {
-      // Silently fail for legacy device loading
-    }
-  };
-
   // Initialize Web Playback SDK
   const initializePlayer = () => {
     window.onSpotifyWebPlaybackSDKReady = async () => {
@@ -260,7 +223,7 @@ export default function SpotifyPage() {
         const token = await getValidToken();
         
         // Create the player
-        const player = new window.Spotify!.Player({
+        const player = new window.Spotify.Player({
           name: 'Volume Dashboard Player',
           getOAuthToken: async (cb: (t: string) => void) => {
             try {
@@ -318,6 +281,12 @@ export default function SpotifyPage() {
             setTrackName(track_window.current_track.name);
             setArtistName(track_window.current_track.artists?.map((a: any) => a.name).join(", "));
           }
+
+          // Track end detection
+          const isNearEnd = duration > 0 && (duration - position) < 1000;
+          if (isNearEnd && !p) {
+            console.log("🎵 Track ending:", track_window?.current_track?.name);
+          }
         });
 
         // Connect to Spotify
@@ -343,35 +312,32 @@ export default function SpotifyPage() {
     window.location.href = '/api/auth/login/spotify';
   };
 
-  // Legacy controls (maintain compatibility)
-  const play = async () => {
+  const disconnectSpotify = () => {
+    // Clear localStorage
+    localStorage.removeItem('spotify_access_token');
+    localStorage.removeItem('spotify_refresh_token');
+    localStorage.removeItem('spotify_token_expiry');
+    localStorage.removeItem('spotify_user_profile');
+    
+    // Disconnect player
+    if (playerRef.current) {
+      playerRef.current.disconnect();
+    }
+    
+    // Reset state
+    setUser(null);
+    setConnected(false);
+    setDeviceId(undefined);
+    setReady(false);
+    setTrackName("");
+    setArtistName("");
+    setPaused(true);
+    setCurrentPosition(0);
+    setTrackDuration(0);
+    setPlayerError("");
     setErr(null);
-    const res = await fetch('/api/spotify/play', {
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ spotifyUri: uri, deviceId: legacyDeviceId })
-    });
-    if (!res.ok) setErr('Play failed');
-  };
-
-  const pause = async () => {
-    setErr(null);
-    const res = await fetch('/api/spotify/pause', { 
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ deviceId: legacyDeviceId }) 
-    });
-    if (!res.ok) setErr('Pause failed');
-  };
-
-  const queue = async () => {
-    setErr(null);
-    const res = await fetch('/api/spotify/queue', {
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ spotifyUri: uri, deviceId: legacyDeviceId })
-    });
-    if (!res.ok) setErr('Queue failed');
+    
+    console.log('🔐 Logged out of Spotify');
   };
 
   // Player control functions
@@ -535,11 +501,19 @@ export default function SpotifyPage() {
               </div>
             </div>
             
-            <div className="text-right">
-              <div className="text-sm text-muted-foreground">Volume Dashboard Player</div>
-              <div className="text-xs text-muted-foreground">
-                Real-time playback monitoring active
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <div className="text-sm text-muted-foreground">Volume Dashboard Player</div>
+                <div className="text-xs text-muted-foreground">
+                  Real-time playback monitoring active
+                </div>
               </div>
+              <button
+                onClick={disconnectSpotify}
+                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-md font-medium transition-colors"
+              >
+                Logout
+              </button>
             </div>
           </div>
         )}
@@ -554,61 +528,59 @@ export default function SpotifyPage() {
 
         <div className="grid gap-6">
           {/* Player Status */}
-          {user?.product === 'premium' && (
-            <div className="p-6 bg-card rounded-lg border">
-              <h2 className="text-xl font-semibold mb-4 text-foreground">Web Player Status</h2>
+          <div className="p-6 bg-card rounded-lg border">
+            <h2 className="text-xl font-semibold mb-4 text-foreground">Player Status</h2>
+            
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">SDK:</span>
+                <span className={ready ? "text-green-600" : "text-orange-600"}>
+                  {ready ? "✅ Ready" : "⏳ Loading..."}
+                </span>
+              </div>
               
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">SDK:</span>
-                  <span className={ready ? "text-green-600" : "text-orange-600"}>
-                    {ready ? "✅ Ready" : "⏳ Loading..."}
-                  </span>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">Device:</span>
-                  <span className={deviceId ? "text-green-600" : "text-orange-600"}>
-                    {deviceId ? `🎵 Connected (${deviceId.slice(0, 8)}...)` : "🔌 Not Ready"}
-                  </span>
-                </div>
-                
+              <div className="flex items-center gap-2">
+                <span className="font-medium">Device:</span>
+                <span className={deviceId ? "text-green-600" : "text-orange-600"}>
+                  {deviceId ? `🎵 Connected (${deviceId.slice(0, 8)}...)` : "🔌 Not Ready"}
+                </span>
+              </div>
+              
+              {user?.product === 'premium' && (
                 <div className="flex items-center gap-2">
                   <span className="font-medium">Account:</span>
                   <span className="text-green-600">✅ Premium - Full Web SDK Access</span>
                 </div>
-              </div>
+              )}
             </div>
-          )}
+          </div>
 
-          {/* Web Playback Controls */}
-          {user?.product === 'premium' && (
-            <div className="p-6 bg-card rounded-lg border">
-              <h2 className="text-xl font-semibold mb-4 text-foreground">Web Playback Control</h2>
+          {/* Playback Controls */}
+          <div className="p-6 bg-card rounded-lg border">
+            <h2 className="text-xl font-semibold mb-4 text-foreground">Playback Control</h2>
+            
+            <div className="flex gap-3 mb-4">
+              <button 
+                disabled={!ready} 
+                onClick={() => playTrack("spotify:track:11dFghVXANMlKmJXsNCbNl")}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              >
+                🎵 Play Demo Track
+              </button>
               
-              <div className="flex gap-3 mb-4">
-                <button 
-                  disabled={!ready} 
-                  onClick={() => playTrack("spotify:track:11dFghVXANMlKmJXsNCbNl")}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                >
-                  🎵 Play Demo Track
-                </button>
-                
-                <button 
-                  onClick={transferToThisDevice} 
-                  disabled={!deviceId}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                >
-                  📱 Transfer Here
-                </button>
-              </div>
-              
-              <p className="text-xs text-muted-foreground">
-                Use "Transfer Here" to make this browser your active Spotify device, then play music from any Spotify client or use the demo track.
-              </p>
+              <button 
+                onClick={transferToThisDevice} 
+                disabled={!deviceId}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              >
+                📱 Transfer Here
+              </button>
             </div>
-          )}
+            
+            <p className="text-xs text-muted-foreground">
+              Use "Transfer Here" to make this browser your active Spotify device, then play music from any Spotify client or use the demo track.
+            </p>
+          </div>
 
           {/* Current Track */}
           {trackName && (
@@ -648,65 +620,31 @@ export default function SpotifyPage() {
             </div>
           )}
 
-          {/* Legacy Device Controls (backward compatibility) */}
-          <div className="p-6 bg-card rounded-lg border">
-            <h2 className="text-xl font-semibold mb-4 text-foreground">Device Controls (Legacy)</h2>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="border rounded-md p-4 bg-card">
-                <h3 className="font-medium text-foreground mb-2">Devices</h3>
-                <select 
-                  className="w-full px-2 py-1 rounded bg-background border" 
-                  value={legacyDeviceId} 
-                  onChange={(e)=>setLegacyDeviceId(e.target.value)}
-                >
-                  <option value="">Select a device</option>
-                  {devices.map((d) => (
-                    <option key={d.id} value={d.id}>{d.name} ({d.type})</option>
-                  ))}
-                </select>
-              </div>
-              <div className="border rounded-md p-4 bg-card">
-                <h3 className="font-medium text-foreground mb-2">Controls</h3>
-                <input 
-                  className="w-full mb-2 px-2 py-1 rounded bg-background border" 
-                  placeholder="spotify:track:... or https://open.spotify.com/track/..." 
-                  value={uri} 
-                  onChange={(e)=>setUri(e.target.value)} 
-                />
-                <div className="flex gap-2">
-                  <button className="px-3 py-2 rounded bg-primary text-primary-foreground" onClick={play}>Play</button>
-                  <button className="px-3 py-2 rounded bg-primary text-primary-foreground" onClick={pause}>Pause</button>
-                  <button className="px-3 py-2 rounded bg-primary text-primary-foreground" onClick={queue}>Queue</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
           {/* Features Info */}
           <div className="p-6 bg-muted/50 rounded-lg border">
-            <h3 className="font-semibold mb-3 text-foreground">🎯 Integration Features</h3>
+            <h3 className="font-semibold mb-3 text-foreground">🎯 Real-time Monitoring Features</h3>
             <div className="grid md:grid-cols-2 gap-3 text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span>PKCE OAuth 2.0 authentication</span>
+                <span>Track progression monitoring</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span>Web Playback SDK integration</span>
+                <span>Track end detection</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span>Real-time playback monitoring</span>
+                <span>Media Session API integration</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span>Legacy API compatibility</span>
+                <span>Cross-device playback control</span>
               </div>
             </div>
             
             <div className="mt-4 p-3 bg-green-50 dark:bg-green-950 rounded border border-green-200 dark:border-green-800">
               <p className="text-sm text-green-800 dark:text-green-200">
-                🚀 <strong>Ready for Discord bot integration!</strong> This enhanced player can now be used for coordinated music raids with real-time listening validation and advanced authentication.
+                🚀 <strong>Ready for raid integration!</strong> This player can now be used as a connected device for coordinated music raids with real-time listening validation.
               </p>
             </div>
           </div>
