@@ -19,6 +19,7 @@ export class SpotifyAuth {
 
   // Generate Spotify authorization URL
   static generateAuthUrl(state: string, codeChallenge: string) {
+    // Request full scopes needed by Premium users; UI gates features for free users
     const scope = [
       'streaming',
       'user-read-private',

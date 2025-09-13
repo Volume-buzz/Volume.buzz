@@ -11,9 +11,41 @@ interface SpotifyUser {
   images: { url: string }[];
 }
 
+// Minimal typings for Spotify Web Playback SDK to satisfy TypeScript
+interface SpotifyPlayerOptions {
+  name: string;
+  getOAuthToken: (cb: (token: string) => void) => void;
+  volume?: number;
+  enableMediaSession?: boolean;
+}
+
+interface SpotifyPlayer {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  addListener: (event: string, cb: (...args: any[]) => void) => void;
+  connect: () => Promise<boolean>;
+  disconnect: () => void;
+  activateElement: () => Promise<void>;
+}
+
+interface SpotifySDK {
+  Player: new (options: SpotifyPlayerOptions) => SpotifyPlayer;
+}
+
+type PlayerState = {
+  position: number;
+  duration: number;
+  paused: boolean;
+  track_window?: {
+    current_track?: {
+      name: string;
+      artists?: Array<{ name: string }>;
+    };
+  };
+} | null;
+
 declare global {
   interface Window {
-    Spotify: any;
+    Spotify?: SpotifySDK;
     onSpotifyWebPlaybackSDKReady: () => void;
   }
 }
@@ -35,8 +67,7 @@ export default function SpotifyPage() {
   const [trackDuration, setTrackDuration] = useState<number>(0);
   const [playerError, setPlayerError] = useState<string>("");
 
-  const seqRef = useRef(0);
-  const playerRef = useRef<any>(null);
+  const playerRef = useRef<SpotifyPlayer | null>(null);
   const searchParams = useSearchParams();
 
   // Token retrieval function (following Spotify documentation)
@@ -136,7 +167,7 @@ export default function SpotifyPage() {
       }
       
       // Store user profile if provided, otherwise fetch client-side
-      const setProfileFromJson = (profile: any) => {
+      const setProfileFromJson = (profile: SpotifyUser) => {
         localStorage.setItem('spotify_user_profile', JSON.stringify(profile));
         setUser(profile);
         setConnected(true);
@@ -163,13 +194,32 @@ export default function SpotifyPage() {
             if (resp.ok) {
               const profile = await resp.json();
               setProfileFromJson(profile);
+            } else if (resp.status === 401 || resp.status === 403) {
+              console.warn('Profile fetch unauthorized/forbidden. Continuing as free/limited user.');
+              const fallbackProfile: SpotifyUser = {
+                id: '',
+                display_name: 'Spotify User',
+                email: '',
+                product: 'free',
+                images: []
+              };
+              setProfileFromJson(fallbackProfile);
+              setErr('Connected with limited access. Some features require Spotify Premium or tester access.');
             } else {
               console.error('Failed to fetch profile client-side:', resp.status);
               setErr('Failed to fetch profile');
             }
           } catch (e) {
             console.error('Profile fetch error:', e);
-            setErr('Failed to fetch profile');
+            const fallbackProfile: SpotifyUser = {
+              id: '',
+              display_name: 'Spotify User',
+              email: '',
+              product: 'free',
+              images: []
+            };
+            setProfileFromJson(fallbackProfile);
+            setErr('Connected with limited access. Some features require Spotify Premium or tester access.');
           }
         })();
       }
@@ -177,10 +227,12 @@ export default function SpotifyPage() {
       // Clean up URL
       window.history.replaceState({}, '', '/dashboard/spotify');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   useEffect(() => {
     checkSpotifyConnection();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkSpotifyConnection = async () => {
@@ -220,12 +272,20 @@ export default function SpotifyPage() {
           if (profile.product === 'premium') {
             initializePlayer();
           }
+        } else if (testResponse.status === 401 || testResponse.status === 403) {
+          console.warn('Profile fetch unauthorized/forbidden on resume. Continuing as free/limited user.');
+          const fallbackProfile: SpotifyUser = {
+            id: '',
+            display_name: 'Spotify User',
+            email: '',
+            product: 'free',
+            images: []
+          };
+          setUser(fallbackProfile);
+          setConnected(true);
+          setErr('Connected with limited access. Some features require Spotify Premium or tester access.');
         } else {
-          console.log('❌ Stored token is invalid, clearing localStorage');
-          localStorage.removeItem('spotify_access_token');
-          localStorage.removeItem('spotify_refresh_token');
-          localStorage.removeItem('spotify_token_expiry');
-          localStorage.removeItem('spotify_user_profile');
+          console.log('❌ Stored token is invalid or profile fetch failed:', testResponse.status);
           setConnected(false);
         }
       } else {
@@ -244,10 +304,9 @@ export default function SpotifyPage() {
     window.onSpotifyWebPlaybackSDKReady = async () => {
       try {
         console.log("🎵 Spotify Web Playback SDK is ready!");
-        const token = await getValidToken();
         
         // Create the player
-        const player = new window.Spotify.Player({
+        const player = new window.Spotify!.Player({
           name: 'Volume Dashboard Player',
           getOAuthToken: async (cb: (t: string) => void) => {
             try {
@@ -265,34 +324,40 @@ export default function SpotifyPage() {
         playerRef.current = player;
 
         // Event listeners
-        player.addListener("initialization_error", ({ message }: { message: string }) => {
+        player.addListener("initialization_error", (arg: unknown) => {
+          const message = (arg as { message?: string })?.message || 'Unknown error';
           console.error("Initialization error:", message);
           setPlayerError(`Initialization Error: ${message}`);
         });
 
-        player.addListener("authentication_error", ({ message }: { message: string }) => {
+        player.addListener("authentication_error", (arg: unknown) => {
+          const message = (arg as { message?: string })?.message || 'Unknown error';
           console.error("Authentication error:", message);
           setPlayerError(`Authentication Error: ${message}`);
         });
 
-        player.addListener("account_error", ({ message }: { message: string }) => {
+        player.addListener("account_error", (arg: unknown) => {
+          const message = (arg as { message?: string })?.message || 'Unknown error';
           console.error("Account error:", message);
           setPlayerError(`Account Error: ${message}`);
         });
 
-        player.addListener("ready", ({ device_id }: any) => {
-          console.log("🎵 Player ready with Device ID:", device_id);
-          setDeviceId(device_id);
+        player.addListener("ready", (arg: unknown) => {
+          const deviceId = (arg as { device_id?: string })?.device_id || '';
+          console.log("🎵 Player ready with Device ID:", deviceId);
+          setDeviceId(deviceId);
           setReady(true);
           setPlayerError("");
         });
 
-        player.addListener("not_ready", ({ device_id }: any) => {
-          console.log("🎵 Player not ready:", device_id);
+        player.addListener("not_ready", (arg: unknown) => {
+          const deviceId = (arg as { device_id?: string })?.device_id || '';
+          console.log("🎵 Player not ready:", deviceId);
           setReady(false);
         });
 
-        player.addListener("player_state_changed", (state: any) => {
+        player.addListener("player_state_changed", (arg: unknown) => {
+          const state = arg as PlayerState;
           if (!state) return;
           
           const { position, duration, paused: p, track_window } = state;
@@ -303,7 +368,7 @@ export default function SpotifyPage() {
           
           if (track_window?.current_track) {
             setTrackName(track_window.current_track.name);
-            setArtistName(track_window.current_track.artists?.map((a: any) => a.name).join(", "));
+            setArtistName(track_window.current_track.artists?.map((a: { name: string }) => a.name).join(", ") ?? "");
           }
 
           // Track end detection
@@ -611,7 +676,7 @@ export default function SpotifyPage() {
               </div>
               
               <p className="text-xs text-muted-foreground">
-                Use "Transfer Here" to make this browser your active Spotify device, then play music from any Spotify client or use the demo track.
+                Use &quot;Transfer Here&quot; to make this browser your active Spotify device, then play music from any Spotify client or use the demo track.
               </p>
             </div>
           )}
