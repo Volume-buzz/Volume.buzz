@@ -1,0 +1,333 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                       String @id @default(uuid()) @map("id")
+  name                     String? @map("name")
+  email                    String? @map("email")
+  emailVerified            Boolean @default(false) @map("email_verified")
+  image                    String? @map("image")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+  discord_id               String @unique @map("discord_id")
+  spotify_user_id         String? @map("spotify_user_id")
+  spotify_display_name    String? @map("spotify_display_name")
+  spotify_email           String? @map("spotify_email")
+  spotify_is_premium      Boolean @default(false) @map("spotify_is_premium")
+  spotify_access_token    String? @map("spotify_access_token")
+  spotify_refresh_token   String? @map("spotify_refresh_token")
+  spotify_token_expires_at DateTime? @map("spotify_token_expires_at")
+  spotify_scope           String? @map("spotify_scope")
+  spotify_product         String? @map("spotify_product")
+  spotify_country         String? @map("spotify_country")
+  discord_username        String? @map("discord_username")
+  role                    UserRole @default(FAN) @map("role")
+  tokens_balance          Int     @default(0) @map("tokens_balance")
+  total_raids_participated Int     @default(0) @map("total_raids_participated")
+  total_rewards_claimed   Int     @default(0) @map("total_rewards_claimed")
+
+  raid_participants RaidParticipant[]
+  wallets           Wallet[] @relation("UserWallets")
+  artist_deposits   ArtistDeposit[] @relation("ArtistDeposits")
+  raids_created     Raid[] @relation("RaidCreator")
+  reward_accruals   RewardAccrual[] @relation("UserRewards")
+  withdrawals       Withdrawal[] @relation("UserWithdrawals")
+
+  // Performance indexes for frequent queries
+  @@index([role, createdAt], map: "users_role_created_idx")
+  @@index([total_raids_participated], map: "users_raids_count_idx")
+  @@map("users")
+}
+
+enum UserRole {
+  FAN
+  ARTIST
+  SUPER_ADMIN
+}
+
+model Admin {
+  discord_id String   @id @map("discord_id")
+  added_by   String?  @map("added_by")
+  added_at   DateTime @default(now()) @map("added_at")
+
+  @@map("admins")
+}
+
+model Raid {
+  id                       Int       @id @default(autoincrement())
+  track_id                String    @map("track_id")
+  track_url               String    @map("track_url")
+  track_title             String?   @map("track_title")
+  track_artist            String?   @map("track_artist")
+  track_artwork_url       String?   @map("track_artwork_url")
+  platform                Platform  @default(SPOTIFY) @map("platform")
+  premium_only            Boolean   @default(false) @map("premium_only")
+  required_listen_time    Int       @default(30) @map("required_listen_time")
+  streams_goal            Int       @map("streams_goal")
+  current_streams         Int       @default(0) @map("current_streams")
+  reward_amount           Int       @map("reward_amount")
+  token_mint              String?   @default("SOL") @map("token_mint")
+  reward_per_completion   String?   @default("0") @map("reward_per_completion") // Decimal as string
+  budget_cap              String?   @default("0") @map("budget_cap") // Decimal as string
+  channel_id              String    @map("channel_id")
+  guild_id                String    @map("guild_id")
+  creator_id              String    @map("creator_id")
+  artist_discord_id       String?   @map("artist_discord_id")
+  duration_minutes        Int       @default(60) @map("duration_minutes")
+  status                  RaidStatus @default(ACTIVE) @map("status")
+  message_id              String?   @map("message_id")
+  metadata_json           String?   @map("metadata_json") // Enhanced track metadata
+  linked_track_id         String?   @map("linked_track_id") // For track relinking
+  is_playable             Boolean   @default(true) @map("is_playable")
+  track_duration_ms       Int?      @map("track_duration_ms")
+  is_explicit             Boolean   @default(false) @map("is_explicit")
+  album_name              String?   @map("album_name")
+  created_at              DateTime  @default(now()) @map("created_at")
+  start_at                DateTime  @default(now()) @map("start_at")
+  end_at                  DateTime? @map("end_at")
+  expires_at              DateTime? @map("expires_at")
+  completed_at            DateTime? @map("completed_at")
+  first_finisher_discord_id String? @map("first_finisher_discord_id")
+  first_finisher_handle   String?   @map("first_finisher_handle")
+  first_finisher_time     DateTime? @map("first_finisher_time")
+
+  participants    RaidParticipant[]
+  creator         User?            @relation("RaidCreator", fields: [artist_discord_id], references: [discord_id])
+  reward_accruals RewardAccrual[]
+
+  // Performance indexes for frequent queries
+  @@index([status, expires_at], map: "raids_status_expires_idx")
+  @@index([guild_id, status], map: "raids_guild_status_idx")
+  @@index([creator_id, created_at], map: "raids_creator_created_idx")
+  @@index([created_at], map: "raids_created_at_idx")
+  @@map("raids")
+}
+
+enum Platform {
+  SPOTIFY
+}
+
+enum RaidStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+model RaidParticipant {
+  id                   Int       @id @default(autoincrement())
+  raid_id              Int?      @map("raid_id")
+  discord_id           String    @map("discord_id")
+  listen_start_time   DateTime? @map("listen_start_time")
+  total_listen_duration Int      @default(0) @map("total_listen_duration")
+  qualified           Boolean   @default(false) @map("qualified")
+  claimed_reward      Boolean   @default(false) @map("claimed_reward")
+  claimed_at          DateTime? @map("claimed_at")
+  created_at          DateTime  @default(now()) @map("created_at")
+  is_listening        Boolean   @default(false) @map("is_listening")
+  last_check          DateTime? @map("last_check")
+  qualified_at        DateTime? @map("qualified_at")
+  last_dm_sent        DateTime? @map("last_dm_sent") @db.Timestamp(6)
+  dm_message_id       String?   @map("dm_message_id")
+  listen_seconds      Int       @default(0) @map("listen_seconds")
+  last_progress_ms    Int?      @map("last_progress_ms")
+  last_timestamp      DateTime? @map("last_timestamp")
+  last_heartbeat_at   DateTime? @map("last_heartbeat_at")
+  tracking_method     String?   @map("tracking_method") // "web_playback_sdk" or "currently_playing_api"
+  device_id           String?   @map("device_id") // Spotify device ID for premium users
+
+  raid Raid? @relation(fields: [raid_id], references: [id], onDelete: Cascade)
+  user User  @relation(fields: [discord_id], references: [discord_id])
+
+  @@unique([raid_id, discord_id])
+  // Performance indexes for frequent queries
+  @@index([discord_id, created_at], map: "participants_user_created_idx")
+  @@index([raid_id, qualified], map: "participants_raid_qualified_idx")
+  @@index([is_listening, last_check], map: "participants_listening_check_idx")
+  @@map("raid_participants")
+}
+
+model OAuthSession {
+  state      String   @id @map("state")
+  discord_id String   @map("discord_id")
+  platform   Platform @default(SPOTIFY) @map("platform")
+  expires_at DateTime @map("expires_at")
+  created_at DateTime @default(now()) @map("created_at")
+
+  @@map("oauth_sessions")
+}
+
+model Wallet {
+  id                    String   @id @default(uuid()) @map("id")
+  user_id               String   @map("user_id")
+  public_key            String   @unique @map("public_key")
+  encrypted_private_key String   @map("encrypted_private_key")
+  is_artist_wallet      Boolean  @default(false) @map("is_artist_wallet")
+  created_at            DateTime @default(now()) @map("created_at")
+  exported_at           DateTime? @map("exported_at")
+
+  user User @relation("UserWallets", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("wallets")
+}
+
+model Token {
+  id                 String  @id @default(uuid()) @map("id")
+  mint               String  @unique @map("mint")
+  symbol             String  @map("symbol")
+  decimals           Int     @map("decimals")
+  logo_url           String? @map("logo_url")
+  enabled            Boolean @default(true) @map("enabled")
+  default_for_rewards Boolean @default(false) @map("default_for_rewards")
+  created_at         DateTime @default(now()) @map("created_at")
+
+  artist_deposits ArtistDeposit[]
+  reward_accruals RewardAccrual[]
+  settlements     Settlement[]
+
+  @@map("tokens")
+}
+
+model ArtistDeposit {
+  id                  String        @id @default(uuid()) @map("id")
+  artist_discord_id   String        @map("artist_discord_id")
+  token_mint          String        @map("token_mint")
+  amount              String        @map("amount") // Decimal as string
+  tx_signature        String        @unique @map("tx_signature")
+  status              DepositStatus @default(PENDING) @map("status")
+  created_at          DateTime      @default(now()) @map("created_at")
+  confirmed_at        DateTime?     @map("confirmed_at")
+
+  artist User  @relation("ArtistDeposits", fields: [artist_discord_id], references: [discord_id], onDelete: Cascade)
+  token  Token @relation(fields: [token_mint], references: [mint])
+
+  @@map("artist_deposits")
+}
+
+enum DepositStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
+
+model RewardAccrual {
+  id                String          @id @default(uuid()) @map("id")
+  user_discord_id   String          @map("user_discord_id")
+  raid_id           Int             @map("raid_id")
+  token_mint        String          @map("token_mint")
+  amount            String          @map("amount") // Decimal as string
+  status            AccrualStatus   @default(PENDING) @map("status")
+  created_at        DateTime        @default(now()) @map("created_at")
+  settled_at        DateTime?       @map("settled_at")
+
+  user  User  @relation("UserRewards", fields: [user_discord_id], references: [discord_id], onDelete: Cascade)
+  raid  Raid  @relation(fields: [raid_id], references: [id], onDelete: Cascade)
+  token Token @relation(fields: [token_mint], references: [mint])
+
+  // Performance indexes for frequent queries
+  @@index([user_discord_id, created_at], map: "rewards_user_created_idx")
+  @@index([status, created_at], map: "rewards_status_created_idx")
+  @@index([raid_id, status], map: "rewards_raid_status_idx")
+  @@map("reward_accruals")
+}
+
+enum AccrualStatus {
+  PENDING
+  SETTLED
+  FAILED
+}
+
+model Settlement {
+  id                String           @id @default(uuid()) @map("id")
+  batch_id          String           @map("batch_id")
+  user_discord_id   String           @map("user_discord_id")
+  token_mint        String           @map("token_mint")
+  amount            String           @map("amount") // Decimal as string
+  tx_signature      String?          @map("tx_signature")
+  status            SettlementStatus @default(PENDING) @map("status")
+  created_at        DateTime         @default(now()) @map("created_at")
+  settled_at        DateTime?        @map("settled_at")
+
+  token Token @relation(fields: [token_mint], references: [mint])
+
+  @@map("settlements")
+}
+
+enum SettlementStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model Withdrawal {
+  id                   String           @id @default(uuid()) @map("id")
+  user_id              String           @map("user_id")
+  to_address           String           @map("to_address")
+  requested_amount_sol String           @map("requested_amount_sol") // Decimal as string
+  route                WithdrawalRoute  @default(SOL) @map("route")
+  fee                  String?          @map("fee") // Decimal as string
+  tx_signature         String?          @map("tx_signature")
+  status               WithdrawalStatus @default(PENDING) @map("status")
+  created_at           DateTime         @default(now()) @map("created_at")
+  completed_at         DateTime?        @map("completed_at")
+
+  user User @relation("UserWithdrawals", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("withdrawals")
+}
+
+enum WithdrawalRoute {
+  SOL
+  TOKENS
+}
+
+enum WithdrawalStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model WebhookEvent {
+  id         String            @id @default(uuid()) @map("id")
+  type       String            @map("type")
+  wallet     String            @map("wallet")
+  payload    Json              @map("payload")
+  status     WebhookEventStatus @default(PENDING) @map("status")
+  created_at DateTime          @default(now()) @map("created_at")
+  processed_at DateTime?       @map("processed_at")
+
+  @@map("webhook_events")
+}
+
+enum WebhookEventStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+/// One-time action tokens for step-up confirmation on sensitive actions
+model ActionToken {
+  id              String   @id @default(uuid()) @map("id")
+  user_discord_id String   @map("user_discord_id")
+  action          String   @map("action") // e.g., EXPORT_WALLET, TRANSFER_SOL
+  code            String   @map("code")   // short code users enter to confirm
+  created_at      DateTime @default(now()) @map("created_at")
+  expires_at      DateTime @map("expires_at")
+  used_at         DateTime? @map("used_at")
+  attempts        Int      @default(0) @map("attempts")
+  last_attempt_at DateTime? @map("last_attempt_at")
+
+  @@index([user_discord_id, action, expires_at], map: "idx_action_tokens_lookup")
+  @@map("action_tokens")
+}
+
+ 

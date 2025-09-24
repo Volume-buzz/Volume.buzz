@@ -6,6 +6,9 @@
     "node": ">=20"
   },
   "packageManager": "pnpm@9.11.0",
+  "prisma": {
+    "schema": "./prisma/schema.prisma"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",

@@ -7,13 +7,13 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // Next.js needs unsafe-eval and unsafe-inline
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://sdk.scdn.co", // Next.js needs unsafe-eval and unsafe-inline
       "style-src 'self' 'unsafe-inline'", // Keep for now, can be refined later
       "img-src 'self' data: https: https://cdn.discordapp.com https://i.scdn.co",
       "font-src 'self' data:",
-      `connect-src 'self' ${process.env.NEXT_PUBLIC_API_BASE || ''} https://o4509957715460096.ingest.de.sentry.io`,
+      `connect-src 'self' ${process.env.NEXT_PUBLIC_API_BASE || ''} https://o4509957715460096.ingest.de.sentry.io https://api.spotify.com https://accounts.spotify.com https://sdk.scdn.co`,
       "frame-ancestors 'self'",
-      "frame-src 'self' https://open.spotify.com",
+      "frame-src 'self' https://open.spotify.com https://sdk.scdn.co",
       "media-src 'self' https:",
       "object-src 'none'",
       "base-uri 'self'",
