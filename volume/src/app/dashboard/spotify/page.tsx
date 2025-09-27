@@ -7,7 +7,7 @@ interface SpotifyUser {
   id: string;
   display_name: string;
   email: string;
-  product: 'free' | 'premium';
+  product: string;
   images: { url: string }[];
 }
 
@@ -258,9 +258,7 @@ export default function SpotifyPage() {
         localStorage.setItem('spotify_user_profile', JSON.stringify(profile));
         setUser(profile);
         setConnected(true);
-        if (profile.product === 'premium') {
-          initializePlayer();
-        }
+        initializePlayer();
         setErr(null);
       };
       
@@ -372,11 +370,9 @@ export default function SpotifyPage() {
           setUser(profile);
           setConnected(true);
           console.log('✅ Restored session from localStorage:', profile.display_name);
-          
-          // Initialize player if Premium
-          if (profile.product === 'premium') {
-            initializePlayer();
-          }
+
+          // Initialize player
+          initializePlayer();
         } else if (testResponse.status === 401 || testResponse.status === 403) {
           console.warn('Profile fetch unauthorized/forbidden on resume. Continuing as free/limited user.');
           const fallbackProfile: SpotifyUser = {
@@ -404,13 +400,8 @@ export default function SpotifyPage() {
     }
   };
 
-  // Initialize Web Playback SDK following official documentation patterns
+  // Initialize Web Playback SDK (let Spotify handle Premium requirements)
   const initializePlayer = useCallback(() => {
-    if (!user || user.product !== 'premium') {
-      console.log("🚫 Skipping player initialization - Premium required");
-      return;
-    }
-
     window.onSpotifyWebPlaybackSDKReady = () => {
       console.log("🎵 Spotify Web Playback SDK is ready!");
       
@@ -603,7 +594,10 @@ export default function SpotifyPage() {
   };
 
   const playTrack = async (uri: string) => {
-    if (!deviceId || !playerRef.current) return;
+    if (!deviceId || !playerRef.current) {
+      setPlayerError("Web Playback SDK not ready. Please transfer playback to this device first.");
+      return;
+    }
     try {
       const token = await getValidToken();
 
@@ -628,7 +622,7 @@ export default function SpotifyPage() {
       });
 
       if (!response.ok) {
-        console.error('Failed to start playback:', response.status);
+        console.error("Error starting playback:", response.status);
         setPlayerError("Failed to start playback");
       }
     } catch (error) {
@@ -776,11 +770,19 @@ export default function SpotifyPage() {
               </div>
             </div>
             
-            <div className="text-right">
-              <div className="text-sm text-muted-foreground">Volume Dashboard Player</div>
-              <div className="text-xs text-muted-foreground">
-                Real-time playback monitoring active
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <div className="text-sm text-muted-foreground">Volume Dashboard Player</div>
+                <div className="text-xs text-muted-foreground">
+                  Real-time playback monitoring active
+                </div>
               </div>
+              <button
+                onClick={disconnectSpotify}
+                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-md font-medium transition-colors"
+              >
+                Logout
+              </button>
             </div>
           </div>
         )}
@@ -870,7 +872,7 @@ export default function SpotifyPage() {
               <div className="flex gap-3">
                 <button
                   onClick={playUrlDirectly}
-                  disabled={!ready || !spotifyUrl.trim()}
+                  disabled={!connected || !spotifyUrl.trim()}
                   className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
                   ▶️ Play Now
@@ -1051,7 +1053,7 @@ export default function SpotifyPage() {
                       <span className="text-xs text-muted-foreground">#{index + 1}</span>
                       <button
                         onClick={() => playFromQueue(track)}
-                        disabled={!ready}
+                        disabled={!connected}
                         className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         ▶️ Play
