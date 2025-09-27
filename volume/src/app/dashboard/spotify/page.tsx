@@ -407,13 +407,14 @@ export default function SpotifyPage() {
       
       const player = new window.Spotify!.Player({
         name: 'Volume Dashboard Player',
-        getOAuthToken: (cb: (token: string) => void) => {
-          getValidToken()
-            .then(token => cb(token))
-            .catch(error => {
-              console.error("Failed to get OAuth token:", error);
-              setPlayerError("Authentication failed - please reconnect");
-            });
+        getOAuthToken: async (cb: (token: string) => void) => {
+          try {
+            const token = await getValidToken();
+            cb(token);
+          } catch (error) {
+            console.error("Failed to get OAuth token:", error);
+            setPlayerError("Authentication failed - please reconnect");
+          }
         },
         volume: 0.8,
         enableMediaSession: true
@@ -660,6 +661,13 @@ export default function SpotifyPage() {
   const togglePlayback = async () => {
     if (!playerRef.current) return;
     try {
+      // Activate element for mobile browsers (per SDK docs)
+      try {
+        await playerRef.current.activateElement();
+      } catch (activateError) {
+        console.warn("activateElement not needed or failed:", activateError);
+      }
+
       await playerRef.current.togglePlay();
       console.log('✅ Toggled playback via SDK');
     } catch (error) {
@@ -676,6 +684,29 @@ export default function SpotifyPage() {
     } catch (error) {
       console.error("Error skipping track via SDK:", error);
       setPlayerError("Failed to skip track");
+    }
+  };
+
+  // Get current player state (per SDK docs)
+  const getCurrentPlayerState = async () => {
+    if (!playerRef.current) return null;
+    try {
+      return await playerRef.current.getCurrentState();
+    } catch (error) {
+      console.error("Error getting current state:", error);
+      return null;
+    }
+  };
+
+  // Volume control (per SDK docs)
+  const setPlayerVolume = async (volume: number) => {
+    if (!playerRef.current) return;
+    try {
+      await playerRef.current.setVolume(volume);
+      console.log(`✅ Volume set to ${volume * 100}%`);
+    } catch (error) {
+      console.error("Error setting volume:", error);
+      setPlayerError("Failed to set volume");
     }
   };
 
@@ -902,6 +933,17 @@ export default function SpotifyPage() {
                   <span className="text-green-600">✅ Premium - Full Web SDK Access</span>
                 </div>
               )}
+
+              {ready && deviceId && (
+                <div className="mt-4 p-3 bg-green-50 dark:bg-green-950 rounded border border-green-200 dark:border-green-800">
+                  <div className="text-green-800 dark:text-green-200 text-sm font-medium mb-1">
+                    🎉 Device Ready!
+                  </div>
+                  <div className="text-green-700 dark:text-green-300 text-xs">
+                    Your browser appears as "Volume Dashboard Player" in Spotify. Click "Transfer Here" to activate, then use Play buttons.
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -999,7 +1041,7 @@ export default function SpotifyPage() {
 
 
           {/* Current Track */}
-          {playerState?.track_window?.current_track && (
+          {playerState?.track_window?.current_track?.name && (
             <div className="p-6 bg-card rounded-lg border">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-foreground">🎵 Now Playing</h2>
@@ -1023,48 +1065,48 @@ export default function SpotifyPage() {
               
               <div className="space-y-4">
                 <div className="flex items-center gap-4">
-                  {playerState.track_window.current_track.album.images?.[0] && (
+                  {playerState?.track_window?.current_track?.album?.images?.[0] && (
                     <img
                       src={playerState.track_window.current_track.album.images[0].url}
-                      alt={playerState.track_window.current_track.album.name}
+                      alt={playerState.track_window.current_track.album.name || 'Album cover'}
                       className="w-16 h-16 rounded-md shadow-md"
                     />
                   )}
                   <div className="flex-1">
                     <div className="text-lg font-medium text-foreground">
-                      {playerState.track_window.current_track.name}
+                      {playerState?.track_window?.current_track?.name || 'Unknown Track'}
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      by {playerState.track_window.current_track.artists.map(a => a.name).join(', ')}
+                      by {playerState?.track_window?.current_track?.artists?.map(a => a.name).join(', ') || 'Unknown Artist'}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      from {playerState.track_window.current_track.album.name}
+                      from {playerState?.track_window?.current_track?.album?.name || 'Unknown Album'}
                     </div>
                   </div>
                 </div>
                 
                 <div className="flex items-center gap-2 text-sm">
                   <span className="font-medium">State:</span>
-                  <span className={playerState.paused ? "text-orange-600" : "text-green-600"}>
-                    {playerState.paused ? "⏸️ Paused" : "▶️ Playing"}
+                  <span className={playerState?.paused ? "text-orange-600" : "text-green-600"}>
+                    {playerState?.paused ? "⏸️ Paused" : "▶️ Playing"}
                   </span>
                   <span className="text-muted-foreground">•</span>
                   <span className="font-medium">Device:</span>
-                  <span className="text-green-600">{playerState.device.name}</span>
+                  <span className="text-green-600">{playerState?.device?.name || 'Volume Dashboard Player'}</span>
                 </div>
                 
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>{formatTime(playerState.position)}</span>
-                    <span>{formatTime(playerState.duration)}</span>
+                    <span>{formatTime(playerState?.position || 0)}</span>
+                    <span>{formatTime(playerState?.duration || 0)}</span>
                   </div>
-                  
+
                   {/* Progress bar */}
-                  {playerState.duration > 0 && (
+                  {(playerState?.duration || 0) > 0 && (
                     <div className="w-full bg-muted rounded-full h-2">
-                      <div 
+                      <div
                         className="bg-green-600 h-2 rounded-full transition-all duration-300 ease-out"
-                        style={{ width: `${(playerState.position / playerState.duration) * 100}%` }}
+                        style={{ width: `${((playerState?.position || 0) / (playerState?.duration || 1)) * 100}%` }}
                       />
                     </div>
                   )}
