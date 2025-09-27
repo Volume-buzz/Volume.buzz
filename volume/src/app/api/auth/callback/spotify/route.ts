@@ -55,6 +55,11 @@ export async function GET(request: NextRequest) {
     console.log('✅ Token received, expires in:', tokenData.expires_in, 'seconds');
     console.log('🔄 Has refresh token:', !!tokenData.refresh_token);
 
+    // Fetch user profile to include in redirect
+    console.log('🔄 Fetching user profile...');
+    const userProfile = await SpotifyAuth.getUserProfile(tokenData.access_token);
+    console.log('✅ User profile received:', userProfile.display_name);
+
     // Following Spotify documentation - use client-side storage instead of cookies
     // Create a redirect with tokens in URL (will be handled by client-side script)
     const appUrl = process.env.APP_URL;
@@ -68,6 +73,7 @@ export async function GET(request: NextRequest) {
       redirectUrl.searchParams.set('refresh_token', tokenData.refresh_token);
     }
     redirectUrl.searchParams.set('expires_in', tokenData.expires_in.toString());
+    redirectUrl.searchParams.set('user_profile', encodeURIComponent(JSON.stringify(userProfile)));
     redirectUrl.searchParams.set('token_success', 'true');
 
     console.log('🔄 Redirecting to client with tokens');

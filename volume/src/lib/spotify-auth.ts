@@ -17,22 +17,26 @@ export class SpotifyAuth {
     };
   }
 
-  // Generate Spotify authorization URL
+  // Generate Spotify authorization URL with appropriate scopes
   static getScopes(mode: 'minimal' | 'premium' = 'minimal') {
-    if (mode === 'premium') {
-      return [
-        'streaming',
-        'user-read-private',
-        'user-read-email',
-        'user-modify-playback-state',
-        'user-read-playback-state',
-        'user-read-currently-playing'
-      ];
-    }
-    return [
+    // Base scopes for all users (following Spotify docs)
+    const baseScopes = [
       'user-read-private',
       'user-read-email'
     ];
+
+    if (mode === 'premium') {
+      // Premium scopes for Web Playback SDK (following Spotify Web Playback SDK docs)
+      return [
+        ...baseScopes,
+        'streaming',                    // Required for Web Playback SDK
+        'user-modify-playback-state',   // Required to control playback
+        'user-read-playback-state',     // Required to read current playback state
+        'user-read-currently-playing'   // Required to get current track info
+      ];
+    }
+
+    return baseScopes;
   }
 
   static generateAuthUrl(state: string, codeChallenge: string, mode: 'minimal' | 'premium' = 'minimal') {

@@ -108,7 +108,6 @@ export default function SpotifyPage() {
   const [ready, setReady] = useState(false);
   const [playerState, setPlayerState] = useState<WebPlaybackState | null>(null);
   const [playerError, setPlayerError] = useState<string>("");
-  const [hasFullScopes, setHasFullScopes] = useState(false);
 
   // Queue management state
   const [queuedTracks, setQueuedTracks] = useState<QueuedTrack[]>([]);
@@ -442,7 +441,6 @@ export default function SpotifyPage() {
         const { message } = data as WebPlaybackError;
         console.error('🚫 Authentication Error:', message);
         setPlayerError(`Authentication failed: ${message}`);
-        setHasFullScopes(false);
       });
 
       player.addListener('account_error', (data: unknown) => {
@@ -464,7 +462,6 @@ export default function SpotifyPage() {
         setDeviceId(device_id);
         setReady(true);
         setPlayerError("");
-        setHasFullScopes(true); // If we got here, we have proper scopes
       });
 
       player.addListener('not_ready', (data: unknown) => {
@@ -506,11 +503,6 @@ export default function SpotifyPage() {
     window.location.href = '/api/auth/login/spotify';
   };
 
-  const enablePremiumControls = () => {
-    // Start a new auth flow requesting premium scopes
-    window.location.href = '/api/auth/login/spotify/premium';
-  };
-
   const disconnectSpotify = () => {
     // Clear localStorage
     localStorage.removeItem('spotify_access_token');
@@ -531,7 +523,6 @@ export default function SpotifyPage() {
     setPlayerState(null);
     setPlayerError("");
     setErr(null);
-    setHasFullScopes(false);
     
     console.log('🔐 Logged out of Spotify');
   };
@@ -796,6 +787,16 @@ export default function SpotifyPage() {
 
         <h1 className="text-3xl font-bold mb-6 text-foreground">🎵 Spotify Web Player</h1>
 
+        {/* Web Playback SDK Disclaimer */}
+        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md">
+          <div className="text-blue-800 dark:text-blue-200 text-sm font-medium mb-1">
+            ℹ️ About Spotify Web Playback SDK
+          </div>
+          <div className="text-blue-700 dark:text-blue-300 text-sm">
+            The Spotify Web Playback SDK requires a <strong>Spotify Premium subscription</strong> to function. Free Spotify accounts can connect to view their profile and participate in raids, but playback controls are only available to Premium users as per Spotify&apos;s official requirements.
+          </div>
+        </div>
+
         {user && user.product !== 'premium' && (
           <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md">
             <div className="text-amber-800 dark:text-amber-200 text-sm font-medium mb-2">
@@ -890,8 +891,8 @@ export default function SpotifyPage() {
             </div>
           </div>
 
-          {/* Playback Controls - Premium users with full scopes */}
-          {user?.product === 'premium' && ready && hasFullScopes && (
+          {/* Playback Controls - Premium users only */}
+          {user?.product === 'premium' && ready && (
             <div className="p-6 bg-card rounded-lg border">
               <h2 className="text-xl font-semibold mb-4 text-foreground">🎮 Playback Control</h2>
               
@@ -935,19 +936,6 @@ export default function SpotifyPage() {
             </div>
           )}
 
-          {/* Premium consent CTA (if premium but no SDK device yet) */}
-          {user?.product === 'premium' && !deviceId && (
-            <div className="p-6 bg-card rounded-lg border">
-              <h2 className="text-xl font-semibold mb-3 text-foreground">Enable Web Playback</h2>
-              <p className="text-sm text-muted-foreground mb-4">To control playback from your browser, grant permissions for the Web Playback SDK.</p>
-              <button
-                onClick={enablePremiumControls}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium"
-              >
-                Grant Player Permissions
-              </button>
-            </div>
-          )}
 
           {/* Current Track */}
           {playerState?.track_window?.current_track && (
