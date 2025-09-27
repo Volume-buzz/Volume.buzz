@@ -595,23 +595,16 @@ export default function SpotifyPage() {
 
   const playTrack = async (uri: string) => {
     if (!deviceId || !playerRef.current) {
-      setPlayerError("Web Playback SDK not ready. Please transfer playback to this device first.");
+      setPlayerError("Web Playback SDK not ready. Please use 'Transfer Here' button first to activate this device.");
       return;
     }
+
     try {
       const token = await getValidToken();
+      setPlayerError(""); // Clear any previous errors
 
-      // Activate element first for autoplay
-      try {
-        await playerRef.current.activateElement();
-      } catch (activateError) {
-        console.warn("Failed to activate element:", activateError);
-      }
-
-      // Ensure this device is active
-      await transferToThisDevice();
-
-      // Start playback
+      // Only use Web API to start new tracks (per Spotify documentation)
+      // Don't auto-transfer - let user control device switching
       const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
         method: "PUT",
         headers: {
@@ -622,8 +615,18 @@ export default function SpotifyPage() {
       });
 
       if (!response.ok) {
-        console.error("Error starting playback:", response.status);
-        setPlayerError("Failed to start playback");
+        const errorText = await response.text();
+        console.error("Error starting playback:", response.status, errorText);
+
+        if (response.status === 404) {
+          setPlayerError("Device not active. Please click 'Transfer Here' to activate this device first.");
+        } else if (response.status === 403) {
+          setPlayerError("Playback restricted. Make sure you have Spotify Premium and this device is active.");
+        } else {
+          setPlayerError("Failed to start playback. Try transferring to this device first.");
+        }
+      } else {
+        console.log("✅ Successfully started track:", uri);
       }
     } catch (error) {
       console.error("Error starting playback:", error);
@@ -631,20 +634,76 @@ export default function SpotifyPage() {
     }
   };
 
-  // Player control functions following official SDK patterns
+  // SDK-based control functions (following Spotify documentation)
+  const pausePlayback = async () => {
+    if (!playerRef.current) return;
+    try {
+      await playerRef.current.pause();
+      console.log('✅ Paused via SDK');
+    } catch (error) {
+      console.error("Error pausing via SDK:", error);
+      setPlayerError("Failed to pause playback");
+    }
+  };
+
+  const resumePlayback = async () => {
+    if (!playerRef.current) return;
+    try {
+      await playerRef.current.resume();
+      console.log('✅ Resumed via SDK');
+    } catch (error) {
+      console.error("Error resuming via SDK:", error);
+      setPlayerError("Failed to resume playback");
+    }
+  };
+
+  const togglePlayback = async () => {
+    if (!playerRef.current) return;
+    try {
+      await playerRef.current.togglePlay();
+      console.log('✅ Toggled playback via SDK');
+    } catch (error) {
+      console.error("Error toggling playback via SDK:", error);
+      setPlayerError("Failed to toggle playback");
+    }
+  };
+
+  const nextTrack = async () => {
+    if (!playerRef.current) return;
+    try {
+      await playerRef.current.nextTrack();
+      console.log('✅ Next track via SDK');
+    } catch (error) {
+      console.error("Error skipping track via SDK:", error);
+      setPlayerError("Failed to skip track");
+    }
+  };
+
+  const previousTrack = async () => {
+    if (!playerRef.current) return;
+    try {
+      await playerRef.current.previousTrack();
+      console.log('✅ Previous track via SDK');
+    } catch (error) {
+      console.error("Error going to previous track via SDK:", error);
+      setPlayerError("Failed to go to previous track");
+    }
+  };
+
+  // Transfer device (only used once when needed)
   const transferToThisDevice = useCallback(async () => {
     if (!deviceId) return;
     try {
       const token = await getValidToken();
       const response = await fetch("https://api.spotify.com/v1/me/player", {
         method: "PUT",
-        headers: { 
-          Authorization: `Bearer ${token}`, 
-          "Content-Type": "application/json" 
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({ device_ids: [deviceId], play: false })
       });
-      
+
       if (response.ok) {
         console.log('🎵 Successfully transferred playback to this device');
       } else {
@@ -899,24 +958,24 @@ export default function SpotifyPage() {
               <h2 className="text-xl font-semibold mb-4 text-foreground">🎮 Playback Control</h2>
               
               <div className="flex gap-3 mb-4">
-                <button 
-                  onClick={() => playerRef.current?.togglePlay()}
+                <button
+                  onClick={togglePlayback}
                   disabled={!ready}
                   className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
                   {playerState?.paused ? '▶️ Play' : '⏸️ Pause'}
                 </button>
-                
-                <button 
-                  onClick={() => playerRef.current?.previousTrack()}
+
+                <button
+                  onClick={previousTrack}
                   disabled={!ready}
                   className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
                   ⏮️ Previous
                 </button>
-                
-                <button 
-                  onClick={() => playerRef.current?.nextTrack()}
+
+                <button
+                  onClick={nextTrack}
                   disabled={!ready}
                   className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
@@ -946,11 +1005,11 @@ export default function SpotifyPage() {
                 <h2 className="text-xl font-semibold text-foreground">🎵 Now Playing</h2>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => playerRef.current?.togglePlay()}
+                    onClick={togglePlayback}
                     disabled={!ready}
                     className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-2"
                   >
-                    {playerState.paused ? '▶️ Play' : '⏸️ Pause'}
+                    {playerState?.paused ? '▶️ Play' : '⏸️ Pause'}
                   </button>
                   <button
                     onClick={transferToThisDevice}
