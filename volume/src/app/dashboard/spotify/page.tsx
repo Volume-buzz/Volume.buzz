@@ -7,8 +7,16 @@ interface SpotifyUser {
   id: string;
   display_name: string;
   email: string;
-  product: 'free' | 'premium';
+  product: string;
   images: { url: string }[];
+}
+
+interface QueuedTrack {
+  id: string;
+  uri: string;
+  name: string;
+  artist: string;
+  addedAt: number;
 }
 
 // Official Spotify Web Playback SDK types based on documentation
@@ -100,7 +108,11 @@ export default function SpotifyPage() {
   const [ready, setReady] = useState(false);
   const [playerState, setPlayerState] = useState<WebPlaybackState | null>(null);
   const [playerError, setPlayerError] = useState<string>("");
-  const [hasFullScopes, setHasFullScopes] = useState(false);
+
+  // Queue management state
+  const [queuedTracks, setQueuedTracks] = useState<QueuedTrack[]>([]);
+  const [spotifyUrl, setSpotifyUrl] = useState<string>("");
+  const [urlError, setUrlError] = useState<string>("");
 
   const playerRef = useRef<SpotifyPlayer | null>(null);
   const searchParams = useSearchParams();
@@ -163,6 +175,46 @@ export default function SpotifyPage() {
     return accessToken;
   }, []);
 
+  // Utility functions for queue management
+  const extractTrackId = (url: string): string | null => {
+    try {
+      // Handle various Spotify URL formats
+      const patterns = [
+        /spotify:track:([a-zA-Z0-9]+)/,
+        /spotify\.com\/track\/([a-zA-Z0-9]+)/,
+        /open\.spotify\.com\/track\/([a-zA-Z0-9]+)/
+      ];
+
+      for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match) return match[1];
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  const getTrackFromSpotify = useCallback(async (trackId: string): Promise<{name: string, artist: string} | null> => {
+    try {
+      const token = await getValidToken();
+      const response = await fetch(`https://api.spotify.com/v1/tracks/${trackId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) return null;
+
+      const track = await response.json();
+      return {
+        name: track.name,
+        artist: track.artists.map((a: any) => a.name).join(', ')
+      };
+    } catch {
+      return null;
+    }
+  }, [getValidToken]);
+
   useEffect(() => {
     const error = searchParams.get('error');
     const tokenSuccess = searchParams.get('token_success');
@@ -206,9 +258,7 @@ export default function SpotifyPage() {
         localStorage.setItem('spotify_user_profile', JSON.stringify(profile));
         setUser(profile);
         setConnected(true);
-        if (profile.product === 'premium') {
-          initializePlayer();
-        }
+        initializePlayer();
         setErr(null);
       };
       
@@ -265,6 +315,24 @@ export default function SpotifyPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
+  // Load queue from localStorage on component mount
+  useEffect(() => {
+    const savedQueue = localStorage.getItem('spotify_queue');
+    if (savedQueue) {
+      try {
+        setQueuedTracks(JSON.parse(savedQueue));
+      } catch {
+        // Clear invalid queue data
+        localStorage.removeItem('spotify_queue');
+      }
+    }
+  }, []);
+
+  // Save queue to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('spotify_queue', JSON.stringify(queuedTracks));
+  }, [queuedTracks]);
+
   useEffect(() => {
     checkSpotifyConnection();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -302,11 +370,9 @@ export default function SpotifyPage() {
           setUser(profile);
           setConnected(true);
           console.log('✅ Restored session from localStorage:', profile.display_name);
-          
-          // Initialize player if Premium
-          if (profile.product === 'premium') {
-            initializePlayer();
-          }
+
+          // Initialize player
+          initializePlayer();
         } else if (testResponse.status === 401 || testResponse.status === 403) {
           console.warn('Profile fetch unauthorized/forbidden on resume. Continuing as free/limited user.');
           const fallbackProfile: SpotifyUser = {
@@ -334,25 +400,21 @@ export default function SpotifyPage() {
     }
   };
 
-  // Initialize Web Playback SDK following official documentation patterns
+  // Initialize Web Playback SDK (let Spotify handle Premium requirements)
   const initializePlayer = useCallback(() => {
-    if (!user || user.product !== 'premium') {
-      console.log("🚫 Skipping player initialization - Premium required");
-      return;
-    }
-
     window.onSpotifyWebPlaybackSDKReady = () => {
       console.log("🎵 Spotify Web Playback SDK is ready!");
       
       const player = new window.Spotify!.Player({
         name: 'Volume Dashboard Player',
-        getOAuthToken: (cb: (token: string) => void) => {
-          getValidToken()
-            .then(token => cb(token))
-            .catch(error => {
-              console.error("Failed to get OAuth token:", error);
-              setPlayerError("Authentication failed - please reconnect");
-            });
+        getOAuthToken: async (cb: (token: string) => void) => {
+          try {
+            const token = await getValidToken();
+            cb(token);
+          } catch (error) {
+            console.error("Failed to get OAuth token:", error);
+            setPlayerError("Authentication failed - please reconnect");
+          }
         },
         volume: 0.8,
         enableMediaSession: true
@@ -371,7 +433,6 @@ export default function SpotifyPage() {
         const { message } = data as WebPlaybackError;
         console.error('🚫 Authentication Error:', message);
         setPlayerError(`Authentication failed: ${message}`);
-        setHasFullScopes(false);
       });
 
       player.addListener('account_error', (data: unknown) => {
@@ -393,7 +454,6 @@ export default function SpotifyPage() {
         setDeviceId(device_id);
         setReady(true);
         setPlayerError("");
-        setHasFullScopes(true); // If we got here, we have proper scopes
       });
 
       player.addListener('not_ready', (data: unknown) => {
@@ -435,11 +495,6 @@ export default function SpotifyPage() {
     window.location.href = '/api/auth/login/spotify';
   };
 
-  const enablePremiumControls = () => {
-    // Start a new auth flow requesting premium scopes
-    window.location.href = '/api/auth/login/spotify/premium';
-  };
-
   const disconnectSpotify = () => {
     // Clear localStorage
     localStorage.removeItem('spotify_access_token');
@@ -460,25 +515,226 @@ export default function SpotifyPage() {
     setPlayerState(null);
     setPlayerError("");
     setErr(null);
-    setHasFullScopes(false);
     
     console.log('🔐 Logged out of Spotify');
   };
 
-  // Player control functions following official SDK patterns
+  // Queue management functions
+  const handleUrlSubmit = async () => {
+    setUrlError("");
+
+    if (!spotifyUrl.trim()) {
+      setUrlError("Please enter a Spotify URL");
+      return;
+    }
+
+    const trackId = extractTrackId(spotifyUrl);
+    if (!trackId) {
+      setUrlError("Invalid Spotify URL. Please use a track link from Spotify.");
+      return;
+    }
+
+    // Check if track already exists in queue
+    if (queuedTracks.some(track => track.id === trackId)) {
+      setUrlError("This track is already in your queue");
+      return;
+    }
+
+    try {
+      const trackInfo = await getTrackFromSpotify(trackId);
+      if (!trackInfo) {
+        setUrlError("Could not fetch track information. Please check the URL.");
+        return;
+      }
+
+      const newTrack: QueuedTrack = {
+        id: trackId,
+        uri: `spotify:track:${trackId}`,
+        name: trackInfo.name,
+        artist: trackInfo.artist,
+        addedAt: Date.now()
+      };
+
+      setQueuedTracks(prev => [...prev, newTrack]);
+      setSpotifyUrl("");
+      console.log("✅ Track added to queue:", trackInfo.name);
+    } catch (error) {
+      console.error("Error adding track:", error);
+      setUrlError("Failed to add track. Please try again.");
+    }
+  };
+
+  const playFromQueue = async (track: QueuedTrack) => {
+    await playTrack(track.uri);
+  };
+
+  const removeFromQueue = (trackId: string) => {
+    setQueuedTracks(prev => prev.filter(track => track.id !== trackId));
+  };
+
+  const clearQueue = () => {
+    setQueuedTracks([]);
+  };
+
+  const playUrlDirectly = async () => {
+    setUrlError("");
+
+    if (!spotifyUrl.trim()) {
+      setUrlError("Please enter a Spotify URL");
+      return;
+    }
+
+    const trackId = extractTrackId(spotifyUrl);
+    if (!trackId) {
+      setUrlError("Invalid Spotify URL");
+      return;
+    }
+
+    await playTrack(`spotify:track:${trackId}`);
+    setSpotifyUrl("");
+  };
+
+  const playTrack = async (uri: string) => {
+    if (!deviceId || !playerRef.current) {
+      setPlayerError("Web Playback SDK not ready. Please use 'Transfer Here' button first to activate this device.");
+      return;
+    }
+
+    try {
+      const token = await getValidToken();
+      setPlayerError(""); // Clear any previous errors
+
+      // Only use Web API to start new tracks (per Spotify documentation)
+      // Don't auto-transfer - let user control device switching
+      const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ uris: [uri] })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Error starting playback:", response.status, errorText);
+
+        if (response.status === 404) {
+          setPlayerError("Device not active. Please click 'Transfer Here' to activate this device first.");
+        } else if (response.status === 403) {
+          setPlayerError("Playback restricted. Make sure you have Spotify Premium and this device is active.");
+        } else {
+          setPlayerError("Failed to start playback. Try transferring to this device first.");
+        }
+      } else {
+        console.log("✅ Successfully started track:", uri);
+      }
+    } catch (error) {
+      console.error("Error starting playback:", error);
+      setPlayerError("Failed to start playback");
+    }
+  };
+
+  // SDK-based control functions (following Spotify documentation)
+  const pausePlayback = async () => {
+    if (!playerRef.current) return;
+    try {
+      await playerRef.current.pause();
+      console.log('✅ Paused via SDK');
+    } catch (error) {
+      console.error("Error pausing via SDK:", error);
+      setPlayerError("Failed to pause playback");
+    }
+  };
+
+  const resumePlayback = async () => {
+    if (!playerRef.current) return;
+    try {
+      await playerRef.current.resume();
+      console.log('✅ Resumed via SDK');
+    } catch (error) {
+      console.error("Error resuming via SDK:", error);
+      setPlayerError("Failed to resume playback");
+    }
+  };
+
+  const togglePlayback = async () => {
+    if (!playerRef.current) return;
+    try {
+      // Activate element for mobile browsers (per SDK docs)
+      try {
+        await playerRef.current.activateElement();
+      } catch (activateError) {
+        console.warn("activateElement not needed or failed:", activateError);
+      }
+
+      await playerRef.current.togglePlay();
+      console.log('✅ Toggled playback via SDK');
+    } catch (error) {
+      console.error("Error toggling playback via SDK:", error);
+      setPlayerError("Failed to toggle playback");
+    }
+  };
+
+  const nextTrack = async () => {
+    if (!playerRef.current) return;
+    try {
+      await playerRef.current.nextTrack();
+      console.log('✅ Next track via SDK');
+    } catch (error) {
+      console.error("Error skipping track via SDK:", error);
+      setPlayerError("Failed to skip track");
+    }
+  };
+
+  // Get current player state (per SDK docs)
+  const getCurrentPlayerState = async () => {
+    if (!playerRef.current) return null;
+    try {
+      return await playerRef.current.getCurrentState();
+    } catch (error) {
+      console.error("Error getting current state:", error);
+      return null;
+    }
+  };
+
+  // Volume control (per SDK docs)
+  const setPlayerVolume = async (volume: number) => {
+    if (!playerRef.current) return;
+    try {
+      await playerRef.current.setVolume(volume);
+      console.log(`✅ Volume set to ${volume * 100}%`);
+    } catch (error) {
+      console.error("Error setting volume:", error);
+      setPlayerError("Failed to set volume");
+    }
+  };
+
+  const previousTrack = async () => {
+    if (!playerRef.current) return;
+    try {
+      await playerRef.current.previousTrack();
+      console.log('✅ Previous track via SDK');
+    } catch (error) {
+      console.error("Error going to previous track via SDK:", error);
+      setPlayerError("Failed to go to previous track");
+    }
+  };
+
+  // Transfer device (only used once when needed)
   const transferToThisDevice = useCallback(async () => {
     if (!deviceId) return;
     try {
       const token = await getValidToken();
       const response = await fetch("https://api.spotify.com/v1/me/player", {
         method: "PUT",
-        headers: { 
-          Authorization: `Bearer ${token}`, 
-          "Content-Type": "application/json" 
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({ device_ids: [deviceId], play: false })
       });
-      
+
       if (response.ok) {
         console.log('🎵 Successfully transferred playback to this device');
       } else {
@@ -623,6 +879,16 @@ export default function SpotifyPage() {
 
         <h1 className="text-3xl font-bold mb-6 text-foreground">🎵 Spotify Web Player</h1>
 
+        {/* Web Playback SDK Disclaimer */}
+        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md">
+          <div className="text-blue-800 dark:text-blue-200 text-sm font-medium mb-1">
+            ℹ️ About Spotify Web Playback SDK
+          </div>
+          <div className="text-blue-700 dark:text-blue-300 text-sm">
+            The Spotify Web Playback SDK requires a <strong>Spotify Premium subscription</strong> to function. Free Spotify accounts can connect to view their profile and participate in raids, but playback controls are only available to Premium users as per Spotify&apos;s official requirements.
+          </div>
+        </div>
+
         {user && user.product !== 'premium' && (
           <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md">
             <div className="text-amber-800 dark:text-amber-200 text-sm font-medium mb-2">
@@ -667,33 +933,91 @@ export default function SpotifyPage() {
                   <span className="text-green-600">✅ Premium - Full Web SDK Access</span>
                 </div>
               )}
+
+              {ready && deviceId && (
+                <div className="mt-4 p-3 bg-green-50 dark:bg-green-950 rounded border border-green-200 dark:border-green-800">
+                  <div className="text-green-800 dark:text-green-200 text-sm font-medium mb-1">
+                    🎉 Device Ready!
+                  </div>
+                  <div className="text-green-700 dark:text-green-300 text-xs">
+                    Your browser appears as "Volume Dashboard Player" in Spotify. Click "Transfer Here" to activate, then use Play buttons.
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Playback Controls - Premium users with full scopes */}
-          {user?.product === 'premium' && ready && hasFullScopes && (
+          {/* Spotify URL Input */}
+          <div className="p-6 bg-card rounded-lg border">
+            <h2 className="text-xl font-semibold mb-4 text-foreground">Play by Spotify Link</h2>
+
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="spotify-url" className="block text-sm font-medium text-foreground mb-2">
+                  Paste Spotify track URL
+                </label>
+                <input
+                  id="spotify-url"
+                  type="text"
+                  value={spotifyUrl}
+                  onChange={(e) => setSpotifyUrl(e.target.value)}
+                  placeholder="https://open.spotify.com/track/... or spotify:track:..."
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  onKeyPress={(e) => e.key === 'Enter' && handleUrlSubmit()}
+                />
+                {urlError && (
+                  <p className="mt-2 text-sm text-destructive">{urlError}</p>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={playUrlDirectly}
+                  disabled={!connected || !spotifyUrl.trim()}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                >
+                  ▶️ Play Now
+                </button>
+
+                <button
+                  onClick={handleUrlSubmit}
+                  disabled={!connected || !spotifyUrl.trim()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                >
+                  ➕ Add to Queue
+                </button>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Copy track links from Spotify app or web player. Supports various formats including open.spotify.com and spotify: URIs.
+              </p>
+            </div>
+          </div>
+
+          {/* Playback Controls - Premium users only */}
+          {user?.product === 'premium' && ready && (
             <div className="p-6 bg-card rounded-lg border">
               <h2 className="text-xl font-semibold mb-4 text-foreground">🎮 Playback Control</h2>
               
               <div className="flex gap-3 mb-4">
-                <button 
-                  onClick={() => playerRef.current?.togglePlay()}
+                <button
+                  onClick={togglePlayback}
                   disabled={!ready}
                   className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
                   {playerState?.paused ? '▶️ Play' : '⏸️ Pause'}
                 </button>
-                
-                <button 
-                  onClick={() => playerRef.current?.previousTrack()}
+
+                <button
+                  onClick={previousTrack}
                   disabled={!ready}
                   className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
                   ⏮️ Previous
                 </button>
-                
-                <button 
-                  onClick={() => playerRef.current?.nextTrack()}
+
+                <button
+                  onClick={nextTrack}
                   disabled={!ready}
                   className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
@@ -715,69 +1039,74 @@ export default function SpotifyPage() {
             </div>
           )}
 
-          {/* Premium consent CTA (if premium but no SDK device yet) */}
-          {user?.product === 'premium' && !deviceId && (
-            <div className="p-6 bg-card rounded-lg border">
-              <h2 className="text-xl font-semibold mb-3 text-foreground">Enable Web Playback</h2>
-              <p className="text-sm text-muted-foreground mb-4">To control playback from your browser, grant permissions for the Web Playback SDK.</p>
-              <button
-                onClick={enablePremiumControls}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium"
-              >
-                Grant Player Permissions
-              </button>
-            </div>
-          )}
 
           {/* Current Track */}
-          {playerState?.track_window?.current_track && (
+          {playerState?.track_window?.current_track?.name && (
             <div className="p-6 bg-card rounded-lg border">
-              <h2 className="text-xl font-semibold mb-4 text-foreground">🎵 Now Playing</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-foreground">🎵 Now Playing</h2>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={togglePlayback}
+                    disabled={!ready}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-2"
+                  >
+                    {playerState?.paused ? '▶️ Play' : '⏸️ Pause'}
+                  </button>
+                  <button
+                    onClick={transferToThisDevice}
+                    disabled={!deviceId}
+                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    📱 Transfer Here
+                  </button>
+                </div>
+              </div>
               
               <div className="space-y-4">
                 <div className="flex items-center gap-4">
-                  {playerState.track_window.current_track.album.images?.[0] && (
+                  {playerState?.track_window?.current_track?.album?.images?.[0] && (
                     <img
                       src={playerState.track_window.current_track.album.images[0].url}
-                      alt={playerState.track_window.current_track.album.name}
+                      alt={playerState.track_window.current_track.album.name || 'Album cover'}
                       className="w-16 h-16 rounded-md shadow-md"
                     />
                   )}
                   <div className="flex-1">
                     <div className="text-lg font-medium text-foreground">
-                      {playerState.track_window.current_track.name}
+                      {playerState?.track_window?.current_track?.name || 'Unknown Track'}
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      by {playerState.track_window.current_track.artists.map(a => a.name).join(', ')}
+                      by {playerState?.track_window?.current_track?.artists?.map(a => a.name).join(', ') || 'Unknown Artist'}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      from {playerState.track_window.current_track.album.name}
+                      from {playerState?.track_window?.current_track?.album?.name || 'Unknown Album'}
                     </div>
                   </div>
                 </div>
                 
                 <div className="flex items-center gap-2 text-sm">
                   <span className="font-medium">State:</span>
-                  <span className={playerState.paused ? "text-orange-600" : "text-green-600"}>
-                    {playerState.paused ? "⏸️ Paused" : "▶️ Playing"}
+                  <span className={playerState?.paused ? "text-orange-600" : "text-green-600"}>
+                    {playerState?.paused ? "⏸️ Paused" : "▶️ Playing"}
                   </span>
                   <span className="text-muted-foreground">•</span>
                   <span className="font-medium">Device:</span>
-                  <span className="text-green-600">{playerState.device.name}</span>
+                  <span className="text-green-600">{playerState?.device?.name || 'Volume Dashboard Player'}</span>
                 </div>
                 
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>{formatTime(playerState.position)}</span>
-                    <span>{formatTime(playerState.duration)}</span>
+                    <span>{formatTime(playerState?.position || 0)}</span>
+                    <span>{formatTime(playerState?.duration || 0)}</span>
                   </div>
-                  
+
                   {/* Progress bar */}
-                  {playerState.duration > 0 && (
+                  {(playerState?.duration || 0) > 0 && (
                     <div className="w-full bg-muted rounded-full h-2">
-                      <div 
+                      <div
                         className="bg-green-600 h-2 rounded-full transition-all duration-300 ease-out"
-                        style={{ width: `${(playerState.position / playerState.duration) * 100}%` }}
+                        style={{ width: `${((playerState?.position || 0) / (playerState?.duration || 1)) * 100}%` }}
                       />
                     </div>
                   )}
@@ -785,6 +1114,71 @@ export default function SpotifyPage() {
               </div>
             </div>
           )}
+
+          {/* Song Queue */}
+          <div className="p-6 bg-card rounded-lg border">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-foreground">Song Queue</h2>
+              {queuedTracks.length > 0 && (
+                <button
+                  onClick={clearQueue}
+                  className="text-sm text-destructive hover:text-destructive/80 font-medium"
+                >
+                  Clear All
+                </button>
+              )}
+            </div>
+
+            {queuedTracks.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <div className="text-2xl mb-2">🎵</div>
+                <p>No songs in queue</p>
+                <p className="text-sm">Add tracks using Spotify links above</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {queuedTracks.map((track, index) => (
+                  <div
+                    key={track.id}
+                    className="flex items-center justify-between p-3 bg-muted/50 rounded-md hover:bg-muted/70 transition-colors"
+                  >
+                    <div className="flex-1">
+                      <div className="font-medium text-foreground">{track.name}</div>
+                      <div className="text-sm text-muted-foreground">{track.artist}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Added {new Date(track.addedAt).toLocaleTimeString()}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">#{index + 1}</span>
+                      <button
+                        onClick={() => playFromQueue(track)}
+                        disabled={!connected}
+                        className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        ▶️ Play
+                      </button>
+                      <button
+                        onClick={() => removeFromQueue(track.id)}
+                        className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {queuedTracks.length > 0 && (
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950 rounded border border-blue-200 dark:border-blue-800">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  💡 <strong>Queue saved locally</strong> - Your queue persists between sessions and is ready for raid coordination.
+                </p>
+              </div>
+            )}
+          </div>
 
           {/* Features Info */}
           <div className="p-6 bg-muted/50 rounded-lg border">

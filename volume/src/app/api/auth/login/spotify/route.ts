@@ -19,8 +19,8 @@ export async function GET(_request: NextRequest) {
     // Store session
     authSessions.store(state, codeVerifier);
     
-    // Generate authorization URL (minimal scopes)
-    const authUrl = SpotifyAuth.generateAuthUrl(state, codeChallenge, 'minimal');
+    // Generate authorization URL (premium scopes for full functionality)
+    const authUrl = SpotifyAuth.generateAuthUrl(state, codeChallenge, 'premium');
     
     console.log('🎯 Redirecting to:', authUrl);
     
