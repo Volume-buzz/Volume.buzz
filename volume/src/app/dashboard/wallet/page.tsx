@@ -1,120 +1,174 @@
 "use client";
-import { useEffect, useState } from 'react';
 
-interface WalletResponse {
-  public_key: string;
-  balances: { sol: number; tokens: Array<{ mint: string; symbol: string; amount: number }> };
-  history?: string[];
-  exported_at?: string | null;
-}
+import { usePrivy, useWallets } from '@privy-io/react-auth';
+import { PrivyWalletProvider } from '@/components/wallet/privy-provider';
 
-export default function WalletPage() {
-  const [data, setData] = useState<WalletResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
-  const [toAddress, setToAddress] = useState('');
-  const [amount, setAmount] = useState('');
-  const [transferCode, setTransferCode] = useState('');
-  const [exportCode, setExportCode] = useState('');
-  const [exported, setExported] = useState<string | null>(null);
-  const [transferStarted, setTransferStarted] = useState(false);
+function WalletPageContent() {
+  const { ready, authenticated, user, login, logout } = usePrivy();
+  const { wallets } = useWallets();
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch('/api/wallet/me');
-        const json = await res.json();
-        setData(json);
-      } catch {
-        setErr('Failed to load wallet');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
-  const startTransfer = async () => {
-    setErr(null);
-    const res = await fetch('/api/wallet/transfer/start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ toAddress, amount: parseFloat(amount) })
-    });
-    if (!res.ok) setErr('Failed to start transfer');
-    else setTransferStarted(true);
-  };
-
-  const confirmTransfer = async () => {
-    setErr(null);
-    const res = await fetch('/api/wallet/transfer/confirm', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ toAddress, amount: parseFloat(amount), code: transferCode })
-    });
-    if (!res.ok) setErr('Transfer failed');
-  };
-
-  const startExport = async () => {
-    setErr(null);
-    const res = await fetch('/api/wallet/export/start', { method: 'POST' });
-    if (!res.ok) setErr('Failed to start export');
-  };
-
-  const confirmExport = async () => {
-    setErr(null);
-    const res = await fetch('/api/wallet/export/confirm', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: exportCode })
-    });
-    if (!res.ok) return setErr('Export failed');
-    const json = await res.json();
-    setExported(json.encrypted);
-  };
-
-  if (loading) return <div className="p-6">Loading…</div>;
-  if (err) return <div className="p-6 text-red-500">{err}</div>;
-  if (!data) return null;
-
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-semibold mb-4 text-foreground">Wallet</h1>
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="border rounded-md p-4 bg-card">
-          <h2 className="font-medium text-foreground mb-2">Balances</h2>
-          <p className="text-sm">SOL: {data.balances.sol.toFixed(6)}</p>
-          <div className="mt-2 space-y-1">
-            {data.balances.tokens.map((t) => (
-              <div key={t.mint} className="text-sm">{t.symbol}: {t.amount}</div>
-            ))}
-          </div>
+  if (!ready) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <span className="ml-2 text-muted-foreground">Loading...</span>
         </div>
-        <div className="border rounded-md p-4 bg-card">
-          <h2 className="font-medium text-foreground mb-2">Transfer SOL</h2>
-          <input className="w-full mb-2 px-2 py-1 rounded bg-background border" placeholder="To address" value={toAddress} onChange={(e)=>setToAddress(e.target.value)} />
-          <input className="w-full mb-2 px-2 py-1 rounded bg-background border" placeholder="Amount" value={amount} onChange={(e)=>setAmount(e.target.value)} />
-          <div className="flex gap-2">
-            <button className="px-3 py-2 rounded bg-primary text-primary-foreground" onClick={startTransfer}>Start</button>
-            <input className="flex-1 px-2 py-1 rounded bg-background border" placeholder="Confirmation Code" value={transferCode} onChange={(e)=>setTransferCode(e.target.value)} disabled={!transferStarted} />
-            <button className="px-3 py-2 rounded bg-primary text-primary-foreground disabled:opacity-50" onClick={confirmTransfer} disabled={!transferStarted}>Confirm</button>
-          </div>
-        </div>
-        <div className="border rounded-md p-4 bg-card">
-          <h2 className="font-medium text-foreground mb-2">Export Private Key</h2>
-          <div className="flex gap-2">
-            <button className="px-3 py-2 rounded bg-primary text-primary-foreground" onClick={startExport}>Start</button>
-            <input className="flex-1 px-2 py-1 rounded bg-background border" placeholder="Confirmation Code" value={exportCode} onChange={(e)=>setExportCode(e.target.value)} />
-            <button className="px-3 py-2 rounded bg-primary text-primary-foreground" onClick={confirmExport}>Confirm</button>
-          </div>
-          {exported && <pre className="mt-3 text-xs break-all p-2 bg-muted rounded">{exported}</pre>}
-        </div>
-        <div className="border rounded-md p-4 bg-card">
-          <h2 className="font-medium text-foreground mb-2">Recent Signatures</h2>
-          <div className="space-y-1">
-            {data.history?.map((sig) => (<div key={sig} className="text-xs break-all">{sig}</div>))}
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold mb-6 text-foreground">Wallet Connection</h1>
+
+        <div className="text-center py-12">
+          <div className="text-6xl mb-6">👛</div>
+          <h2 className="text-2xl font-semibold text-foreground mb-4">
+            Connect Your Wallet
+          </h2>
+          <p className="text-muted-foreground mb-8 max-w-md mx-auto">
+            Connect your Solana wallet to participate in raids and receive token rewards.
+          </p>
+
+          <button
+            onClick={login}
+            className="px-8 py-4 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg transition-colors"
+          >
+            Connect Wallet
+          </button>
+
+          <div className="mt-8 space-y-3 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span>Supports Phantom, Solflare, Backpack</span>
+            </div>
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span>Secure wallet connection</span>
+            </div>
           </div>
         </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-6 text-foreground">Wallet Connection</h1>
+
+      <div className="grid gap-6">
+        {/* Account Info */}
+        <div className="p-6 bg-card rounded-lg border">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-foreground">Account Information</h2>
+            <button
+              onClick={logout}
+              className="px-4 py-2 text-sm bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-md"
+            >
+              Disconnect
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <div className="text-sm text-muted-foreground">User ID:</div>
+              <div className="font-mono text-sm bg-muted p-2 rounded break-all">
+                {user?.id}
+              </div>
+            </div>
+
+            {user?.createdAt && (
+              <div>
+                <div className="text-sm text-muted-foreground">Created:</div>
+                <div className="text-sm text-foreground">
+                  {new Date(user.createdAt).toLocaleDateString()}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Connected Wallets */}
+        <div className="p-6 bg-card rounded-lg border">
+          <h2 className="text-xl font-semibold mb-4 text-foreground">Connected Wallets</h2>
+
+          <div className="space-y-3">
+            {wallets.map((wallet) => (
+              <div key={wallet.address} className="p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm text-muted-foreground">
+                      {wallet.walletClientType} Wallet
+                    </div>
+                    <div className="font-mono text-sm text-foreground">
+                      {wallet.address.slice(0, 8)}...{wallet.address.slice(-8)}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-muted-foreground">Chain</div>
+                    <div className="text-sm font-medium text-foreground">
+                      {wallet.chainType === 'solana' ? 'Solana' : wallet.chainType}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 p-2 bg-background rounded text-xs">
+                  <div className="text-muted-foreground mb-1">Full Address:</div>
+                  <div className="font-mono break-all">{wallet.address}</div>
+                </div>
+              </div>
+            ))}
+
+            {user?.wallet && (
+              <div className="p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Embedded Wallet</div>
+                    <div className="font-mono text-sm text-foreground">
+                      {user.wallet.address.slice(0, 8)}...{user.wallet.address.slice(-8)}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-muted-foreground">Chain</div>
+                    <div className="text-sm font-medium text-foreground">
+                      {user.wallet.chainType === 'solana' ? 'Solana' : user.wallet.chainType}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 p-2 bg-background rounded text-xs">
+                  <div className="text-muted-foreground mb-1">Full Address:</div>
+                  <div className="font-mono break-all">{user.wallet.address}</div>
+                </div>
+              </div>
+            )}
+
+            {wallets.length === 0 && !user?.wallet && (
+              <div className="text-center py-8 text-muted-foreground">
+                <div className="text-2xl mb-2">👛</div>
+                <p>No wallets connected yet</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Success Message */}
+        <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+          <p className="text-sm text-green-800 dark:text-green-200">
+            ✅ <strong>Wallet Connected!</strong> You're ready to participate in raids.
+          </p>
+        </div>
+      </div>
     </div>
+  );
+}
+
+export default function WalletPage() {
+  return (
+    <PrivyWalletProvider>
+      <WalletPageContent />
+    </PrivyWalletProvider>
   );
 }
