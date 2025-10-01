@@ -109,7 +109,7 @@ function WalletPageContent() {
                   <div className="text-right">
                     <div className="text-xs text-muted-foreground">Chain</div>
                     <div className="text-sm font-medium text-foreground">
-                      {wallet.chainType === 'solana' ? 'Solana' : wallet.chainType}
+                      Solana
                     </div>
                   </div>
                 </div>
@@ -133,7 +133,7 @@ function WalletPageContent() {
                   <div className="text-right">
                     <div className="text-xs text-muted-foreground">Chain</div>
                     <div className="text-sm font-medium text-foreground">
-                      {user.wallet.chainType === 'solana' ? 'Solana' : user.wallet.chainType}
+                      Solana
                     </div>
                   </div>
                 </div>
