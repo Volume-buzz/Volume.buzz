@@ -17,6 +17,12 @@ function WalletPageContent() {
   // Token creation state
   const [isMinting, setIsMinting] = useState(false);
   const [mintResult, setMintResult] = useState<MintResult | null>(null);
+  const [solBalance, setSolBalance] = useState<{
+    hasEnough: boolean;
+    balance: number;
+    required: number;
+    networkFee: number;
+  } | null>(null);
 
   // Token creation form state
   const [formData, setFormData] = useState<TokenCreationForm>({
@@ -28,6 +34,29 @@ function WalletPageContent() {
     artistName: '',
     description: ''
   });
+
+  // Check SOL balance
+  const checkSolBalance = async () => {
+    if (!user?.wallet?.address) {
+      console.error('❌ No wallet address available');
+      return;
+    }
+
+    try {
+      const walletPublicKey = new PublicKey(user.wallet.address);
+      const balance = await tokenMillService.checkSolBalance(walletPublicKey);
+      setSolBalance(balance);
+      console.log('💰 SOL Balance:', balance);
+    } catch (error) {
+      console.error('❌ Failed to check SOL balance:', error);
+      setSolBalance({
+        hasEnough: false,
+        balance: 0,
+        required: 0.02,
+        networkFee: 0.005
+      });
+    }
+  };
 
 
   // Create wallet adapter for Privy
@@ -253,6 +282,57 @@ function WalletPageContent() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* SOL Balance Check */}
+        <div className="p-6 bg-card rounded-lg border">
+          <h2 className="text-xl font-semibold mb-4 text-foreground">Devnet SOL Balance</h2>
+
+          <button
+            onClick={checkSolBalance}
+            disabled={!user?.wallet?.address}
+            className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            💰 Check SOL Balance
+          </button>
+
+          {solBalance && (
+            <div className={`mt-4 p-4 rounded border ${
+              solBalance.hasEnough
+                ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800'
+                : 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800'
+            }`}>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className={solBalance.hasEnough ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'}>
+                    <strong>Balance:</strong>
+                  </span>
+                  <span className={solBalance.hasEnough ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'}>
+                    {solBalance.balance.toFixed(4)} SOL
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className={solBalance.hasEnough ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}>
+                    <strong>Required:</strong>
+                  </span>
+                  <span className={solBalance.hasEnough ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}>
+                    {solBalance.required.toFixed(4)} SOL
+                  </span>
+                </div>
+                <div className={`mt-2 p-2 rounded text-xs ${
+                  solBalance.hasEnough
+                    ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
+                    : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+                }`}>
+                  {solBalance.hasEnough ? (
+                    <>✅ Sufficient balance for token creation</>
+                  ) : (
+                    <>❌ Insufficient balance. Get devnet SOL from faucet.solana.com</>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Success Message */}
