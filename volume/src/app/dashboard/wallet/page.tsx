@@ -115,7 +115,7 @@ function WalletPageContent() {
         supply: formData.initialSupply,
         spotifyTrackId: formData.spotifyTrackId,
         spotifyArtist: formData.artistName,
-        image: '/volume-logo.png',
+        image: 'https://dev.volume.buzz/volume-logo.png',
       };
 
       const result = await tokenMillService.createRaidToken(walletAdapter, metadata);
