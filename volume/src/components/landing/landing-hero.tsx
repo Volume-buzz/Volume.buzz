@@ -62,9 +62,9 @@ export default function Hero({
         if (paraRef.current) {
           gsap.set(paraRef.current, { autoAlpha: 0, y: 20 });
         }
-        if (ctaRef.current) {
-          gsap.set(ctaRef.current, { autoAlpha: 0, y: 20 });
-        }
+//         if (ctaRef.current) {
+//           gsap.set(ctaRef.current, { autoAlpha: 0, y: 20 });
+//         }
 
         // Animate floating logos
         if (logoRef1.current) {
@@ -106,9 +106,9 @@ export default function Hero({
         if (paraRef.current) {
           tl.to(paraRef.current, { autoAlpha: 1, y: 0, duration: 0.8 }, '-=0.6');
         }
-        if (ctaRef.current) {
-          tl.to(ctaRef.current, { autoAlpha: 1, y: 0, duration: 0.8 }, '-=0.4');
-        }
+//         if (ctaRef.current) {
+//           tl.to(ctaRef.current, { autoAlpha: 1, y: 0, duration: 0.8 }, '-=0.4');
+//         }
 
         // Continuous floating animation for logos
         if (logoRef1.current) {
