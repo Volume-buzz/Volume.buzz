@@ -49,7 +49,7 @@ function WalletPageContent() {
     if (solanaWallets.length > 0) {
       const solanaWallet = solanaWallets[0];
 
-      return {
+      const adapter = {
         publicKey: new PublicKey(solanaWallet.address),
         signTransaction: async (transaction: any) => {
           const serializedTransaction = transaction.serialize({ requireAllSignatures: false });
@@ -62,12 +62,14 @@ function WalletPageContent() {
         signAllTransactions: async (transactions: any[]) => {
           const results = [];
           for (const tx of transactions) {
-            const signed = await this.signTransaction(tx);
+            const signed = await adapter.signTransaction(tx);
             results.push(signed);
           }
           return results;
         }
       };
+
+      return adapter;
     }
 
     throw new Error('No Solana wallet found');
