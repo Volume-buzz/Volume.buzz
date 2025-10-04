@@ -11,7 +11,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'", // Keep for now, can be refined later
       "img-src 'self' data: https: https://cdn.discordapp.com https://i.scdn.co",
       "font-src 'self' data:",
-      `connect-src 'self' ${process.env.NEXT_PUBLIC_API_BASE || ''} https://o4509957715460096.ingest.de.sentry.io https://api.spotify.com https://accounts.spotify.com https://sdk.scdn.co https://auth.privy.io https://explorer-api.walletconnect.com https://api.mainnet-beta.solana.com https://api.devnet.solana.com https://rpc.helius.xyz`,
+      `connect-src 'self' ${process.env.NEXT_PUBLIC_API_BASE || ''} https://o4509957715460096.ingest.de.sentry.io https://api.spotify.com https://accounts.spotify.com https://sdk.scdn.co https://auth.privy.io https://explorer-api.walletconnect.com https://api.mainnet-beta.solana.com https://api.devnet.solana.com https://rpc.helius.xyz wss://api.mainnet-beta.solana.com wss://api.devnet.solana.com`,
       "frame-ancestors 'self'",
       "frame-src 'self' https://open.spotify.com https://sdk.scdn.co https://auth.privy.io",
       "media-src 'self' https:",
