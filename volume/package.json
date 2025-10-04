@@ -20,6 +20,7 @@
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.0.0",
     "@gsap/react": "^2.1.2",
+    "@metaplex-foundation/mpl-token-metadata": "2.13.0",
     "@motionone/utils": "^10.18.0",
     "@prisma/client": "^6.15.0",
     "@privy-io/react-auth": "^3.0.1",

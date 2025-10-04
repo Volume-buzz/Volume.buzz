@@ -1,11 +1,124 @@
 "use client";
 
 import { usePrivy, useWallets } from '@privy-io/react-auth';
+import { useWallets as useSolanaWallets, useSignTransaction, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
+import { useState } from 'react';
+import { PublicKey, Transaction } from '@solana/web3.js';
 import { PrivyWalletProvider } from '@/components/wallet/privy-provider';
+import { tokenMillService } from '@/lib/tokenmill-service';
+import { RaidTokenMetadata, MintResult, TokenCreationForm } from '@/types/raid';
 
 function WalletPageContent() {
   const { ready, authenticated, user, login, logout } = usePrivy();
   const { wallets } = useWallets();
+  const { wallets: solanaWallets } = useSolanaWallets();
+  const { signTransaction } = useSignTransaction();
+
+  // Token creation state
+  const [isMinting, setIsMinting] = useState(false);
+  const [mintResult, setMintResult] = useState<MintResult | null>(null);
+
+  // Token creation form state
+  const [formData, setFormData] = useState<TokenCreationForm>({
+    tokenName: '',
+    tokenSymbol: '',
+    decimals: 9,
+    initialSupply: 1000,
+    spotifyTrackId: '',
+    artistName: '',
+    description: ''
+  });
+
+  // Image preview state
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  // Handle image upload
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Create wallet adapter for Privy
+  const createPrivyWalletAdapter = () => {
+    if (solanaWallets.length > 0) {
+      const solanaWallet = solanaWallets[0];
+
+      return {
+        publicKey: new PublicKey(solanaWallet.address),
+        signTransaction: async (transaction: any) => {
+          const serializedTransaction = transaction.serialize({ requireAllSignatures: false });
+          const result = await signTransaction({
+            transaction: serializedTransaction,
+            wallet: solanaWallet
+          });
+          return Transaction.from(result.signedTransaction);
+        },
+        signAllTransactions: async (transactions: any[]) => {
+          const results = [];
+          for (const tx of transactions) {
+            const signed = await this.signTransaction(tx);
+            results.push(signed);
+          }
+          return results;
+        }
+      };
+    }
+
+    throw new Error('No Solana wallet found');
+  };
+
+  // Create token with TokenMill
+  const createTokenWithTokenMill = async () => {
+    if (!user?.wallet?.address) {
+      alert('No wallet connected');
+      return;
+    }
+
+    if (!formData.tokenName.trim() || !formData.tokenSymbol.trim()) {
+      alert('Please fill in token name and symbol');
+      return;
+    }
+
+    setIsMinting(true);
+    setMintResult(null);
+
+    try {
+      const walletAdapter = createPrivyWalletAdapter();
+
+      const metadata: RaidTokenMetadata = {
+        name: formData.tokenName,
+        symbol: formData.tokenSymbol,
+        description: formData.description || `Volume raid token for ${formData.tokenName}`,
+        supply: formData.initialSupply,
+        spotifyTrackId: formData.spotifyTrackId,
+        spotifyArtist: formData.artistName,
+        image: imagePreview || undefined,
+      };
+
+      const result = await tokenMillService.createRaidToken(walletAdapter, metadata);
+      setMintResult(result);
+
+      if (result.success) {
+        console.log('🎉 Token created successfully!', result);
+      }
+    } catch (error) {
+      setMintResult({
+        mintAddress: '',
+        transactionSignature: '',
+        tokenAccountAddress: '',
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+    } finally {
+      setIsMinting(false);
+    }
+  };
 
   if (!ready) {
     return (
@@ -159,6 +272,210 @@ function WalletPageContent() {
           <p className="text-sm text-green-800 dark:text-green-200">
             ✅ <strong>Wallet Connected!</strong> You're ready to participate in raids.
           </p>
+        </div>
+
+        {/* Token Creation Section */}
+        <div className="p-6 bg-card rounded-lg border">
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold text-foreground">Create Raid Token</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Create a Solana token with metadata for your raid
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid gap-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Token Name *
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., Volume Raid - Song Name"
+                  value={formData.tokenName}
+                  onChange={(e) => setFormData({...formData, tokenName: e.target.value})}
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Token Symbol *
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., VRAID"
+                  value={formData.tokenSymbol}
+                  onChange={(e) => setFormData({...formData, tokenSymbol: e.target.value})}
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Decimals
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.decimals}
+                    onChange={(e) => setFormData({...formData, decimals: Number(e.target.value)})}
+                    className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Initial Supply
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="1000"
+                    value={formData.initialSupply}
+                    onChange={(e) => setFormData({...formData, initialSupply: Number(e.target.value)})}
+                    className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Spotify Track ID
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., 4iV5W9uYEdYUVa79Axb7Rh"
+                  value={formData.spotifyTrackId}
+                  onChange={(e) => setFormData({...formData, spotifyTrackId: e.target.value})}
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Artist Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., The Artist"
+                  value={formData.artistName}
+                  onChange={(e) => setFormData({...formData, artistName: e.target.value})}
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Description
+                </label>
+                <textarea
+                  placeholder="Describe your raid token..."
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Token Image (Optional)
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                />
+                {imagePreview && (
+                  <div className="mt-2">
+                    <p className="text-xs text-muted-foreground mb-1">Preview:</p>
+                    <img src={imagePreview} alt="Token preview" className="w-24 h-24 object-cover rounded-md border border-border" />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Test Button */}
+            <button
+              onClick={() => {
+                const timestamp = Date.now().toString().slice(-4);
+                setFormData({
+                  tokenName: `Test Raid Token #${timestamp}`,
+                  tokenSymbol: `TEST${timestamp}`,
+                  decimals: 9,
+                  initialSupply: 1000,
+                  spotifyTrackId: 'test123',
+                  artistName: 'Test Artist',
+                  description: 'Test token for Volume raid'
+                });
+                setImagePreview('/volume-logo.png');
+                setTimeout(() => createTokenWithTokenMill(), 100);
+              }}
+              disabled={isMinting || !user?.wallet?.address}
+              className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              ⚡ Quick Test (Sample Data + Logo)
+            </button>
+
+            {/* Create Token Button */}
+            <button
+              onClick={createTokenWithTokenMill}
+              disabled={isMinting || !user?.wallet?.address || !formData.tokenName.trim() || !formData.tokenSymbol.trim()}
+              className="w-full px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            >
+              {isMinting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Creating Token...
+                </>
+              ) : (
+                <>
+                  🚀 Create Token with Metadata
+                </>
+              )}
+            </button>
+
+            {/* Mint Result */}
+            {mintResult && (
+              <div className={`p-4 rounded border ${
+                mintResult.success
+                  ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800'
+                  : 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800'
+              }`}>
+                {mintResult.success ? (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium text-green-800 dark:text-green-200">
+                      ✅ Token Created Successfully!
+                    </div>
+                    <div className="space-y-1 text-xs text-green-700 dark:text-green-300">
+                      <div className="break-all">
+                        <strong>Mint Address:</strong> {mintResult.mintAddress}
+                      </div>
+                      <div className="break-all">
+                        <strong>Transaction:</strong> {mintResult.transactionSignature}
+                      </div>
+                      <div className="break-all">
+                        <strong>Token Account:</strong> {mintResult.tokenAccountAddress}
+                      </div>
+                    </div>
+                    <div className="mt-3 p-2 bg-green-100 dark:bg-green-900 rounded text-xs text-green-800 dark:text-green-200">
+                      🎉 Token created with metadata! Check your wallet.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium text-red-800 dark:text-red-200">
+                      ❌ Token Creation Failed
+                    </div>
+                    <div className="text-xs text-red-700 dark:text-red-300">
+                      <strong>Error:</strong> {mintResult.error}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
