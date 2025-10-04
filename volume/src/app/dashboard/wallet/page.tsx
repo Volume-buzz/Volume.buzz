@@ -29,20 +29,6 @@ function WalletPageContent() {
     description: ''
   });
 
-  // Image preview state
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-
-  // Handle image upload
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   // Create wallet adapter for Privy
   const createPrivyWalletAdapter = () => {
@@ -100,7 +86,7 @@ function WalletPageContent() {
         supply: formData.initialSupply,
         spotifyTrackId: formData.spotifyTrackId,
         spotifyArtist: formData.artistName,
-        image: imagePreview || undefined,
+        image: '/volume-logo.png',
       };
 
       const result = await tokenMillService.createRaidToken(walletAdapter, metadata);
@@ -379,23 +365,6 @@ function WalletPageContent() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Token Image (Optional)
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
-                />
-                {imagePreview && (
-                  <div className="mt-2">
-                    <p className="text-xs text-muted-foreground mb-1">Preview:</p>
-                    <img src={imagePreview} alt="Token preview" className="w-24 h-24 object-cover rounded-md border border-border" />
-                  </div>
-                )}
-              </div>
             </div>
 
             {/* Quick Test Button */}
@@ -411,7 +380,6 @@ function WalletPageContent() {
                   artistName: 'Test Artist',
                   description: 'Test token for Volume raid'
                 });
-                setImagePreview('/volume-logo.png');
                 setTimeout(() => createTokenWithTokenMill(), 100);
               }}
               disabled={isMinting || !user?.wallet?.address}
