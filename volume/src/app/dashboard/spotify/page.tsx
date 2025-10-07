@@ -1016,6 +1016,19 @@ function SpotifyPageContent() {
             console.error('❌ Privy standard wallet signing failed:', error);
             throw error;
           }
+        },
+        signAllTransactions: async (transactions: any[]) => {
+          console.log('📝 Signing multiple transactions...');
+          const signed = [];
+          for (const tx of transactions) {
+            const serializedTransaction = tx.serialize({ requireAllSignatures: false });
+            const result = await signTransaction({
+              transaction: serializedTransaction,
+              wallet: solanaWallet
+            });
+            signed.push(Transaction.from(result.signedTransaction));
+          }
+          return signed;
         }
       };
     }
