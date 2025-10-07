@@ -991,7 +991,7 @@ function SpotifyPageContent() {
 
       return {
         publicKey: new PublicKey(solanaWallet.address),
-        signTransaction: async (transaction: any) => {
+        signTransaction: async <T extends Transaction>(transaction: T): Promise<T> => {
           console.log('📝 Signing transaction with Privy standard wallet...');
 
           try {
@@ -1011,13 +1011,13 @@ function SpotifyPageContent() {
             const signedTransaction = Transaction.from(result.signedTransaction);
 
             console.log('✅ Signed transaction reconstructed for blockchain submission');
-            return signedTransaction;
+            return signedTransaction as T;
           } catch (error) {
             console.error('❌ Privy standard wallet signing failed:', error);
             throw error;
           }
         },
-        signAllTransactions: async (transactions: any[]) => {
+        signAllTransactions: async <T extends Transaction>(transactions: T[]): Promise<T[]> => {
           console.log('📝 Signing multiple transactions...');
           const signed = [];
           for (const tx of transactions) {
@@ -1026,7 +1026,7 @@ function SpotifyPageContent() {
               transaction: serializedTransaction,
               wallet: solanaWallet
             });
-            signed.push(Transaction.from(result.signedTransaction));
+            signed.push(Transaction.from(result.signedTransaction) as T);
           }
           return signed;
         }
