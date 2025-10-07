@@ -41,8 +41,8 @@ export default async function AdminPage() {
         {/* Create Raid Card */}
         <div className="bg-card border rounded-lg p-6">
           <div className="space-y-4">
-            <div className="text-3xl">
-              <i className="fas fa-music text-primary" />
+            <div>
+              <i className="hgi-stroke hgi-music-note-01 text-primary text-5xl" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-foreground">Create Raid</h3>
@@ -59,8 +59,8 @@ export default async function AdminPage() {
         {/* Manage Tokens Card */}
         <div className="bg-card border rounded-lg p-6">
           <div className="space-y-4">
-            <div className="text-3xl">
-              <i className="fas fa-coins text-primary" />
+            <div>
+              <i className="hgi-stroke hgi-bitcoin-01 text-primary text-5xl" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-foreground">Manage Tokens</h3>
@@ -77,8 +77,8 @@ export default async function AdminPage() {
         {/* Manage Users Card */}
         <div className="bg-card border rounded-lg p-6">
           <div className="space-y-4">
-            <div className="text-3xl">
-              <i className="fas fa-users text-primary" />
+            <div>
+              <i className="hgi-stroke hgi-user-multiple text-primary text-5xl" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-foreground">Manage Users</h3>
@@ -95,8 +95,8 @@ export default async function AdminPage() {
         {/* Analytics Card */}
         <div className="bg-card border rounded-lg p-6">
           <div className="space-y-4">
-            <div className="text-3xl">
-              <i className="fas fa-chart-bar text-primary" />
+            <div>
+              <i className="hgi-stroke hgi-analytics-01 text-primary text-5xl" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-foreground">Analytics</h3>
@@ -113,8 +113,8 @@ export default async function AdminPage() {
         {/* Webhook Monitor Card */}
         <div className="bg-card border rounded-lg p-6">
           <div className="space-y-4">
-            <div className="text-3xl">
-              <i className="fas fa-link text-primary" />
+            <div>
+              <i className="hgi-stroke hgi-link-02 text-primary text-5xl" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-foreground">Webhook Monitor</h3>
@@ -131,8 +131,8 @@ export default async function AdminPage() {
         {/* Settings Card */}
         <div className="bg-card border rounded-lg p-6">
           <div className="space-y-4">
-            <div className="text-3xl">
-              <i className="fas fa-cog text-primary" />
+            <div>
+              <i className="hgi-stroke hgi-settings-02 text-primary text-5xl" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-foreground">System Settings</h3>

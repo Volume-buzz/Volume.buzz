@@ -84,22 +84,86 @@ export const DesktopSidebar = ({
   ...props
 }: React.ComponentProps<typeof motion.div>) => {
   const { open, setOpen, animate } = useSidebar();
+  const [isPinned, setIsPinned] = React.useState(false);
+
+  const handleMouseEnter = () => {
+    if (!isPinned) {
+      setOpen(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (!isPinned) {
+      setOpen(false);
+    }
+  };
+
+  const handleToggleClick = () => {
+    setIsPinned(!isPinned);
+    setOpen(!open);
+  };
+
   return (
     <>
       <motion.div
         className={cn(
-          "h-full px-4 py-4 hidden md:flex md:flex-col bg-sidebar border-r border-sidebar-border w-[300px] shrink-0",
+          "h-full px-4 py-6 hidden md:flex md:flex-col bg-transparent shrink-0 overflow-hidden fixed left-0 top-0 z-40 border-r border-white/10",
           className
         )}
         animate={{
-          width: animate ? (open ? "300px" : "60px") : "300px",
+          width: animate ? (open ? "300px" : "0px") : "300px",
+          x: animate ? (open ? 0 : -300) : 0,
         }}
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
+        transition={{
+          type: "tween",
+          ease: "easeInOut",
+          duration: 0.3,
+        }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         {...props}
       >
         {children}
       </motion.div>
+
+      {/* Trigger area on the left edge */}
+      {!isPinned && (
+        <div
+          className="hidden md:block fixed left-0 top-0 w-4 h-full z-30"
+          onMouseEnter={handleMouseEnter}
+        />
+      )}
+
+      {/* Sidebar trigger button */}
+      <motion.button
+        className="hidden md:flex fixed top-4 z-50 items-center justify-center w-9 h-9 rounded-lg bg-white/10 border border-white/20 shadow-md hover:bg-white/15 transition-colors"
+        animate={{
+          left: animate ? (open ? "316px" : "16px") : "316px",
+        }}
+        transition={{
+          type: "tween",
+          ease: "easeInOut",
+          duration: 0.3,
+        }}
+        onClick={handleToggleClick}
+        aria-label="Toggle Sidebar"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-foreground"
+        >
+          <rect width="18" height="18" x="3" y="3" rx="2" />
+          <path d="M9 3v18" />
+        </svg>
+      </motion.button>
     </>
   );
 };
@@ -114,7 +178,7 @@ export const MobileSidebar = ({
     <>
       <div
         className={cn(
-          "h-12 px-4 py-2 flex flex-row md:hidden items-center justify-between bg-sidebar border-b border-sidebar-border w-full"
+          "h-12 px-4 py-2 flex flex-row md:hidden items-center justify-between bg-transparent w-full"
         )}
         {...props}
       >
@@ -135,7 +199,7 @@ export const MobileSidebar = ({
                 ease: "easeInOut",
               }}
               className={cn(
-                "fixed h-full w-full inset-0 bg-sidebar p-6 z-[100] flex flex-col justify-between",
+                "fixed h-full w-full inset-0 bg-transparent p-6 z-[100] flex flex-col justify-between",
                 className
               )}
             >
@@ -163,26 +227,53 @@ export const SidebarLink = ({
   className?: string;
 }) => {
   const { open, animate } = useSidebar();
+  const isActive = typeof window !== 'undefined' && window.location.pathname === link.href;
+
   return (
     <a
       href={link.href}
       className={cn(
-        "flex items-center justify-start gap-2  group/sidebar py-2",
+        "flex items-center justify-start gap-3 group/sidebar px-3 py-2 rounded-lg transition-all duration-200",
+        "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+        isActive && "bg-sidebar-accent text-sidebar-accent-foreground font-medium",
+        !isActive && "text-sidebar-foreground",
         className
       )}
       {...props}
     >
-      {link.icon}
+      <motion.div
+        className="shrink-0 flex items-center justify-center"
+        animate={{
+          width: animate ? (open ? "20px" : "32px") : "20px",
+          height: animate ? (open ? "20px" : "32px") : "20px",
+        }}
+      >
+        {link.icon}
+      </motion.div>
 
       <motion.span
         animate={{
           display: animate ? (open ? "inline-block" : "none") : "inline-block",
           opacity: animate ? (open ? 1 : 0) : 1,
         }}
-        className="text-sidebar-foreground text-sm group-hover/sidebar:translate-x-1 group-hover/sidebar:text-sidebar-primary transition duration-150 whitespace-pre inline-block !p-0 !m-0"
+        className="text-sm whitespace-nowrap overflow-hidden"
       >
         {link.label}
       </motion.span>
     </a>
+  );
+};
+
+// Spacer element to reserve horizontal space for the fixed desktop sidebar
+// so page content sits to the right instead of being covered.
+export const SidebarSpacer = ({ className }: { className?: string }) => {
+  const { open, animate } = useSidebar();
+  return (
+    <motion.div
+      aria-hidden
+      className={cn("hidden md:block shrink-0", className)}
+      animate={{ width: animate ? (open ? 300 : 0) : 300 }}
+      transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }}
+    />
   );
 };

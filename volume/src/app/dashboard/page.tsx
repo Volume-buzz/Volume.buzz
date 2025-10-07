@@ -23,17 +23,19 @@ interface ActiveRaid {
 
 export default async function DashboardPage() {
 
-  // Fetch minimal data for Overview
-  const [me, activeRaids, wallet] = await Promise.all([
-    apiGet<MeResponse>("/api/users/me"),
-    apiGet<ActiveRaid[]>("/api/raids/active"),
-    apiGet<{ public_key: string; balances: { sol: number } }>("/api/wallet/me"),
+  // Fetch minimal data for Overview with error handling for rate limits
+  const [me, activeRaids, walletResult] = await Promise.all([
+    apiGet<MeResponse>("/api/users/me").catch(() => null),
+    apiGet<ActiveRaid[]>("/api/raids/active").catch(() => []),
+    apiGet<{ public_key: string; balances: { sol: number } }>("/api/wallet/me").catch(() => null),
   ]);
+
+  const wallet = walletResult;
   interface MineItem { id: number; qualified: boolean }
   interface RecentReward { id: string; amount: string; token: { symbol: string }; created_at: string }
   const [mine, rewards] = await Promise.all([
-    apiGet<MineItem[]>("/api/raids/mine/list"),
-    apiGet<RecentReward[]>("/api/rewards/mine"),
+    apiGet<MineItem[]>("/api/raids/mine/list").catch(() => []),
+    apiGet<RecentReward[]>("/api/rewards/mine").catch(() => []),
   ]);
   const qualifiedCount = mine.filter((p) => p.qualified).length;
 
@@ -60,7 +62,7 @@ export default async function DashboardPage() {
           />
         ) : (
           <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-primary flex items-center justify-center">
-            <i className="fab fa-discord text-white text-lg md:text-xl" />
+            <i className="hgi-stroke hgi-discord text-white text-2xl" />
           </div>
         )}
         <div className="text-left min-w-0 flex-1">
@@ -72,7 +74,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 pt-4">
         <div className="bg-muted rounded-lg p-3 md:p-4">
           <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2 text-sm md:text-base">
-            <i className="fas fa-wallet text-primary" />
+            <i className="hgi-stroke hgi-wallet-03 text-primary text-xl" />
             SOL Balance
           </h3>
           <p className="text-xl md:text-2xl text-foreground">{wallet?.balances?.sol?.toFixed(4) ?? '0.0000'} SOL</p>
@@ -80,7 +82,7 @@ export default async function DashboardPage() {
         </div>
         <div className="bg-muted rounded-lg p-3 md:p-4">
           <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2 text-sm md:text-base">
-            <i className="fas fa-music text-primary" />
+            <i className="hgi-stroke hgi-music-note-01 text-primary text-xl" />
             Active Raids
           </h3>
           <p className="text-xl md:text-2xl text-foreground">{activeRaids?.length ?? 0}</p>
@@ -88,7 +90,7 @@ export default async function DashboardPage() {
         </div>
         <div className="bg-muted rounded-lg p-3 md:p-4">
           <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2 text-sm md:text-base">
-            <i className="fas fa-check-circle text-primary" />
+            <i className="hgi-stroke hgi-checkmark-circle-01 text-primary text-xl" />
             Qualified Raids
           </h3>
           <p className="text-xl md:text-2xl text-foreground">{qualifiedCount}</p>
@@ -96,7 +98,7 @@ export default async function DashboardPage() {
         </div>
         <div className="bg-muted rounded-lg p-3 md:p-4">
           <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2 text-sm md:text-base">
-            <i className="fab fa-spotify text-primary" />
+            <i className="hgi-stroke hgi-spotify text-primary text-xl" />
             Spotify
           </h3>
           <p className="text-sm md:text-base text-foreground">

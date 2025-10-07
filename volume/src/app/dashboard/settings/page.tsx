@@ -2,7 +2,6 @@ import { apiGet } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import Image from "next/image";
-import { ThemeToggle } from "@/components/core/theme-toggle";
 
 interface MeResponse {
   discord_id: string;
@@ -16,7 +15,7 @@ interface MeResponse {
 }
 
 export default async function SettingsPage() {
-  const me = await apiGet<MeResponse>("/api/users/me");
+  const me = await apiGet<MeResponse>("/api/users/me").catch(() => null);
 
   return (
     <div className="space-y-6">
@@ -26,14 +25,6 @@ export default async function SettingsPage() {
       </div>
 
       <div className="grid gap-6">
-        {/* Theme Section */}
-        <div className="bg-card border rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Appearance</h2>
-          <div className="space-y-4">
-            <ThemeToggle />
-          </div>
-        </div>
-
         {/* Profile Section */}
         <div className="bg-card border rounded-lg p-6">
           <h2 className="text-lg font-semibold text-foreground mb-4">Profile</h2>
@@ -50,7 +41,7 @@ export default async function SettingsPage() {
                 />
               ) : (
                 <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center">
-                  <i className="fab fa-discord text-white text-2xl" />
+                  <i className="hgi-stroke hgi-discord text-white text-3xl" />
                 </div>
               )}
               <div>

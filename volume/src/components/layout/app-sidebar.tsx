@@ -14,27 +14,27 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
     {
       label: "Overview",
       href: "/dashboard",
-      icon: <i className="fas fa-tachometer-alt text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
+      icon: <i className="hgi-stroke hgi-dashboard-speed-01 text-neutral-700 dark:text-neutral-200 text-xl" />,
     },
     {
       label: "Raids",
       href: "/dashboard/raids",
-      icon: <i className="fas fa-music text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
+      icon: <i className="hgi-stroke hgi-music-note-01 text-neutral-700 dark:text-neutral-200 text-xl" />,
     },
     {
       label: "History",
-      href: "/dashboard/history", 
-      icon: <i className="fas fa-history text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
+      href: "/dashboard/history",
+      icon: <i className="hgi-stroke hgi-time-half-pass text-neutral-700 dark:text-neutral-200 text-xl" />,
     },
     {
       label: "Wallet",
       href: "/dashboard/wallet",
-      icon: <i className="fas fa-wallet text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
+      icon: <i className="hgi-stroke hgi-wallet-03 text-neutral-700 dark:text-neutral-200 text-xl" />,
     },
     {
       label: "Spotify",
       href: "/dashboard/spotify",
-      icon: <i className="fab fa-spotify text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
+      icon: <i className="hgi-stroke hgi-spotify text-neutral-700 dark:text-neutral-200 text-xl" />,
     },
   ];
 
@@ -42,29 +42,29 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
     {
       label: "Admin",
       href: "/dashboard/admin",
-      icon: <i className="fas fa-shield-alt text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
+      icon: <i className="hgi-stroke hgi-security-block text-neutral-700 dark:text-neutral-200 text-xl" />,
     },
     {
       label: "Create Raid",
       href: "/dashboard/admin/raids/create",
-      icon: <i className="fas fa-plus text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
+      icon: <i className="hgi-stroke hgi-add-01 text-neutral-700 dark:text-neutral-200 text-xl" />,
     },
     {
       label: "Manage Tokens",
-      href: "/dashboard/admin/tokens", 
-      icon: <i className="fas fa-coins text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
+      href: "/dashboard/admin/tokens",
+      icon: <i className="hgi-stroke hgi-bitcoin-01 text-neutral-700 dark:text-neutral-200 text-xl" />,
     },
     {
       label: "Manage Users",
       href: "/dashboard/admin/users",
-      icon: <i className="fas fa-users text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
+      icon: <i className="hgi-stroke hgi-user-multiple text-neutral-700 dark:text-neutral-200 text-xl" />,
     },
   ];
 
   const settingsLink = {
     label: "Settings",
     href: "/dashboard/settings",
-    icon: <i className="fas fa-cog text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
+    icon: <i className="hgi-stroke hgi-settings-02 text-neutral-700 dark:text-neutral-200 text-xl" />,
   };
 
   const allLinks = [
@@ -74,22 +74,46 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
   ];
 
   return (
-    <div className="py-4">
-      <div className="px-4 mb-8">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <i className="fas fa-music text-2xl text-primary" />
-          <div>
-            <div className="font-semibold text-neutral-800 dark:text-neutral-200">Volume</div>
-            <div className="text-xs text-neutral-600 dark:text-neutral-400">Dashboard</div>
+    <div className="h-full flex flex-col">
+      {/* Header/Logo */}
+      <div className="px-1 mb-6">
+        <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2">
+          <img
+            src="/volume-logo.png"
+            alt="Volume Logo"
+            className="w-8 h-8 rounded-lg shrink-0 object-contain"
+          />
+          <div className="overflow-hidden">
+            <div className="font-semibold text-sidebar-foreground text-lg truncate">Volume</div>
           </div>
         </Link>
       </div>
-      
-      <div className="flex flex-col gap-2">
-        {allLinks.map((link, idx) => (
-          <SidebarLink key={idx} link={link} />
-        ))}
-      </div>
+
+      {/* Main Navigation */}
+      <nav className="flex-1 flex flex-col px-1 space-y-8">
+        <div className="space-y-2">
+          {links.map((link, idx) => (
+            <SidebarLink key={idx} link={link} />
+          ))}
+        </div>
+
+        {/* Admin Links */}
+        {isAdmin && (
+          <div className="space-y-2">
+            {adminLinks.map((link, idx) => (
+              <SidebarLink key={`admin-${idx}`} link={link} />
+            ))}
+          </div>
+        )}
+
+        {/* Spacer to push settings to bottom */}
+        <div className="flex-1" />
+
+        {/* Settings at bottom */}
+        <div className="space-y-2">
+          <SidebarLink link={settingsLink} />
+        </div>
+      </nav>
     </div>
   );
 }

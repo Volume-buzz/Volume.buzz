@@ -1,9 +1,8 @@
-import { Sidebar, SidebarBody } from "@/components/ui/sidebar";
+import { Sidebar, SidebarBody, SidebarSpacer } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import { apiGet } from "@/lib/api-client";
-import { ThemeToggle } from "@/components/core/theme-toggle";
 import Image from "next/image";
 import { RaidProvider } from "@/contexts/RaidContext";
 
@@ -38,7 +37,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen w-full bg-background md:flex md:h-screen md:overflow-hidden">
+    <div className="flex h-screen w-full bg-transparent">
       <Sidebar>
         <SidebarBody className="justify-between gap-4 md:gap-10">
           <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
@@ -67,12 +66,10 @@ export default async function DashboardLayout({
                   {session.name}
                 </span>
               </div>
-              <div className="flex-shrink-0">
-                <ThemeToggle />
-              </div>
             </div>
           </div>
         </SidebarBody>
+        <SidebarSpacer />
       </Sidebar>
       <main className="flex-1 w-full md:border-l border-border overflow-y-auto">
         <RaidProvider>
