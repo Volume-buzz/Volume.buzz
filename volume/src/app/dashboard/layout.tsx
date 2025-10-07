@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { apiGet } from "@/lib/api-client";
 import { ThemeToggle } from "@/components/core/theme-toggle";
 import Image from "next/image";
+import { RaidProvider } from "@/contexts/RaidContext";
 
 interface MeResponse {
   discord_id: string;
@@ -74,9 +75,11 @@ export default async function DashboardLayout({
         </SidebarBody>
       </Sidebar>
       <main className="flex-1 w-full md:border-l border-border overflow-y-auto">
-        <div className="w-full max-w-none p-4 pb-16 md:p-6 space-y-4 md:space-y-6">
-          {children}
-        </div>
+        <RaidProvider>
+          <div className="w-full max-w-none p-4 pb-16 md:p-6 space-y-4 md:space-y-6">
+            {children}
+          </div>
+        </RaidProvider>
       </main>
     </div>
   );
