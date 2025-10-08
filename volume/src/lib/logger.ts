@@ -4,7 +4,14 @@
  */
 
 import pino from 'pino';
-import * as Sentry from '@sentry/nextjs';
+// import * as Sentry from '@sentry/nextjs';
+
+// No-op Sentry shim when disabled
+const Sentry = {
+  addBreadcrumb: () => {},
+  captureException: () => {},
+  startSpan: <T>(options: unknown, callback: () => T): T => callback(),
+};
 
 // Create base logger with environment-specific configuration
 const logger = pino({

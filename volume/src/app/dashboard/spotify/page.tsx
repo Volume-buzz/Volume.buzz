@@ -825,7 +825,7 @@ export default function SpotifyPage() {
   }
 
   return (
-    <div className="h-full w-full overflow-auto md:overflow-hidden">
+    <div className="h-full w-full overflow-auto md:overflow-hidden" data-spotify-page>
       <Script src="https://sdk.scdn.co/spotify-player.js" strategy="afterInteractive" />
       <div className="w-full h-auto md:h-full flex flex-col">
         {(err || playerError) && (

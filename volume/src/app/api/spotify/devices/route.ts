@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import * as Sentry from '@sentry/nextjs';
+// import * as Sentry from '@sentry/nextjs';
 import { createAPILogger } from '@/lib/logger';
+
+// No-op Sentry shim when disabled
+const Sentry = {
+  addBreadcrumb: () => {},
+  captureException: () => {},
+  startSpan: <T>(options: unknown, callback: () => T): T => callback(),
+};
 
 export async function GET(req: NextRequest) {
   return Sentry.startSpan(
