@@ -32,8 +32,8 @@ export default function RootLayout({
         <link rel="stylesheet" href="https://cdn.hugeicons.com/font/hgi-stroke-rounded.css" crossOrigin="anonymous" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="theme-color" content="#350136" />
-        <meta name="msapplication-navbutton-color" content="#350136" />
+        <meta name="theme-color" content="#6E00FF" />
+        <meta name="msapplication-navbutton-color" content="#6E00FF" />
         <meta name="apple-mobile-web-app-title" content="Volume" />
       </head>
       <body

@@ -153,17 +153,15 @@
   .card-grid.spotify-layout .card.player,
   .bento-section.card-grid.spotify-layout .card.player {
     grid-column: span 1 !important;
-    height: auto !important;
-    min-height: 320px !important;
+    height: 320px !important;
     display: flex !important;
   }
   .card-grid.spotify-layout .card.queue,
   .bento-section.card-grid.spotify-layout .card.queue {
     grid-column: span 1 !important;
-    height: auto !important;
-    min-height: 300px !important;
-    max-height: 400px !important;
+    height: 320px !important;
     display: flex !important;
+    overflow: hidden !important;
   }
 }
 
@@ -196,7 +194,9 @@
   .card-grid.spotify-layout .card.queue {
     grid-column: span 2;
     height: 200px;
+    max-height: 200px;
     justify-content: flex-start;
+    overflow: hidden;
   }
   .card-grid.spotify-layout .card.player .card__content,
   .card-grid.spotify-layout .card.queue .card__content {
@@ -242,6 +242,7 @@
     margin-top: 0.5em;
     justify-content: center;
     align-items: center;
+    height: 100%;
   }
   .card-grid.spotify-layout .card.queue .card__content {
     margin-top: 0.5em;
@@ -268,15 +269,16 @@
     grid-column: 2 / span 5;
     grid-row: 2;
     height: auto;
-    min-height: 280px;
+    min-height: 420px;
     justify-content: flex-start;
   }
   .card-grid.spotify-layout .card.queue {
     grid-column: 7 / span 5;
     grid-row: 2;
     height: auto;
-    min-height: 280px;
+    min-height: 420px;
     justify-content: flex-start;
+    overflow: hidden;
   }
   .card-grid.spotify-layout .card.queue .card__content {
     height: 100%;
