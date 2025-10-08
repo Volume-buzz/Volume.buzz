@@ -8,7 +8,7 @@ import { PrivyWalletProvider } from '@/components/wallet/privy-provider';
 import { useRaid } from '@/contexts/RaidContext';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets, useSignTransaction } from '@privy-io/react-auth/solana';
-import { PublicKey, Transaction, Connection, SystemProgram } from '@solana/web3.js';
+import { PublicKey, Transaction, VersionedTransaction, Connection, SystemProgram } from '@solana/web3.js';
 import { getAssociatedTokenAddress, createTransferInstruction, createAssociatedTokenAccountInstruction, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
 
 interface SpotifyUser {
@@ -991,12 +991,17 @@ function SpotifyPageContent() {
 
       return {
         publicKey: new PublicKey(solanaWallet.address),
-        signTransaction: async <T extends Transaction>(transaction: T): Promise<T> => {
+        signTransaction: async <T extends Transaction | VersionedTransaction>(transaction: T): Promise<T> => {
           console.log('📝 Signing transaction with Privy standard wallet...');
 
           try {
-            // Convert transaction to the format expected by Privy
-            const serializedTransaction = transaction.serialize({ requireAllSignatures: false });
+            // Serialize based on transaction type
+            let serializedTransaction: Uint8Array;
+            if (transaction instanceof VersionedTransaction) {
+              serializedTransaction = transaction.serialize();
+            } else {
+              serializedTransaction = transaction.serialize({ requireAllSignatures: false });
+            }
 
             // Use Privy's sign transaction method - this will prompt the user
             console.log('🎯 Requesting wallet signature - this should prompt your wallet!');
@@ -1007,26 +1012,38 @@ function SpotifyPageContent() {
 
             console.log('✅ Transaction signed by Privy standard wallet:', result);
 
-            // Privy returns the signed transaction as bytes
-            const signedTransaction = Transaction.from(result.signedTransaction);
-
-            console.log('✅ Signed transaction reconstructed for blockchain submission');
-            return signedTransaction as T;
+            // Reconstruct based on transaction type
+            if (transaction instanceof VersionedTransaction) {
+              return VersionedTransaction.deserialize(result.signedTransaction) as T;
+            } else {
+              return Transaction.from(result.signedTransaction) as T;
+            }
           } catch (error) {
             console.error('❌ Privy standard wallet signing failed:', error);
             throw error;
           }
         },
-        signAllTransactions: async <T extends Transaction>(transactions: T[]): Promise<T[]> => {
+        signAllTransactions: async <T extends Transaction | VersionedTransaction>(transactions: T[]): Promise<T[]> => {
           console.log('📝 Signing multiple transactions...');
           const signed = [];
           for (const tx of transactions) {
-            const serializedTransaction = tx.serialize({ requireAllSignatures: false });
+            let serializedTransaction: Uint8Array;
+            if (tx instanceof VersionedTransaction) {
+              serializedTransaction = tx.serialize();
+            } else {
+              serializedTransaction = tx.serialize({ requireAllSignatures: false });
+            }
+
             const result = await signTransaction({
               transaction: serializedTransaction,
               wallet: solanaWallet
             });
-            signed.push(Transaction.from(result.signedTransaction) as T);
+
+            if (tx instanceof VersionedTransaction) {
+              signed.push(VersionedTransaction.deserialize(result.signedTransaction) as T);
+            } else {
+              signed.push(Transaction.from(result.signedTransaction) as T);
+            }
           }
           return signed;
         }
