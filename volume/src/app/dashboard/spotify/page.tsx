@@ -997,14 +997,11 @@ function SpotifyPageContent() {
   // Get wallet adapter using useMemo to prevent hook order issues
   const getWalletAdapter = () => {
     console.log('🔍 Finding compatible Solana wallet...');
-    console.log('Available wallets:', {
-      solanaWallets: solanaWallets.map(w => ({ address: w.address, type: w.walletClientType }))
-    });
 
     // Try to use Privy's standard Solana wallet first
     if (solanaWallets.length > 0) {
       const solanaWallet = solanaWallets[0];
-      console.log('✅ Using Privy standard Solana wallet:', solanaWallet.walletClientType);
+      console.log('✅ Using Privy standard Solana wallet:', solanaWallet.address);
 
       return {
         publicKey: new PublicKey(solanaWallet.address),
