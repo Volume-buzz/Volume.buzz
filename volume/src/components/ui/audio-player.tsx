@@ -187,21 +187,6 @@ const AudioPlayer = ({
                   ease: "easeInOut"
                 } : {}}
               />
-              {isPlaying && (
-                <motion.div
-                  className="absolute inset-0 rounded-2xl border-2 border-[#1DB954]"
-                  initial={{ opacity: 0 }}
-                  animate={{
-                    opacity: [0.3, 0.7, 0.3],
-                    scale: [1, 1.02, 1]
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "easeInOut"
-                  }}
-                />
-              )}
             </motion.div>
           ) : (
             <div className="rounded-2xl w-full bg-white/10 grid place-items-center mx-auto" style={{ aspectRatio: '1 / 1' }}>

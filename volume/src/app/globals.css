@@ -1,6 +1,32 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* iOS Safari Safe Area Support */
+:root {
+  --safe-area-inset-top: env(safe-area-inset-top);
+  --safe-area-inset-right: env(safe-area-inset-right);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom);
+  --safe-area-inset-left: env(safe-area-inset-left);
+}
+
+/* iOS Safari Status Bar Styling */
+@supports (-webkit-touch-callout: none) {
+  /* iOS Safari specific styles */
+  html {
+    padding-top: var(--safe-area-inset-top);
+    padding-bottom: var(--safe-area-inset-bottom);
+    padding-left: var(--safe-area-inset-left);
+    padding-right: var(--safe-area-inset-right);
+  }
+  
+  body {
+    background: #350136;
+    /* Ensure the background extends into the safe areas */
+    margin: 0;
+    padding: 0;
+  }
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

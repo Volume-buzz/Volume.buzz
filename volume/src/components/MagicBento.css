@@ -176,8 +176,9 @@
   .card-grid.spotify-layout {
     grid-template-columns: repeat(2, 1fr);
     gap: 0.4em;
-    max-width: none;
+    max-width: 900px;
     width: 100%;
+    margin: 0 auto;
   }
   .card-grid.spotify-layout .card.profile {
     grid-column: span 1;
@@ -232,9 +233,10 @@
   /* Spotify layout variant: large player and queue, smaller profile and link */
   .card-grid.spotify-layout {
     gap: 1.5em;
-    max-width: none;
+    max-width: 1200px;
     width: 100%;
     padding: 1.5em;
+    margin: 0 auto;
   }
   .card-grid.spotify-layout .card.player .card__content,
   .card-grid.spotify-layout .card.queue .card__content {
@@ -254,19 +256,19 @@
     height: 0;
   }
   .card-grid.spotify-layout .card.control-center {
-    grid-column: 1 / span 7;
+    grid-column: 2 / span 10;
     grid-row: 1;
     min-height: 140px;
   }
   .card-grid.spotify-layout .card.player {
-    grid-column: 1 / span 4;
+    grid-column: 2 / span 5;
     grid-row: 2;
     height: auto;
     min-height: 280px;
     justify-content: flex-start;
   }
   .card-grid.spotify-layout .card.queue {
-    grid-column: 5 / span 3;
+    grid-column: 7 / span 5;
     grid-row: 2;
     height: auto;
     min-height: 280px;

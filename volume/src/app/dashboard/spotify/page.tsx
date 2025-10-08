@@ -834,7 +834,7 @@ export default function SpotifyPage() {
           </div>
         )}
 
-        <div className="w-full flex-1 flex items-start md:items-center justify-center p-0 md:p-4">
+        <div className="w-full flex-1 flex items-start md:items-center justify-center p-0 md:p-4 max-w-none">
           <MagicBento
             textAutoHide={true}
             enableStars={false}
