@@ -238,7 +238,11 @@
     padding: 1.5em;
     margin: 0 auto;
   }
-  .card-grid.spotify-layout .card.player .card__content,
+  .card-grid.spotify-layout .card.player .card__content {
+    margin-top: 0.5em;
+    justify-content: center;
+    align-items: center;
+  }
   .card-grid.spotify-layout .card.queue .card__content {
     margin-top: 0.5em;
   }

@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { TextureButton } from "@/components/ui/texture-button";
-import { Play, Pause, SkipBack, SkipForward } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Mic, MicOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { LyricsService, ParsedLyric } from "@/services/lyricsService";
 
 const formatMs = (ms: number = 0) => {
   const totalSeconds = Math.floor(ms / 1000);
@@ -91,8 +92,61 @@ const AudioPlayer = ({
   const [localProgressPercent, setLocalProgressPercent] = useState(0);
   const [localCurrentTime, setLocalCurrentTime] = useState(0);
   const [localDuration, setLocalDuration] = useState(0);
+  
+  // Lyrics state
+  const [showLyrics, setShowLyrics] = useState(false);
+  const [lyrics, setLyrics] = useState<ParsedLyric[]>([]);
+  const [isLoadingLyrics, setIsLoadingLyrics] = useState(false);
+  const [currentLyricIndex, setCurrentLyricIndex] = useState(-1);
 
   const isControlled = !src;
+
+  // Fetch lyrics when track changes
+  useEffect(() => {
+    if (title && artist && album && durationMs) {
+      const fetchLyrics = async () => {
+        setIsLoadingLyrics(true);
+        try {
+          const lyricsData = await LyricsService.getLyrics(
+            title,
+            artist,
+            album,
+            Math.floor(durationMs / 1000)
+          );
+          
+          if (lyricsData && lyricsData.syncedLyrics) {
+            const parsedLyrics = LyricsService.parseSyncedLyrics(lyricsData.syncedLyrics);
+            setLyrics(parsedLyrics);
+          } else {
+            setLyrics([]);
+          }
+        } catch (error) {
+          console.error('Failed to fetch lyrics:', error);
+          setLyrics([]);
+        } finally {
+          setIsLoadingLyrics(false);
+        }
+      };
+
+      fetchLyrics();
+    }
+  }, [title, artist, album, durationMs]);
+
+  // Update current lyric index based on playback time
+  useEffect(() => {
+    if (lyrics.length > 0) {
+      const currentTimeSeconds = isControlled 
+        ? (progressMs || 0) / 1000 
+        : (localCurrentTime || 0) / 1000;
+      
+      const index = LyricsService.getCurrentLyricIndex(lyrics, currentTimeSeconds);
+      setCurrentLyricIndex(index);
+    }
+  }, [lyrics, progressMs, localCurrentTime, isControlled]);
+
+  const handleLyricsToggle = () => {
+    setShowLyrics(!showLyrics);
+  };
 
   const handleLocalToggle = () => {
     if (audioRef.current) {
@@ -144,17 +198,23 @@ const AudioPlayer = ({
     ? formatMs(durationMs || 0)
     : formatMs(localDuration || 0);
 
+  const visibleLyrics = lyrics.length > 0 && currentLyricIndex >= 0 
+    ? LyricsService.getVisibleLyrics(lyrics, currentLyricIndex, 5)
+    : [];
+
   return (
     <AnimatePresence>
       <motion.div
         className={cn(
-          "relative flex mx-auto rounded-3xl overflow-hidden px-2 py-2 w-full max-w-[280px]",
+          "relative flex mx-auto rounded-3xl overflow-hidden w-full",
+          showLyrics ? "max-w-[600px] px-3 py-3" : "max-w-[280px] px-2 py-2",
           className
         )}
         initial={{ opacity: 0, filter: "blur(10px)" }}
         animate={{ opacity: 1, filter: "blur(0px)" }}
         exit={{ opacity: 0, filter: "blur(10px)" }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
+        layout
       >
         {src && (
           <audio
@@ -166,33 +226,133 @@ const AudioPlayer = ({
         )}
 
         <div className="flex flex-col gap-2 w-full">
-          {cover ? (
-            <motion.div
-              className="relative overflow-hidden rounded-2xl w-full bg-white/10 mx-auto shadow-2xl"
-              style={{ aspectRatio: '1 / 1' }}
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-            >
-              <motion.img
-                src={cover}
-                alt={album || "Album cover"}
-                className="object-cover w-full h-full"
-                animate={isPlaying ? {
-                  scale: [1, 1.05, 1],
-                } : { scale: 1 }}
-                transition={isPlaying ? {
-                  duration: 3,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                } : {}}
-              />
-            </motion.div>
-          ) : (
-            <div className="rounded-2xl w-full bg-white/10 grid place-items-center mx-auto" style={{ aspectRatio: '1 / 1' }}>
-              <div className="text-white/60 text-sm">No artwork</div>
-            </div>
-          )}
+          {/* Image and Lyrics Container */}
+          <div className="relative w-full">
+            {showLyrics ? (
+              <div className="flex gap-4 items-start">
+                {/* Small Album Cover */}
+                {cover ? (
+                  <motion.div
+                    className="relative overflow-hidden rounded-xl bg-white/10 shadow-lg flex-shrink-0"
+                    style={{ width: '100px', height: '100px' }}
+                    initial={{ scale: 1 }}
+                    animate={{ scale: 0.9 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <motion.img
+                      src={cover}
+                      alt={album || "Album cover"}
+                      className="object-cover w-full h-full"
+                      animate={isPlaying ? {
+                        scale: [1, 1.05, 1],
+                      } : { scale: 1 }}
+                      transition={isPlaying ? {
+                        duration: 3,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      } : {}}
+                    />
+                  </motion.div>
+                ) : (
+                  <div className="rounded-xl bg-white/10 grid place-items-center flex-shrink-0" style={{ width: '100px', height: '100px' }}>
+                    <div className="text-white/60 text-xs">No artwork</div>
+                  </div>
+                )}
+
+                {/* Lyrics Display */}
+                <motion.div
+                  className="flex-1 overflow-hidden"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="h-24 overflow-hidden relative flex items-center justify-center">
+                    {isLoadingLyrics ? (
+                      <div className="flex items-center gap-2 text-white/60">
+                        <motion.div
+                          className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        />
+                        <span className="text-sm">Loading lyrics...</span>
+                      </div>
+                    ) : lyrics.length > 0 && currentLyricIndex >= 0 ? (
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={currentLyricIndex}
+                          className="text-center w-full px-2"
+                          initial={{ y: 20, opacity: 0, scale: 0.9 }}
+                          animate={{ y: 0, opacity: 1, scale: 1 }}
+                          exit={{ y: -20, opacity: 0, scale: 0.9 }}
+                          transition={{ 
+                            duration: 0.4, 
+                            ease: "easeOut",
+                            type: "spring",
+                            stiffness: 300,
+                            damping: 25
+                          }}
+                        >
+                          <motion.div
+                            className="text-white font-semibold text-lg leading-relaxed break-words"
+                            style={{ 
+                              wordBreak: 'break-word',
+                              overflowWrap: 'break-word',
+                              hyphens: 'auto',
+                              textAlign: 'center'
+                            }}
+                            animate={{
+                              scale: [1, 1.02, 1],
+                            }}
+                            transition={{
+                              duration: 2,
+                              repeat: Infinity,
+                              ease: "easeInOut"
+                            }}
+                          >
+                            {lyrics[currentLyricIndex]?.text}
+                          </motion.div>
+                        </motion.div>
+                      </AnimatePresence>
+                    ) : (
+                      <div className="text-white/60 text-base text-center">
+                        {title ? 'No lyrics found for this track' : 'No track selected'}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              </div>
+            ) : (
+              /* Full Size Album Cover */
+              cover ? (
+                <motion.div
+                  className="relative overflow-hidden rounded-2xl w-full bg-white/10 mx-auto shadow-2xl"
+                  style={{ aspectRatio: '1 / 1' }}
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
+                  layout
+                >
+                  <motion.img
+                    src={cover}
+                    alt={album || "Album cover"}
+                    className="object-cover w-full h-full"
+                    animate={isPlaying ? {
+                      scale: [1, 1.05, 1],
+                    } : { scale: 1 }}
+                    transition={isPlaying ? {
+                      duration: 3,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    } : {}}
+                  />
+                </motion.div>
+              ) : (
+                <div className="rounded-2xl w-full bg-white/10 grid place-items-center mx-auto" style={{ aspectRatio: '1 / 1' }}>
+                  <div className="text-white/60 text-sm">No artwork</div>
+                </div>
+              )
+            )}
+          </div>
           
           <div className="min-w-0 text-center">
             <motion.div
@@ -241,7 +401,7 @@ const AudioPlayer = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-3 justify-center">
+          <div className="flex items-center gap-2 justify-center">
             <motion.button
               onClick={isControlled ? onPrev : undefined}
               disabled={controlsDisabled}
@@ -255,11 +415,12 @@ const AudioPlayer = ({
             >
               <SkipBack className="h-4 w-4" />
             </motion.button>
+            
             <motion.button
               onClick={isControlled ? onTogglePlay : handleLocalToggle}
               disabled={controlsDisabled}
               className={cn(
-                "text-black bg-white hover:bg-white/90 h-10 w-10 rounded-full flex items-center justify-center transition-all shadow-lg hover:shadow-xl",
+                "text-black bg-white hover:bg-white/90 h-10 w-10 rounded-full flex items-center justify-center transition-all shadow-lg hover:shadow-xl mx-2",
                 controlsDisabled && "opacity-60 cursor-not-allowed"
               )}
               aria-label={isControlled ? (isPlaying ? "Pause" : "Play") : (localIsPlaying ? "Pause" : "Play")}
@@ -278,6 +439,7 @@ const AudioPlayer = ({
                 <Play className="h-5 w-5 ml-0.5" fill="currentColor" />
               )}
             </motion.button>
+
             <motion.button
               onClick={isControlled ? onNext : undefined}
               disabled={controlsDisabled}
@@ -294,7 +456,7 @@ const AudioPlayer = ({
           </div>
           
           {onTransfer && (
-            <div className="flex items-center justify-center">
+            <div className="flex items-center justify-center gap-3">
               <TextureButton
                 onClick={onTransfer}
                 disabled={controlsDisabled}
@@ -304,6 +466,64 @@ const AudioPlayer = ({
               >
                 Transfer Here
               </TextureButton>
+              
+              {/* Lyrics Toggle Button */}
+              <motion.button
+                onClick={handleLyricsToggle}
+                disabled={controlsDisabled || isLoadingLyrics}
+                className={cn(
+                  "text-white hover:bg-white/10 h-8 w-8 rounded-full flex items-center justify-center transition-all hover:scale-110",
+                  controlsDisabled && "opacity-60 cursor-not-allowed",
+                  showLyrics && "bg-white/20",
+                  lyrics.length === 0 && !isLoadingLyrics && "opacity-40"
+                )}
+                aria-label="Toggle Lyrics"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                {isLoadingLyrics ? (
+                  <motion.div
+                    className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  />
+                ) : showLyrics ? (
+                  <MicOff className="h-4 w-4" />
+                ) : (
+                  <Mic className="h-4 w-4" />
+                )}
+              </motion.button>
+            </div>
+          )}
+
+          {/* Lyrics Toggle Button for when no transfer button */}
+          {!onTransfer && (
+            <div className="flex items-center justify-center">
+              <motion.button
+                onClick={handleLyricsToggle}
+                disabled={controlsDisabled || isLoadingLyrics}
+                className={cn(
+                  "text-white hover:bg-white/10 h-8 w-8 rounded-full flex items-center justify-center transition-all hover:scale-110",
+                  controlsDisabled && "opacity-60 cursor-not-allowed",
+                  showLyrics && "bg-white/20",
+                  lyrics.length === 0 && !isLoadingLyrics && "opacity-40"
+                )}
+                aria-label="Toggle Lyrics"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                {isLoadingLyrics ? (
+                  <motion.div
+                    className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  />
+                ) : showLyrics ? (
+                  <MicOff className="h-4 w-4" />
+                ) : (
+                  <Mic className="h-4 w-4" />
+                )}
+              </motion.button>
             </div>
           )}
         </div>
