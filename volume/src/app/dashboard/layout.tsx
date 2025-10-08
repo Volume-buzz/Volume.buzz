@@ -71,7 +71,7 @@ export default async function DashboardLayout({
         </SidebarBody>
         <SidebarSpacer />
       </Sidebar>
-      <main className="flex-1 w-full md:border-l border-border overflow-hidden">
+      <main className="flex-1 w-full overflow-hidden">
         <RaidProvider>
           <div className="w-full h-full [&:has([data-spotify-page])]:p-0 p-4 pb-16 md:p-6 space-y-4 md:space-y-6 [&:has([data-spotify-page])]:space-y-0 overflow-y-auto [&:has([data-spotify-page])]:overflow-hidden">
             {children}

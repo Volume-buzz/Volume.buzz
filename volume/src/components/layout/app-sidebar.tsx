@@ -90,8 +90,8 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
       </div>
 
       {/* Main Navigation */}
-      <nav className="flex-1 flex flex-col px-1 space-y-8">
-        <div className="space-y-2">
+      <nav className="flex-1 flex flex-col px-1 space-y-6">
+        <div className="space-y-3">
           {links.map((link, idx) => (
             <SidebarLink key={idx} link={link} />
           ))}
@@ -99,7 +99,7 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
 
         {/* Admin Links */}
         {isAdmin && (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {adminLinks.map((link, idx) => (
               <SidebarLink key={`admin-${idx}`} link={link} />
             ))}
@@ -110,7 +110,7 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
         <div className="flex-1" />
 
         {/* Settings at bottom */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           <SidebarLink link={settingsLink} />
         </div>
       </nav>

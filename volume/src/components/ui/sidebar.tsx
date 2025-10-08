@@ -234,22 +234,22 @@ export const SidebarLink = ({
   }, [link.href]);
 
   return (
-    <a
-      href={link.href}
-      className={cn(
-        "flex items-center justify-start gap-3 group/sidebar px-3 py-2 rounded-lg transition-all duration-200",
-        "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-        isActive && "bg-sidebar-accent text-sidebar-accent-foreground font-medium",
-        !isActive && "text-sidebar-foreground",
-        className
-      )}
-      {...props}
-    >
+      <a
+        href={link.href}
+        className={cn(
+          "flex items-center justify-start gap-4 group/sidebar px-4 py-4 rounded-lg transition-all duration-200",
+          "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+          isActive && "bg-sidebar-accent text-sidebar-accent-foreground font-medium",
+          !isActive && "text-sidebar-foreground",
+          className
+        )}
+        {...props}
+      >
       <motion.div
         className="shrink-0 flex items-center justify-center"
         animate={{
-          width: animate ? (open ? "20px" : "32px") : "20px",
-          height: animate ? (open ? "20px" : "32px") : "20px",
+          width: animate ? (open ? "24px" : "32px") : "24px",
+          height: animate ? (open ? "24px" : "32px") : "24px",
         }}
       >
         {link.icon}
@@ -260,7 +260,7 @@ export const SidebarLink = ({
           display: animate ? (open ? "inline-block" : "none") : "inline-block",
           opacity: animate ? (open ? 1 : 0) : 1,
         }}
-        className="text-sm whitespace-nowrap overflow-hidden"
+        className="text-base font-medium whitespace-nowrap overflow-hidden"
       >
         {link.label}
       </motion.span>
