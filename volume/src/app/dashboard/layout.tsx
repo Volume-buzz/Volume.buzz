@@ -43,26 +43,26 @@ export default async function DashboardLayout({
           <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
             <AppSidebar userRole={userRole} />
           </div>
-          <div className="px-2 md:px-4 pb-2 md:pb-4">
-            <div className="flex items-center justify-between gap-1 md:gap-2 text-xs md:text-sm">
-              <div className="flex items-center gap-1 md:gap-2 min-w-0">
+          <div className="px-3 md:px-4 pb-3 md:pb-4">
+            <div className="flex items-center justify-between gap-2 md:gap-3">
+              <div className="flex items-center gap-3 md:gap-4 min-w-0">
                 {session.image ? (
                   <Image
                     src={session.image}
                     alt="Avatar"
-                    width={24}
-                    height={24}
-                    className="rounded-full flex-shrink-0"
+                    width={40}
+                    height={40}
+                    className="rounded-full flex-shrink-0 ring-2 ring-white/10"
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs text-primary-foreground">
+                  <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center flex-shrink-0 ring-2 ring-white/10">
+                    <span className="text-lg font-semibold text-primary-foreground">
                       {session.name?.charAt(0).toUpperCase()}
                     </span>
                   </div>
                 )}
-                <span className="text-sidebar-foreground truncate">
+                <span className="text-sidebar-foreground truncate text-base md:text-lg font-semibold">
                   {session.name}
                 </span>
               </div>
