@@ -222,6 +222,9 @@ function SpotifyCallbackContent() {
   );
 }
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'edge';
+
 export default function SpotifyCallbackPage() {
   return (
     <Suspense fallback={

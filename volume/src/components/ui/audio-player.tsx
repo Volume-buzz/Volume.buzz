@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { TextureButton } from "@/components/ui/texture-button";
 import { Play, Pause, SkipBack, SkipForward } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -148,7 +148,7 @@ const AudioPlayer = ({
     <AnimatePresence>
       <motion.div
         className={cn(
-          "relative flex flex-col mx-auto rounded-3xl overflow-hidden bg-[#11111198] shadow-[0_0_20px_rgba(0,0,0,0.2)] backdrop-blur-sm p-3 w-full",
+          "relative flex flex-col mx-auto rounded-3xl overflow-hidden bg-white/5 shadow-[0_0_20px_rgba(0,0,0,0.3)] backdrop-blur-2xl p-3 w-full",
           className
         )}
         initial={{ opacity: 0, filter: "blur(10px)" }}
@@ -165,34 +165,73 @@ const AudioPlayer = ({
           />
         )}
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           {cover ? (
-            <div className="overflow-hidden rounded-[10px] w-full bg-white/10 mx-auto" style={{ aspectRatio: '1 / 1', maxWidth: 80 }}>
-              <img
+            <motion.div
+              className="relative overflow-hidden rounded-2xl w-full bg-white/10 mx-auto shadow-2xl"
+              style={{ aspectRatio: '1 / 1', maxWidth: 160 }}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            >
+              <motion.img
                 src={cover}
                 alt={album || "Album cover"}
                 className="object-cover w-full h-full"
+                animate={isPlaying ? {
+                  scale: [1, 1.05, 1],
+                } : { scale: 1 }}
+                transition={isPlaying ? {
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                } : {}}
               />
-            </div>
+              {isPlaying && (
+                <motion.div
+                  className="absolute inset-0 rounded-2xl border-2 border-[#1DB954]"
+                  initial={{ opacity: 0 }}
+                  animate={{
+                    opacity: [0.3, 0.7, 0.3],
+                    scale: [1, 1.02, 1]
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                />
+              )}
+            </motion.div>
           ) : (
-            <div className="rounded-[10px] w-full bg-white/10 grid place-items-center mx-auto" style={{ aspectRatio: '1 / 1', maxWidth: 64 }}>
-              <div className="text-white/60 text-[10px]">No artwork</div>
+            <div className="rounded-2xl w-full bg-white/10 grid place-items-center mx-auto" style={{ aspectRatio: '1 / 1', maxWidth: 160 }}>
+              <div className="text-white/60 text-sm">No artwork</div>
             </div>
           )}
           <div className="min-w-0 text-center mt-1">
-            <div className="text-white font-semibold truncate text-base">
+            <motion.div
+              className="text-white font-semibold truncate text-lg"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+            >
               {title || "No track selected"}
-            </div>
+            </motion.div>
             {(artist || album) && (
-              <div className="text-xs text-white/70 truncate">
+              <motion.div
+                className="text-sm text-white/70 truncate mt-1"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+              >
                 {artist}
                 {artist && album ? " • " : ""}
                 {album}
-              </div>
+              </motion.div>
             )}
             {deviceName && (
-              <div className="text-[10px] text-white/60 truncate">
-                Device: {deviceName}
+              <div className="text-xs text-white/50 truncate mt-1">
+                {deviceName}
               </div>
             )}
           </div>
@@ -216,63 +255,68 @@ const AudioPlayer = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 justify-center mt-1">
-            <button
+          <div className="flex items-center gap-3 justify-center mt-2">
+            <motion.button
               onClick={isControlled ? onPrev : undefined}
               disabled={controlsDisabled}
               className={cn(
-                "text-white hover:bg-white/10 h-9 w-9 rounded-full flex items-center justify-center transition-colors",
+                "text-white hover:bg-white/10 h-10 w-10 rounded-full flex items-center justify-center transition-all hover:scale-110",
                 controlsDisabled && "opacity-60 cursor-not-allowed"
               )}
               aria-label="Previous"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
             >
               <SkipBack className="h-5 w-5" />
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               onClick={isControlled ? onTogglePlay : handleLocalToggle}
               disabled={controlsDisabled}
               className={cn(
-                "text-white hover:bg-white/10 h-9 w-9 rounded-full flex items-center justify-center transition-colors",
+                "text-black bg-white hover:bg-white/90 h-12 w-12 rounded-full flex items-center justify-center transition-all shadow-lg hover:shadow-xl",
                 controlsDisabled && "opacity-60 cursor-not-allowed"
               )}
               aria-label={isControlled ? (isPlaying ? "Pause" : "Play") : (localIsPlaying ? "Pause" : "Play")}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
             >
               {isControlled ? (
                 isPlaying ? (
-                  <Pause className="h-5 w-5" />
+                  <Pause className="h-6 w-6" fill="currentColor" />
                 ) : (
-                  <Play className="h-5 w-5" />
+                  <Play className="h-6 w-6 ml-0.5" fill="currentColor" />
                 )
               ) : localIsPlaying ? (
-                <Pause className="h-5 w-5" />
+                <Pause className="h-6 w-6" fill="currentColor" />
               ) : (
-                <Play className="h-5 w-5" />
+                <Play className="h-6 w-6 ml-0.5" fill="currentColor" />
               )}
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               onClick={isControlled ? onNext : undefined}
               disabled={controlsDisabled}
               className={cn(
-                "text-white hover:bg-white/10 h-9 w-9 rounded-full flex items-center justify-center transition-colors",
+                "text-white hover:bg-white/10 h-10 w-10 rounded-full flex items-center justify-center transition-all hover:scale-110",
                 controlsDisabled && "opacity-60 cursor-not-allowed"
               )}
               aria-label="Next"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
             >
               <SkipForward className="h-5 w-5" />
-            </button>
+            </motion.button>
           </div>
           {onTransfer && (
             <div className="flex items-center justify-center mt-1">
-              <button
+              <TextureButton
                 onClick={onTransfer}
                 disabled={controlsDisabled}
-                className={cn(
-                  "px-3 py-2 rounded-md border border-white/20 text-white hover:bg-white/10 text-sm transition-colors",
-                  controlsDisabled && "opacity-60 cursor-not-allowed"
-                )}
+                variant="secondary"
+                size="sm"
+                className="w-auto"
               >
                 Transfer Here
-              </button>
+              </TextureButton>
             </div>
           )}
         </div>

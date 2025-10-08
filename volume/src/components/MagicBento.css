@@ -7,13 +7,14 @@
   --purple-border: rgba(132, 0, 255, 0.8);
   --border-color: #392e4e;
   --background-dark: #060010;
+  --background-gradient: linear-gradient(135deg, #120016 0%, #0b0010 50%, #000000 100%);
   color-scheme: light dark;
 }
 
 .card-grid {
   display: grid;
-  gap: 0.45em;
-  padding: 0.45em;
+  gap: 2em;
+  padding: 2em;
   max-width: 54em;
   width: 100%;
   font-size: clamp(0.95rem, 0.9rem + 0.4vw, 1.25rem);
@@ -28,13 +29,14 @@
   min-height: 100px;
   width: 100%;
   max-width: 100%;
-  padding: 1.25em;
+  padding: 2em;
   border-radius: 20px;
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(132, 0, 255, 0.15);
   background: var(--background-dark);
   font-weight: 300;
   overflow: hidden;
   transition: all 0.3s ease;
+  box-shadow: 0 0 20px rgba(132, 0, 255, 0.05);
 
   --glow-x: 50%;
   --glow-y: 50%;
@@ -44,7 +46,7 @@
 
 .card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15), 0 0 25px rgba(140, 0, 255, 0.1);
 }
 
 .card__header,
@@ -229,19 +231,21 @@
 
   /* Spotify layout variant: large player and queue, smaller profile and link */
   .card-grid.spotify-layout {
-    gap: 0.4em;
+    gap: 1.5em;
     max-width: none;
     width: 100%;
-    padding: 0.5em;
+    padding: 1.5em;
   }
   .card-grid.spotify-layout .card.player {
     grid-column: span 7;
-    height: 368px; /* +15% bigger, fixed row height */
+    height: auto;
+    min-height: 420px;
     justify-content: flex-start;
   }
   .card-grid.spotify-layout .card.queue {
     grid-column: span 5;
-    height: 368px; /* match player height; list scrolls inside */
+    height: auto;
+    min-height: 420px;
     justify-content: flex-start;
   }
   .card-grid.spotify-layout .card.player .card__content,
@@ -261,13 +265,9 @@
     width: 0;
     height: 0;
   }
-  .card-grid.spotify-layout .card.profile {
-    grid-column: span 4;
-    min-height: 80px;
-  }
-  .card-grid.spotify-layout .card.link {
-    grid-column: span 8;
-    min-height: 80px;
+  .card-grid.spotify-layout .card.control-center {
+    grid-column: span 12;
+    min-height: 140px;
   }
   .card-grid.spotify-layout .card.queue .card__content {
     height: 100%;
@@ -280,6 +280,24 @@
   .hide-scrollbar::-webkit-scrollbar {
     width: 0;
     height: 0;
+  }
+
+  /* Custom scrollbar for queue */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
   }
 }
 

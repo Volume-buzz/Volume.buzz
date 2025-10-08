@@ -163,7 +163,8 @@
   0% {
     background-position: 0%;}
   100% {
-    background-position: 200%;}}}
+    background-position: 200%;}}
+  --color-color-destructive-foreground: var(----color-destructive-foreground)}
 
 :root {
   --radius: 0.5rem;
@@ -310,3 +311,9 @@
     @apply text-foreground;
   }
 }
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;}
+  body {
+    @apply bg-background text-foreground;}}

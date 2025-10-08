@@ -2,8 +2,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Script from 'next/script';
+import { motion } from 'framer-motion';
 import AudioPlayer from '@/components/ui/audio-player';
 import MagicBento from '@/components/MagicBento';
+import { TextureButton } from '@/components/ui/texture-button';
+import { Sortable, SortableItem, SortableItemHandle } from '@/components/ui/sortable';
 
 interface SpotifyUser {
   id: string;
@@ -218,12 +221,12 @@ export default function SpotifyPage() {
   }, [getValidToken]);
 
   useEffect(() => {
-    const error = searchParams.get('error');
-    const tokenSuccess = searchParams.get('token_success');
-    const accessToken = searchParams.get('access_token');
-    const refreshToken = searchParams.get('refresh_token');
-    const expiresIn = searchParams.get('expires_in');
-    const userProfile = searchParams.get('user_profile');
+    const error = searchParams?.get('error');
+    const tokenSuccess = searchParams?.get('token_success');
+    const accessToken = searchParams?.get('access_token');
+    const refreshToken = searchParams?.get('refresh_token');
+    const expiresIn = searchParams?.get('expires_in');
+    const userProfile = searchParams?.get('user_profile');
     
     if (error) {
       switch (error) {
@@ -771,59 +774,52 @@ export default function SpotifyPage() {
 
   if (!connected) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-semibold mb-4 text-foreground">Spotify Integration</h1>
-        
+      <div className="h-full w-full flex items-center justify-center p-8">
         {err && (
-          <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-md">
+          <div className="absolute top-8 left-1/2 -translate-x-1/2 max-w-md w-full p-4 bg-destructive/10 border border-destructive/20 rounded-md backdrop-blur-sm">
             <div className="text-destructive text-sm font-medium">{err}</div>
           </div>
         )}
 
-        <div className="max-w-md">
-          <div className="border rounded-lg p-6 bg-card">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-[#1DB954] rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
-                </svg>
-              </div>
-              <div>
-                <h2 className="font-semibold text-foreground">Connect to Spotify</h2>
-                <p className="text-sm text-muted-foreground">Required for music control</p>
-              </div>
-            </div>
-
-            <div className="space-y-3 mb-6 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-[#1DB954] rounded-full"></div>
-                <span>Control playback across devices</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-[#1DB954] rounded-full"></div>
-                <span>Access your music library</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-[#1DB954] rounded-full"></div>
-                <span>Real-time listening tracking</span>
-              </div>
-            </div>
-
-            <button
-              onClick={connectSpotify}
-              className="w-full bg-[#1DB954] hover:bg-[#1DB954]/90 text-white font-medium py-2.5 px-4 rounded-md transition-colors flex items-center justify-center gap-2"
+        <motion.div
+          className="max-w-md w-full bg-white/5 backdrop-blur-2xl border-2 border-[#000000]/40 rounded-3xl p-12 shadow-[0_20px_60px_rgba(0,0,0,0.6),0_0_0_1px_rgba(0,0,0,0.2)_inset,0_0_40px_rgba(29,185,84,0.15)]"
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
+          <div className="flex flex-col items-center text-center space-y-8">
+            {/* Spotify Logo */}
+            <motion.div
+              className="w-24 h-24 bg-gradient-to-br from-[#1DB954] to-[#1ed760] rounded-3xl flex items-center justify-center shadow-[0_0_40px_rgba(29,185,84,0.3)]"
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
             >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-14 h-14 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
+              </svg>
+            </motion.div>
+
+            {/* Text */}
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-white">Connect to Spotify</h2>
+              <p className="text-white/60 text-sm">Required for music control</p>
+            </div>
+
+            {/* Connect Button */}
+            <TextureButton
+              onClick={connectSpotify}
+              variant="accent"
+              size="lg"
+              className="w-full"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
               </svg>
               Connect with Spotify
-            </button>
-
-            <p className="text-xs text-muted-foreground mt-3 text-center">
-              Secure OAuth 2.0 authentication with PKCE
-            </p>
+            </TextureButton>
           </div>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -852,80 +848,95 @@ export default function SpotifyPage() {
             simpleLayout
             className="spotify-layout"
           >
-          {/* Profile Card */}
-          <div className="card card--border-glow profile">
+          {/* Control Center Card - Merged Profile + Play by Link */}
+          <motion.div
+            className="card card--border-glow control-center"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+          >
             <div className="card__header">
-              <div className="card__label">Profile</div>
-              <button
-                onClick={disconnectSpotify}
-                className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded-md font-medium"
-              >
-                Logout
-              </button>
-            </div>
-            <div className="card__content">
               <div className="flex items-center gap-3 min-w-0">
                 {user?.images?.[0]?.url && (
-                  <img
-                    src={user.images[0].url}
-                    alt={user.display_name}
-                    className="w-10 h-10 rounded-full"
-                  />
+                  <div className="relative">
+                    <img
+                      src={user.images[0].url}
+                      alt={user.display_name}
+                      className="w-10 h-10 rounded-full ring-2 ring-[#1DB954]/30"
+                    />
+                    {user?.product === 'premium' && (
+                      <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[#1DB954] rounded-full border-2 border-[#060010]"></div>
+                    )}
+                  </div>
                 )}
                 <div className="min-w-0">
                   <div className="font-semibold truncate text-sm">{user?.display_name || 'Spotify User'}</div>
                   {user?.product === 'premium' ? (
-                    <span className="text-[10px] text-[#1DB954] font-medium">Spotify Premium</span>
+                    <span className="text-[10px] text-[#1DB954] font-medium">Premium</span>
                   ) : (
-                    <span className="text-[10px] text-white/70">Free Account</span>
+                    <span className="text-[10px] text-white/70">Free</span>
                   )}
                 </div>
               </div>
+              <TextureButton
+                onClick={disconnectSpotify}
+                variant="destructive"
+                size="sm"
+                aria-label="Logout"
+                className="w-auto !h-8"
+              >
+                Logout
+              </TextureButton>
             </div>
-          </div>
-
-          {/* Link Input Card */}
-          <div className="card card--border-glow link">
-            <div className="card__header">
-              <div className="card__label">Play by Link</div>
-            </div>
-            <div className="card__content">
-              <div className="space-y-2">
-                <input
-                  id="spotify-url"
-                  type="text"
-                  value={spotifyUrl}
-                  onChange={(e) => setSpotifyUrl(e.target.value)}
-                  placeholder="Paste a Spotify track URL (open.spotify.com/track/...)"
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/15 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent text-sm shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] backdrop-blur-sm"
-                  onKeyDown={(e) => e.key === 'Enter' && handleUrlSubmit()}
-                />
-                {urlError && <p className="text-xs text-red-400">{urlError}</p>}
+            <div className="card__content mt-4">
+              <div className="space-y-3">
+                <div className="relative">
+                  <input
+                    id="spotify-url"
+                    type="text"
+                    value={spotifyUrl}
+                    onChange={(e) => setSpotifyUrl(e.target.value)}
+                    placeholder="Paste Spotify track link..."
+                    className="w-full px-4 py-2.5 pl-10 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10 hover:border-[#1DB954]/50 focus:border-[#1DB954] text-white placeholder-white/40 focus:outline-none text-sm transition-all shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]"
+                    onKeyDown={(e) => e.key === 'Enter' && playUrlDirectly()}
+                  />
+                  <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/40" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
+                  </svg>
+                </div>
+                {urlError && <p className="text-xs text-red-400 px-1">{urlError}</p>}
                 <div className="flex gap-2">
-                  <button
+                  <TextureButton
                     onClick={playUrlDirectly}
                     disabled={!connected || !spotifyUrl.trim()}
-                    className="px-3 py-2 bg-[#1DB954] hover:bg-[#1DB954]/90 text-black rounded-md text-xs font-medium disabled:opacity-50"
+                    variant="accent"
+                    size="default"
+                    className="flex-1"
                   >
                     Play Now
-                  </button>
-                  <button
+                  </TextureButton>
+                  <TextureButton
                     onClick={handleUrlSubmit}
                     disabled={!connected || !spotifyUrl.trim()}
-                    className="px-3 py-2 bg-white/10 hover:bg-white/15 border border-white/20 text-white rounded-md text-xs font-medium disabled:opacity-50"
+                    variant="secondary"
+                    size="default"
+                    className="w-auto"
                   >
                     Add to Queue
-                  </button>
+                  </TextureButton>
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* Player Card */}
-          <div className="card card--border-glow player" style={{ height: 368 }}>
-            <div className="card__header">
-              <div className="card__label">Player</div>
-            </div>
+          <motion.div
+            className="card card--border-glow player"
+            style={{ height: 'auto', minHeight: 420 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+          >
             <div className="card__content">
               <AudioPlayer
                 className=""
@@ -953,14 +964,21 @@ export default function SpotifyPage() {
                 controlsDisabled={!ready}
               />
             </div>
-          </div>
+          </motion.div>
 
           {/* Queue Card */}
-          <div className="card card--border-glow queue" style={{ height: 368 }}>
+          <motion.div
+            className="card card--border-glow queue"
+            style={{ height: 'auto', minHeight: 420 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.3 }}
+          >
             <div className="card__header">
-              <div className="card__label">Song Queue</div>
               {queuedTracks.length > 0 && (
-                <button onClick={clearQueue} className="text-sm text-white/80 hover:text-white font-medium">Clear All</button>
+                <TextureButton onClick={clearQueue} variant="destructive" size="sm" className="w-auto !h-8 ml-auto">
+                  Clear All
+                </TextureButton>
               )}
             </div>
             <div className="card__content">
@@ -968,39 +986,63 @@ export default function SpotifyPage() {
                 <div className="grid place-items-center text-white/70 text-sm text-center px-4" style={{ minHeight: 100 }}>
                   <div>
                     <p className="font-medium text-white">No songs in queue</p>
-                    <p>Add tracks using Spotify links above</p>
+                    <p className="text-white/60 mt-1">Add tracks using Spotify links above</p>
                   </div>
                 </div>
               ) : (
-                <div className="w-full space-y-2 overflow-auto pr-1 hide-scrollbar" style={{ flex: 1, minHeight: 0, alignSelf: 'stretch', maxHeight: '100%' }}>
+                <Sortable
+                  value={queuedTracks}
+                  onValueChange={setQueuedTracks}
+                  getItemValue={(track) => track.id}
+                  className="w-full flex-1 min-h-0 self-stretch max-h-full space-y-2 overflow-auto pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent hover:scrollbar-thumb-white/20"
+                >
                   {queuedTracks.map((track, index) => (
-                    <div key={track.id} className="w-full flex items-center justify-between gap-3 p-3 bg-white/10 hover:bg-white/15 rounded-md transition-colors">
-                      <div className="min-w-0">
-                        <div className="font-medium text-white truncate">{track.name}</div>
-                        <div className="text-xs text-white/70 truncate">{track.artist}</div>
-                        <div className="text-[10px] text-white/60">#{index + 1} · Added {new Date(track.addedAt).toLocaleTimeString()}</div>
+                    <SortableItem key={track.id} value={track.id}>
+                      <div className="group w-full flex items-center justify-between gap-3 p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all duration-200">
+                        <SortableItemHandle className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className="flex items-center gap-2 cursor-grab active:cursor-grabbing">
+                            <svg className="w-4 h-4 text-white/40 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                            </svg>
+                            <span className="text-xs text-white/40 font-mono w-6">#{index + 1}</span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium text-white truncate text-sm">{track.name}</div>
+                            <div className="text-xs text-white/60 truncate">{track.artist}</div>
+                          </div>
+                        </SortableItemHandle>
+                        <div className="flex items-center gap-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <TextureButton
+                            onClick={() => playFromQueue(track)}
+                            disabled={!connected}
+                            variant="accent"
+                            size="icon"
+                            title="Play track"
+                            className="w-auto"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 5v14l11-7z"/>
+                            </svg>
+                          </TextureButton>
+                          <TextureButton
+                            onClick={() => removeFromQueue(track.id)}
+                            variant="destructive"
+                            size="icon"
+                            title="Remove from queue"
+                            className="w-auto"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </TextureButton>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <button
-                          onClick={() => playFromQueue(track)}
-                          disabled={!connected}
-                          className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded disabled:opacity-50"
-                        >
-                          Play
-                        </button>
-                        <button
-                          onClick={() => removeFromQueue(track.id)}
-                          className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
+                    </SortableItem>
                   ))}
-                </div>
+                </Sortable>
               )}
             </div>
-          </div>
+          </motion.div>
         </MagicBento>
         </div>
       </div>
