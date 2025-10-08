@@ -5,6 +5,7 @@ import { Connection, PublicKey } from '@solana/web3.js';
 import { Program, AnchorProvider } from '@coral-xyz/anchor';
 import { RAID_PROGRAM_ID, SOLANA_RPC_URL } from '@/lib/raid-program';
 import idl from '@/lib/idl/raid_escrow.json';
+import type { RaidEscrow } from '@/lib/types/raid_escrow';
 
 export interface PreSignedClaim {
   participantIndex: number; // Index 0 to maxSeats-1
@@ -67,7 +68,7 @@ export function RaidProvider({ children }: { children: ReactNode }) {
             {} as any, // No wallet needed for reading
             { commitment: 'confirmed' }
           );
-          const program = new Program(idl as any, provider);
+          const program = new Program<RaidEscrow>(idl as RaidEscrow, provider);
 
           // Try to fetch - if account was closed, this will fail
           const raidData = await program.account.raidEscrow.fetch(account.pubkey);

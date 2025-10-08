@@ -942,7 +942,13 @@ function SpotifyPageContent() {
 
       // Check if raid still exists on-chain
       try {
-        await program.account.raidEscrow.fetch(raidEscrowPDA);
+        const accountInfo = await connection.getAccountInfo(raidEscrowPDA);
+        if (!accountInfo) {
+          // Raid doesn't exist, just clear UI
+          console.log('⚠️ Raid already closed or expired, clearing UI only');
+          endRaid();
+          return;
+        }
       } catch (err) {
         // Raid doesn't exist, just clear UI
         console.log('⚠️ Raid already closed or expired, clearing UI only');
