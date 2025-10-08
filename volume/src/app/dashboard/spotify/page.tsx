@@ -845,11 +845,14 @@ function SpotifyPageContent() {
       console.log('  Raid PDA:', raidEscrowPDA.toBase58());
       console.log('  Participant:', participantPubkey.toBase58());
 
-      // Check if raid still exists on-chain
+      // Check if raid still exists on-chain and is owned by our program
       try {
         const accountInfo = await connection.getAccountInfo(raidEscrowPDA);
         if (!accountInfo) {
           throw new Error('Raid no longer exists on-chain (may have expired or been closed)');
+        }
+        if (!accountInfo.owner.equals(RAID_PROGRAM_ID)) {
+          throw new Error('Raid account is not owned by the raid program');
         }
       } catch (err) {
         throw new Error('Raid no longer exists on-chain (may have expired or been closed)');
@@ -940,12 +943,17 @@ function SpotifyPageContent() {
       const creatorTokenAccount = await getAssociatedTokenAddress(tokenMintPubkey, creatorPubkey);
       const escrowTokenAccount = await getAssociatedTokenAddress(tokenMintPubkey, raidEscrowPDA, true);
 
-      // Check if raid still exists on-chain
+      // Check if raid still exists on-chain and is owned by our program
       try {
         const accountInfo = await connection.getAccountInfo(raidEscrowPDA);
         if (!accountInfo) {
           // Raid doesn't exist, just clear UI
           console.log('⚠️ Raid already closed or expired, clearing UI only');
+          endRaid();
+          return;
+        }
+        if (!accountInfo.owner.equals(RAID_PROGRAM_ID)) {
+          console.log('⚠️ Raid account is not owned by the raid program, clearing UI');
           endRaid();
           return;
         }
