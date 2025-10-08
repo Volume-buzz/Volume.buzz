@@ -37,7 +37,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen w-full bg-transparent">
+    <div className="flex flex-col md:flex-row h-screen w-full bg-transparent">
       <Sidebar>
         <SidebarBody className="justify-between gap-4 md:gap-10">
           <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">

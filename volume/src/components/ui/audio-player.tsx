@@ -167,7 +167,7 @@ const AudioPlayer = ({
 
         <div className="flex flex-col gap-2">
           {cover ? (
-            <div className="overflow-hidden rounded-[12px] h-[120px] w-full bg-white/10">
+            <div className="overflow-hidden rounded-[10px] w-full bg-white/10 mx-auto" style={{ aspectRatio: '1 / 1', maxWidth: 80 }}>
               <img
                 src={cover}
                 alt={album || "Album cover"}
@@ -175,8 +175,8 @@ const AudioPlayer = ({
               />
             </div>
           ) : (
-            <div className="rounded-[12px] h-[120px] w-full bg-white/10 grid place-items-center">
-              <div className="text-white/60 text-sm">No artwork</div>
+            <div className="rounded-[10px] w-full bg-white/10 grid place-items-center mx-auto" style={{ aspectRatio: '1 / 1', maxWidth: 64 }}>
+              <div className="text-white/60 text-[10px]">No artwork</div>
             </div>
           )}
           <div className="min-w-0 text-center mt-1">

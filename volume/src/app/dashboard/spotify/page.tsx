@@ -829,16 +829,16 @@ export default function SpotifyPage() {
   }
 
   return (
-    <div className="h-full overflow-hidden">
+    <div className="h-full w-full overflow-auto md:overflow-hidden">
       <Script src="https://sdk.scdn.co/spotify-player.js" strategy="afterInteractive" />
-      <div className="mx-auto w-full max-w-6xl px-3 py-2 h-full flex flex-col">
+      <div className="w-full h-auto md:h-full flex flex-col">
         {(err || playerError) && (
-          <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+          <div className="m-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
             <div className="text-destructive text-sm font-medium">{err || playerError}</div>
           </div>
         )}
 
-        <div className="flex-1 flex items-center justify-center min-h-0">
+        <div className="w-full flex-1 flex items-start md:items-center justify-center p-0 md:p-4">
           <MagicBento
             textAutoHide={true}
             enableStars={false}
@@ -896,8 +896,8 @@ export default function SpotifyPage() {
                   type="text"
                   value={spotifyUrl}
                   onChange={(e) => setSpotifyUrl(e.target.value)}
-                  placeholder="https://open.spotify.com/track/... or spotify:track:..."
-                  className="w-full px-2.5 py-1.5 border border-white/20 rounded-md bg-white/10 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                  placeholder="Paste a Spotify track URL (open.spotify.com/track/...)"
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/15 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent text-sm shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] backdrop-blur-sm"
                   onKeyDown={(e) => e.key === 'Enter' && handleUrlSubmit()}
                 />
                 {urlError && <p className="text-xs text-red-400">{urlError}</p>}
@@ -905,14 +905,14 @@ export default function SpotifyPage() {
                   <button
                     onClick={playUrlDirectly}
                     disabled={!connected || !spotifyUrl.trim()}
-                    className="px-2.5 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md text-xs disabled:opacity-50"
+                    className="px-3 py-2 bg-[#1DB954] hover:bg-[#1DB954]/90 text-black rounded-md text-xs font-medium disabled:opacity-50"
                   >
                     Play Now
                   </button>
                   <button
                     onClick={handleUrlSubmit}
                     disabled={!connected || !spotifyUrl.trim()}
-                    className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs disabled:opacity-50"
+                    className="px-3 py-2 bg-white/10 hover:bg-white/15 border border-white/20 text-white rounded-md text-xs font-medium disabled:opacity-50"
                   >
                     Add to Queue
                   </button>
@@ -922,7 +922,7 @@ export default function SpotifyPage() {
           </div>
 
           {/* Player Card */}
-          <div className="card card--border-glow player">
+          <div className="card card--border-glow player" style={{ height: 368 }}>
             <div className="card__header">
               <div className="card__label">Player</div>
             </div>
@@ -956,7 +956,7 @@ export default function SpotifyPage() {
           </div>
 
           {/* Queue Card */}
-          <div className="card card--border-glow queue">
+          <div className="card card--border-glow queue" style={{ height: 368 }}>
             <div className="card__header">
               <div className="card__label">Song Queue</div>
               {queuedTracks.length > 0 && (
@@ -965,16 +965,16 @@ export default function SpotifyPage() {
             </div>
             <div className="card__content">
               {queuedTracks.length === 0 ? (
-                <div className="grid place-items-center text-white/70 text-sm text-center px-4" style={{ minHeight: 120 }}>
+                <div className="grid place-items-center text-white/70 text-sm text-center px-4" style={{ minHeight: 100 }}>
                   <div>
                     <p className="font-medium text-white">No songs in queue</p>
                     <p>Add tracks using Spotify links above</p>
                   </div>
                 </div>
               ) : (
-                <div className="space-y-2 overflow-auto pr-1" style={{ maxHeight: 100 }}>
+                <div className="w-full space-y-2 overflow-auto pr-1 hide-scrollbar" style={{ flex: 1, minHeight: 0, alignSelf: 'stretch', maxHeight: '100%' }}>
                   {queuedTracks.map((track, index) => (
-                    <div key={track.id} className="flex items-center justify-between gap-3 p-3 bg-white/10 hover:bg-white/15 rounded-md transition-colors">
+                    <div key={track.id} className="w-full flex items-center justify-between gap-3 p-3 bg-white/10 hover:bg-white/15 rounded-md transition-colors">
                       <div className="min-w-0">
                         <div className="font-medium text-white truncate">{track.name}</div>
                         <div className="text-xs text-white/70 truncate">{track.artist}</div>

@@ -1,6 +1,6 @@
 "use client";
 import { cn } from "@/lib/utils";
-import React, { useState, createContext, useContext } from "react";
+import React, { useState, createContext, useContext, useEffect } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { IconMenu2, IconX } from "@tabler/icons-react";
 
@@ -227,7 +227,11 @@ export const SidebarLink = ({
   className?: string;
 }) => {
   const { open, animate } = useSidebar();
-  const isActive = typeof window !== 'undefined' && window.location.pathname === link.href;
+  const [isActive, setIsActive] = useState(false);
+
+  useEffect(() => {
+    setIsActive(window.location.pathname === link.href);
+  }, [link.href]);
 
   return (
     <a

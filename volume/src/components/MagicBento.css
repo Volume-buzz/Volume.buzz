@@ -12,10 +12,11 @@
 
 .card-grid {
   display: grid;
-  gap: 0.5em;
-  padding: 0.5em;
-  max-width: 52em;
-  font-size: clamp(0.95rem, 0.85rem + 0.4vw, 1.3rem);
+  gap: 0.45em;
+  padding: 0.45em;
+  max-width: 54em;
+  width: 100%;
+  font-size: clamp(0.95rem, 0.9rem + 0.4vw, 1.25rem);
 }
 
 .card {
@@ -24,7 +25,7 @@
   justify-content: space-between;
   position: relative;
   aspect-ratio: auto;
-  min-height: 200px;
+  min-height: 100px;
   width: 100%;
   max-width: 100%;
   padding: 1.25em;
@@ -60,6 +61,8 @@
 
 .card__content {
   flex-direction: column;
+  display: flex;
+  flex: 1;
 }
 
 .card__label {
@@ -102,27 +105,72 @@
   line-clamp: var(--clamp-desc);
 }
 
-@media (max-width: 599px) {
+@media (max-width: 767px) {
   .card-grid {
-    grid-template-columns: 1fr;
-    width: 90%;
-    margin: 0 auto;
-    padding: 0.5em;
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0.75em !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
   }
 
   .card {
-    width: 100%;
-    min-height: 180px;
+    width: 100% !important;
+    min-height: 160px !important;
+    grid-column: span 1 !important;
+    box-sizing: border-box;
+  }
+
+  /* Mobile Spotify layout: stack all cards vertically */
+  .card-grid.spotify-layout,
+  .bento-section.card-grid.spotify-layout {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 0.75em !important;
+    padding: 0.75em !important;
+    width: 100% !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+  }
+  .card-grid.spotify-layout .card.profile,
+  .bento-section.card-grid.spotify-layout .card.profile {
+    grid-column: span 1 !important;
+    height: auto !important;
+    min-height: 100px !important;
+    display: flex !important;
+  }
+  .card-grid.spotify-layout .card.link,
+  .bento-section.card-grid.spotify-layout .card.link {
+    grid-column: span 1 !important;
+    height: auto !important;
+    min-height: 160px !important;
+    display: flex !important;
+  }
+  .card-grid.spotify-layout .card.player,
+  .bento-section.card-grid.spotify-layout .card.player {
+    grid-column: span 1 !important;
+    height: auto !important;
+    min-height: 320px !important;
+    display: flex !important;
+  }
+  .card-grid.spotify-layout .card.queue,
+  .bento-section.card-grid.spotify-layout .card.queue {
+    grid-column: span 1 !important;
+    height: auto !important;
+    min-height: 300px !important;
+    max-height: 400px !important;
+    display: flex !important;
   }
 }
 
-@media (min-width: 600px) {
+
+@media (min-width: 768px) and (max-width: 1023px) {
   .card-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-}
-
-@media (min-width: 768px) and (max-width: 1023px) {
+  
   .card-grid.spotify-layout {
     grid-template-columns: repeat(2, 1fr);
     gap: 0.4em;
@@ -131,20 +179,20 @@
   }
   .card-grid.spotify-layout .card.profile {
     grid-column: span 1;
-    min-height: 80px;
+    height: 100px;
   }
   .card-grid.spotify-layout .card.link {
     grid-column: span 1;
-    min-height: 80px;
+    height: 100px;
   }
   .card-grid.spotify-layout .card.player {
     grid-column: span 2;
-    min-height: 130px;
+    height: 200px;
     justify-content: flex-start;
   }
   .card-grid.spotify-layout .card.queue {
     grid-column: span 2;
-    min-height: 130px;
+    height: 200px;
     justify-content: flex-start;
   }
   .card-grid.spotify-layout .card.player .card__content,
@@ -188,25 +236,50 @@
   }
   .card-grid.spotify-layout .card.player {
     grid-column: span 7;
-    min-height: 110px;
+    height: 368px; /* +15% bigger, fixed row height */
     justify-content: flex-start;
   }
   .card-grid.spotify-layout .card.queue {
     grid-column: span 5;
-    min-height: 110px;
+    height: 368px; /* match player height; list scrolls inside */
     justify-content: flex-start;
   }
   .card-grid.spotify-layout .card.player .card__content,
   .card-grid.spotify-layout .card.queue .card__content {
     margin-top: 0.5em;
   }
+  .card-grid.spotify-layout .card.queue .space-y-2 {
+    max-height: none;
+    height: 100%;
+    overflow: auto;
+    scrollbar-width: none; /* Firefox */
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+  }
+  .card-grid.spotify-layout .card.queue .space-y-2::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
   .card-grid.spotify-layout .card.profile {
     grid-column: span 4;
-    min-height: 100px;
+    min-height: 80px;
   }
   .card-grid.spotify-layout .card.link {
     grid-column: span 8;
-    min-height: 100px;
+    min-height: 80px;
+  }
+  .card-grid.spotify-layout .card.queue .card__content {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  .hide-scrollbar {
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    width: 0;
+    height: 0;
   }
 }
 
