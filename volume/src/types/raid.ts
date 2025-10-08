@@ -9,6 +9,14 @@ export interface RaidTrack {
   spotifyUrl?: string;
 }
 
+export interface QueuedTrack {
+  id: string;
+  uri: string;
+  name: string;
+  artist: string;
+  addedAt: number;
+}
+
 export interface RaidTokenMetadata {
   name: string;
   symbol: string;
