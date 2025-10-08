@@ -148,7 +148,7 @@ const AudioPlayer = ({
     <AnimatePresence>
       <motion.div
         className={cn(
-          "relative flex flex-col mx-auto rounded-3xl overflow-hidden bg-white/5 shadow-[0_0_20px_rgba(0,0,0,0.3)] backdrop-blur-2xl p-3 w-full",
+          "relative flex mx-auto rounded-3xl overflow-hidden px-2 py-2 w-full max-w-[280px]",
           className
         )}
         initial={{ opacity: 0, filter: "blur(10px)" }}
@@ -165,11 +165,11 @@ const AudioPlayer = ({
           />
         )}
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2 w-full">
           {cover ? (
             <motion.div
               className="relative overflow-hidden rounded-2xl w-full bg-white/10 mx-auto shadow-2xl"
-              style={{ aspectRatio: '1 / 1', maxWidth: 160 }}
+              style={{ aspectRatio: '1 / 1' }}
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.5, ease: "easeOut" }}
@@ -204,11 +204,12 @@ const AudioPlayer = ({
               )}
             </motion.div>
           ) : (
-            <div className="rounded-2xl w-full bg-white/10 grid place-items-center mx-auto" style={{ aspectRatio: '1 / 1', maxWidth: 160 }}>
+            <div className="rounded-2xl w-full bg-white/10 grid place-items-center mx-auto" style={{ aspectRatio: '1 / 1' }}>
               <div className="text-white/60 text-sm">No artwork</div>
             </div>
           )}
-          <div className="min-w-0 text-center mt-1">
+          
+          <div className="min-w-0 text-center">
             <motion.div
               className="text-white font-semibold truncate text-lg"
               initial={{ opacity: 0, y: 10 }}
@@ -255,25 +256,25 @@ const AudioPlayer = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-3 justify-center mt-2">
+          <div className="flex items-center gap-3 justify-center">
             <motion.button
               onClick={isControlled ? onPrev : undefined}
               disabled={controlsDisabled}
               className={cn(
-                "text-white hover:bg-white/10 h-10 w-10 rounded-full flex items-center justify-center transition-all hover:scale-110",
+                "text-white hover:bg-white/10 h-8 w-8 rounded-full flex items-center justify-center transition-all hover:scale-110",
                 controlsDisabled && "opacity-60 cursor-not-allowed"
               )}
               aria-label="Previous"
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
             >
-              <SkipBack className="h-5 w-5" />
+              <SkipBack className="h-4 w-4" />
             </motion.button>
             <motion.button
               onClick={isControlled ? onTogglePlay : handleLocalToggle}
               disabled={controlsDisabled}
               className={cn(
-                "text-black bg-white hover:bg-white/90 h-12 w-12 rounded-full flex items-center justify-center transition-all shadow-lg hover:shadow-xl",
+                "text-black bg-white hover:bg-white/90 h-10 w-10 rounded-full flex items-center justify-center transition-all shadow-lg hover:shadow-xl",
                 controlsDisabled && "opacity-60 cursor-not-allowed"
               )}
               aria-label={isControlled ? (isPlaying ? "Pause" : "Play") : (localIsPlaying ? "Pause" : "Play")}
@@ -282,32 +283,33 @@ const AudioPlayer = ({
             >
               {isControlled ? (
                 isPlaying ? (
-                  <Pause className="h-6 w-6" fill="currentColor" />
+                  <Pause className="h-5 w-5" fill="currentColor" />
                 ) : (
-                  <Play className="h-6 w-6 ml-0.5" fill="currentColor" />
+                  <Play className="h-5 w-5 ml-0.5" fill="currentColor" />
                 )
               ) : localIsPlaying ? (
-                <Pause className="h-6 w-6" fill="currentColor" />
+                <Pause className="h-5 w-5" fill="currentColor" />
               ) : (
-                <Play className="h-6 w-6 ml-0.5" fill="currentColor" />
+                <Play className="h-5 w-5 ml-0.5" fill="currentColor" />
               )}
             </motion.button>
             <motion.button
               onClick={isControlled ? onNext : undefined}
               disabled={controlsDisabled}
               className={cn(
-                "text-white hover:bg-white/10 h-10 w-10 rounded-full flex items-center justify-center transition-all hover:scale-110",
+                "text-white hover:bg-white/10 h-8 w-8 rounded-full flex items-center justify-center transition-all hover:scale-110",
                 controlsDisabled && "opacity-60 cursor-not-allowed"
               )}
               aria-label="Next"
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
             >
-              <SkipForward className="h-5 w-5" />
+              <SkipForward className="h-4 w-4" />
             </motion.button>
           </div>
+          
           {onTransfer && (
-            <div className="flex items-center justify-center mt-1">
+            <div className="flex items-center justify-center">
               <TextureButton
                 onClick={onTransfer}
                 disabled={controlsDisabled}

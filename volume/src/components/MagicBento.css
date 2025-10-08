@@ -236,18 +236,6 @@
     width: 100%;
     padding: 1.5em;
   }
-  .card-grid.spotify-layout .card.player {
-    grid-column: span 7;
-    height: auto;
-    min-height: 420px;
-    justify-content: flex-start;
-  }
-  .card-grid.spotify-layout .card.queue {
-    grid-column: span 5;
-    height: auto;
-    min-height: 420px;
-    justify-content: flex-start;
-  }
   .card-grid.spotify-layout .card.player .card__content,
   .card-grid.spotify-layout .card.queue .card__content {
     margin-top: 0.5em;
@@ -266,8 +254,23 @@
     height: 0;
   }
   .card-grid.spotify-layout .card.control-center {
-    grid-column: span 12;
+    grid-column: 1 / span 7;
+    grid-row: 1;
     min-height: 140px;
+  }
+  .card-grid.spotify-layout .card.player {
+    grid-column: 1 / span 4;
+    grid-row: 2;
+    height: auto;
+    min-height: 280px;
+    justify-content: flex-start;
+  }
+  .card-grid.spotify-layout .card.queue {
+    grid-column: 5 / span 3;
+    grid-row: 2;
+    height: auto;
+    min-height: 280px;
+    justify-content: flex-start;
   }
   .card-grid.spotify-layout .card.queue .card__content {
     height: 100%;
