@@ -7,6 +7,16 @@ import AudioPlayer from '@/components/ui/audio-player';
 import MagicBento from '@/components/MagicBento';
 import { TextureButton } from '@/components/ui/texture-button';
 import { Sortable, SortableItem, SortableItemHandle } from '@/components/ui/sortable';
+import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
+import { TokenDropdown } from '@/components/ui/token-dropdown';
+import { RaidDynamicIsland } from '@/components/raids/RaidDynamicIsland';
+import { PrivyWalletProvider } from '@/components/wallet/privy-provider';
+import { useRaid } from '@/contexts/RaidContext';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
+import { useWallets as useSolanaWallets, useSignTransaction } from '@privy-io/react-auth/solana';
+import { PublicKey, Transaction, VersionedTransaction, Connection, SystemProgram } from '@solana/web3.js';
+import { getAssociatedTokenAddress, createTransferInstruction, createAssociatedTokenAccountInstruction, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { QueuedTrack } from '@/types/raid';
 
 interface SpotifyUser {
   id: string;
@@ -16,13 +26,6 @@ interface SpotifyUser {
   images: { url: string }[];
 }
 
-interface QueuedTrack {
-  id: string;
-  uri: string;
-  name: string;
-  artist: string;
-  addedAt: number;
-}
 
 // Official Spotify Web Playback SDK types based on documentation
 interface SpotifyPlayerOptions {
@@ -101,7 +104,16 @@ declare global {
   }
 }
 
-export default function SpotifyPage() {
+function SpotifyPageContent() {
+  // Privy and Raid hooks - all hooks must be called unconditionally
+  const { user: privyUser, authenticated, ready: privyReady, login, connectWallet } = usePrivy();
+  const { wallets } = useWallets();
+  const { activeRaid, endRaid, createRaid } = useRaid();
+
+  // Solana-specific hooks - these are safe to call unconditionally in PrivyWalletProvider
+  const { wallets: solanaWallets } = useSolanaWallets();
+  const { signTransaction } = useSignTransaction();
+  
   // User and connection state
   const [user, setUser] = useState<SpotifyUser | null>(null);
   const [connected, setConnected] = useState(false);
@@ -118,6 +130,20 @@ export default function SpotifyPage() {
   const [queuedTracks, setQueuedTracks] = useState<QueuedTrack[]>([]);
   const [spotifyUrl, setSpotifyUrl] = useState<string>("");
   const [urlError, setUrlError] = useState<string>("");
+  
+  // Raid drawer state
+  const [showRaidDrawer, setShowRaidDrawer] = useState(false);
+  const [selectedTrackForRaid, setSelectedTrackForRaid] = useState<QueuedTrack | null>(null);
+  const [userTokens, setUserTokens] = useState<Array<{mint: string, name: string, symbol: string, balance: number}>>([]);
+  const [loadingTokens, setLoadingTokens] = useState(true);
+  const [selectedToken, setSelectedToken] = useState<string>('');
+  const [tokensPerUser, setTokensPerUser] = useState<number>(10);
+  const [maxSeats, setMaxSeats] = useState<number>(10);
+  
+  // Raid banner state
+  const [listeningTime, setListeningTime] = useState(0);
+  const [canClaim, setCanClaim] = useState(false);
+  const [claiming, setClaiming] = useState(false);
 
   const playerRef = useRef<SpotifyPlayer | null>(null);
   const searchParams = useSearchParams();
@@ -569,17 +595,6 @@ export default function SpotifyPage() {
     }
   };
 
-  const playFromQueue = async (track: QueuedTrack) => {
-    await playTrack(track.uri);
-  };
-
-  const removeFromQueue = (trackId: string) => {
-    setQueuedTracks(prev => prev.filter(track => track.id !== trackId));
-  };
-
-  const clearQueue = () => {
-    setQueuedTracks([]);
-  };
 
   const playUrlDirectly = async () => {
     setUrlError("");
@@ -752,6 +767,333 @@ export default function SpotifyPage() {
     }
   }, [deviceId, getValidToken]);
 
+  // Queue management functions
+  const clearQueue = () => {
+    setQueuedTracks([]);
+  };
+
+  const removeFromQueue = (trackId: string) => {
+    setQueuedTracks(prev => prev.filter(track => track.id !== trackId));
+  };
+
+  const playFromQueue = async (track: QueuedTrack) => {
+    if (!connected || !deviceId) {
+      setPlayerError("Player not connected");
+      return;
+    }
+
+    try {
+      const token = await getValidToken();
+      const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          uris: [track.uri]
+        })
+      });
+
+      if (response.ok) {
+        console.log(`✅ Playing track: ${track.name}`);
+      } else {
+        console.error('Failed to play track:', response.statusText);
+        setPlayerError("Failed to play track");
+      }
+    } catch (error) {
+      console.error("Error playing track:", error);
+      setPlayerError("Failed to play track");
+    }
+  };
+
+  // Fetch user's tokens when drawer opens
+  useEffect(() => {
+    async function fetchUserTokens() {
+      if (!showRaidDrawer || !privyUser?.wallet?.address) {
+        setLoadingTokens(true);
+        return;
+      }
+
+      try {
+        const connection = new Connection('https://api.devnet.solana.com');
+        const walletPubkey = new PublicKey(privyUser.wallet.address);
+
+        // Get token accounts
+        const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+          walletPubkey,
+          { programId: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA') }
+        );
+
+        const tokens = [];
+        for (const account of tokenAccounts.value) {
+          const info = account.account.data.parsed.info;
+          const mint = info.mint;
+          const balance = info.tokenAmount.uiAmount;
+
+          tokens.push({
+            mint,
+            name: `Token`,
+            symbol: mint.slice(0, 4),
+            balance
+          });
+        }
+
+        setUserTokens(tokens);
+      } catch (err) {
+        console.error('Failed to fetch tokens:', err);
+      } finally {
+        setLoadingTokens(false);
+      }
+    }
+
+    fetchUserTokens();
+  }, [showRaidDrawer, privyUser?.wallet?.address]);
+
+  // Raid drawer handlers
+  const handleCreateRaid = (track: QueuedTrack) => {
+    setSelectedTrackForRaid(track);
+    setShowRaidDrawer(true);
+  };
+
+  const handleCloseRaidDrawer = () => {
+    setShowRaidDrawer(false);
+    setSelectedTrackForRaid(null);
+    setSelectedToken('');
+    setTokensPerUser(10);
+    setMaxSeats(10);
+  };
+
+  const handleSubmitRaid = async () => {
+    if (!selectedTrackForRaid) return;
+
+    if (!selectedToken) {
+      alert('Please select a token');
+      return;
+    }
+
+    if (tokensPerUser <= 0 || maxSeats <= 0) {
+      alert('Invalid values');
+      return;
+    }
+
+    const selectedTokenData = userTokens.find(t => t.mint === selectedToken);
+    if (!selectedTokenData) {
+      alert('Token not found');
+      return;
+    }
+
+    const totalNeeded = tokensPerUser * maxSeats;
+    if (selectedTokenData.balance < totalNeeded) {
+      alert(`Insufficient balance. Need ${totalNeeded} tokens, have ${selectedTokenData.balance}`);
+      return;
+    }
+
+    // Generate unique raid ID
+    const timestamp = Date.now().toString().slice(-6);
+    const raidId = `${selectedTrackForRaid.id}_${timestamp}`;
+
+    try {
+      console.log('✅ Calling deployed raid escrow program on devnet...');
+      console.log('🆔 Generated raid ID:', raidId);
+
+      const { Program, AnchorProvider, BN } = await import('@coral-xyz/anchor');
+      const { RAID_PROGRAM_ID, SOLANA_RPC_URL } = await import('@/lib/raid-program');
+      const idl = await import('@/lib/idl/raid_escrow.json');
+
+      // Set up connection and program
+      const connection = new Connection(SOLANA_RPC_URL, 'confirmed');
+
+      // Get wallet from window.solana (injected by Privy)
+      if (!(window as any).solana) {
+        throw new Error('Wallet not found. Please reconnect your wallet.');
+      }
+
+      const wallet = (window as any).solana;
+
+      // Create provider
+      const provider = new AnchorProvider(
+        connection,
+        wallet,
+        { commitment: 'confirmed' }
+      );
+
+      // Initialize program
+      const program = new Program(idl as any, provider);
+
+      // Derive PDAs
+      const [raidEscrowPDA] = PublicKey.findProgramAddressSync(
+        [Buffer.from('raid'), Buffer.from(raidId)],
+        RAID_PROGRAM_ID
+      );
+
+      const tokenMintPubkey = new PublicKey(selectedToken);
+      const creatorPubkey = new PublicKey(privyUser!.wallet!.address);
+
+      // Get token accounts
+      const { getAssociatedTokenAddress, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } = await import('@solana/spl-token');
+
+      const creatorTokenAccount = await getAssociatedTokenAddress(
+        tokenMintPubkey,
+        creatorPubkey
+      );
+
+      const escrowTokenAccount = await getAssociatedTokenAddress(
+        tokenMintPubkey,
+        raidEscrowPDA,
+        true // Allow PDA
+      );
+
+      console.log('📡 Sending transaction to devnet...');
+
+      // Get fresh blockhash
+      const { blockhash } = await connection.getLatestBlockhash('confirmed');
+      console.log('🔗 Using blockhash:', blockhash.slice(0, 8) + '...');
+
+      // Call initialize_raid on deployed program
+      const tx = await program.methods
+        .initializeRaid(
+          raidId,
+          new BN(tokensPerUser * 1e9), // Convert to lamports
+          maxSeats,
+          30 // 30 minutes duration
+        )
+        .accounts({
+          raidEscrow: raidEscrowPDA,
+          escrowTokenAccount,
+          creator: creatorPubkey,
+          creatorTokenAccount,
+          tokenMint: tokenMintPubkey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          systemProgram: new PublicKey('11111111111111111111111111111111'),
+        })
+        .rpc({
+          skipPreflight: false,
+          preflightCommitment: 'confirmed',
+          commitment: 'confirmed',
+        });
+
+      console.log('🎉 Raid created on devnet! Transaction:', tx);
+      console.log('🔗 View on explorer:', `https://explorer.solana.com/tx/${tx}?cluster=devnet`);
+
+      // Store in context for UI
+      createRaid({
+        raidId,
+        trackId: selectedTrackForRaid.id,
+        trackName: selectedTrackForRaid.name,
+        trackArtist: selectedTrackForRaid.artist,
+        trackUri: selectedTrackForRaid.uri,
+        tokenMint: selectedToken,
+        tokenName: selectedTokenData.name,
+        tokenSymbol: selectedTokenData.symbol,
+        tokensPerParticipant: tokensPerUser,
+        maxSeats,
+        creatorWallet: privyUser!.wallet!.address,
+        claimedCount: 0,
+        claimedBy: [],
+        createdAt: Date.now(),
+        expiresAt: Date.now() + (30 * 60 * 1000)
+      });
+
+      alert(`🎉 Raid created successfully!\n\nView on explorer:\nhttps://explorer.solana.com/tx/${tx}?cluster=devnet`);
+      handleCloseRaidDrawer();
+
+    } catch (err: any) {
+      console.error('❌ Raid creation error:', err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+
+      // Check if transaction actually succeeded despite error
+      if (err.signature || errorMsg.includes('already been processed')) {
+        const txSig = err.signature || 'unknown';
+        console.log('⚠️ Transaction may have succeeded despite error');
+
+        // Store raid anyway
+        createRaid({
+          raidId,
+          trackId: selectedTrackForRaid.id,
+          trackName: selectedTrackForRaid.name,
+          trackArtist: selectedTrackForRaid.artist,
+          trackUri: selectedTrackForRaid.uri,
+          tokenMint: selectedToken,
+          tokenName: selectedTokenData.name,
+          tokenSymbol: selectedTokenData.symbol,
+          tokensPerParticipant: tokensPerUser,
+          maxSeats,
+          creatorWallet: privyUser!.wallet!.address,
+          claimedCount: 0,
+          claimedBy: [],
+          createdAt: Date.now(),
+          expiresAt: Date.now() + (30 * 60 * 1000)
+        });
+
+        alert(`✅ Raid created! (Warning: ${errorMsg})\n\nCheck explorer:\nhttps://explorer.solana.com/tx/${txSig}?cluster=devnet`);
+        handleCloseRaidDrawer();
+      } else {
+        alert(`Failed to create raid: ${errorMsg}`);
+      }
+    }
+  };
+
+  // Raid banner handlers
+  const handleJoinRaid = async () => {
+    if (!activeRaid) return;
+    
+    try {
+      // Start playing the raid track
+      const raidTrackUri = `spotify:track:${activeRaid.trackId}`;
+      await playTrack(raidTrackUri);
+      
+      // Start tracking listening time
+      setListeningTime(0);
+      const interval = setInterval(() => {
+        setListeningTime(prev => {
+          const newTime = prev + 1000; // Add 1 second
+          // Enable claiming after 30 seconds of listening
+          if (newTime >= 30000 && !canClaim) {
+            setCanClaim(true);
+          }
+          return newTime;
+        });
+      }, 1000);
+      
+      // Store interval reference for cleanup
+      return () => clearInterval(interval);
+    } catch (error) {
+      console.error('Failed to join raid:', error);
+      setPlayerError('Failed to join raid');
+    }
+  };
+
+  const handleClaimTokens = async () => {
+    if (!activeRaid || claiming) return;
+    
+    setClaiming(true);
+    try {
+      // TODO: Implement token claiming logic with Solana
+      console.log('Claiming tokens for raid:', activeRaid.raidId);
+      
+      // Simulate claiming delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Reset states after successful claim
+      setCanClaim(false);
+      setListeningTime(0);
+    } catch (error) {
+      console.error('Failed to claim tokens:', error);
+    } finally {
+      setClaiming(false);
+    }
+  };
+
+  const handleEndRaid = () => {
+    if (activeRaid) {
+      endRaid();
+      setCanClaim(false);
+      setListeningTime(0);
+    }
+  };
+
 
   const formatTime = (ms: number) => {
     const seconds = Math.floor(ms / 1000);
@@ -858,6 +1200,17 @@ export default function SpotifyPage() {
   return (
     <div className="h-full w-full overflow-auto md:overflow-hidden" data-spotify-page>
       <Script src="https://sdk.scdn.co/spotify-player.js" strategy="afterInteractive" />
+      
+      {/* Raid Dynamic Island */}
+      <RaidDynamicIsland
+        onJoinRaid={handleJoinRaid}
+        listeningTime={listeningTime}
+        canClaim={canClaim}
+        onClaimTokens={handleClaimTokens}
+        claiming={claiming}
+        onEndRaid={handleEndRaid}
+      />
+      
       <div className="w-full h-auto md:h-full flex flex-col">
         {(err || playerError) && (
           <div className="m-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
@@ -1054,6 +1407,13 @@ export default function SpotifyPage() {
                               <path d="M8 5v14l11-7z"/>
                             </svg>
                           </TextureButton>
+                          <button
+                            onClick={() => handleCreateRaid(track)}
+                            title="Start raid for this track"
+                            className="w-auto px-3 py-1.5 rounded-lg border border-[#1DB954]/30 bg-gradient-to-b from-[#1DB954] to-[#1aa34a] text-white text-xs font-semibold transition duration-300 ease-in-out hover:from-[#1ed760] hover:to-[#1DB954] active:from-[#1aa34a] active:to-[#188f3f] shadow-sm"
+                          >
+                            Raid
+                          </button>
                           <TextureButton
                             onClick={() => removeFromQueue(track.id)}
                             variant="destructive"
@@ -1076,6 +1436,114 @@ export default function SpotifyPage() {
         </MagicBento>
         </div>
       </div>
+
+      {/* Raid Creation Drawer */}
+      <Drawer open={showRaidDrawer} onOpenChange={setShowRaidDrawer}>
+        <DrawerContent className="bg-white/5 backdrop-blur-2xl border-2 border-[#000000]/40 shadow-[0_20px_60px_rgba(0,0,0,0.6)] max-h-[85vh]">
+          <div className="mx-auto w-full max-w-lg p-6">
+            <DrawerHeader className="px-0">
+              <DrawerTitle className="text-white text-xl font-bold">Start Raid</DrawerTitle>
+              <DrawerDescription className="text-white/60">
+                {selectedTrackForRaid && (
+                  <div className="mt-2 p-3 bg-white/5 rounded-lg">
+                    <div className="font-medium text-white">{selectedTrackForRaid.name}</div>
+                    <div className="text-sm">{selectedTrackForRaid.artist}</div>
+                  </div>
+                )}
+              </DrawerDescription>
+            </DrawerHeader>
+
+            <div className="space-y-4 mt-4">
+              {/* Token Selection */}
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Select Token
+                </label>
+                <TokenDropdown
+                  options={userTokens.map(token => ({
+                    value: token.mint,
+                    label: `${token.name} (${token.symbol})`,
+                    balance: token.balance,
+                    symbol: token.symbol
+                  }))}
+                  value={selectedToken}
+                  onChange={setSelectedToken}
+                  placeholder="Select a token..."
+                  loading={loadingTokens}
+                />
+              </div>
+
+              {/* Tokens Per Participant */}
+              <div>
+                <label htmlFor="tokens-per-user" className="block text-sm font-medium text-white mb-2">
+                  Tokens Per Participant
+                </label>
+                <input
+                  id="tokens-per-user"
+                  type="number"
+                  value={tokensPerUser}
+                  onChange={(e) => setTokensPerUser(Number(e.target.value))}
+                  min="1"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10 hover:border-[#1DB954]/50 focus:border-[#1DB954] text-white placeholder-white/40 focus:outline-none text-sm transition-all"
+                />
+              </div>
+
+              {/* Max Participants */}
+              <div>
+                <label htmlFor="max-seats" className="block text-sm font-medium text-white mb-2">
+                  Max Participants
+                </label>
+                <input
+                  id="max-seats"
+                  type="number"
+                  value={maxSeats}
+                  onChange={(e) => setMaxSeats(Number(e.target.value))}
+                  min="1"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10 hover:border-[#1DB954]/50 focus:border-[#1DB954] text-white placeholder-white/40 focus:outline-none text-sm transition-all"
+                />
+              </div>
+
+              {/* Summary */}
+              {selectedToken && (
+                <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-sm">
+                  <div className="text-blue-300">
+                    <strong>Total tokens needed:</strong> {tokensPerUser * maxSeats}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <DrawerFooter className="px-0 mt-6">
+              <TextureButton
+                onClick={handleSubmitRaid}
+                variant="accent"
+                size="default"
+                className="w-full"
+                disabled={!selectedToken || loadingTokens}
+              >
+                Create Raid
+              </TextureButton>
+              <DrawerClose asChild>
+                <TextureButton
+                  variant="secondary"
+                  size="default"
+                  className="w-full"
+                >
+                  Cancel
+                </TextureButton>
+              </DrawerClose>
+            </DrawerFooter>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
+  );
+}
+
+export default function SpotifyPage() {
+  return (
+    <PrivyWalletProvider>
+      <SpotifyPageContent />
+    </PrivyWalletProvider>
   );
 }
