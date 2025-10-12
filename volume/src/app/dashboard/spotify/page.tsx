@@ -10,7 +10,6 @@ import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets, useSignTransaction } from '@privy-io/react-auth/solana';
 import { PublicKey, Transaction, VersionedTransaction, Connection, SystemProgram } from '@solana/web3.js';
 import { getAssociatedTokenAddress, createTransferInstruction, createAssociatedTokenAccountInstruction, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
-import { QueuedTrack } from '@/types/raid';
 
 interface SpotifyUser {
   id: string;
@@ -18,6 +17,14 @@ interface SpotifyUser {
   email: string;
   product: string;
   images: { url: string }[];
+}
+
+interface QueuedTrack {
+  id: string;
+  uri: string;
+  name: string;
+  artist: string;
+  addedAt: number;
 }
 
 declare global {

@@ -36,6 +36,11 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
       href: "/dashboard/spotify",
       icon: <i className="fab fa-spotify text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
     },
+    {
+      label: "Audius",
+      href: "/dashboard/audius",
+      icon: <i className="fas fa-headphones text-neutral-700 dark:text-neutral-200 h-5 w-5" />,
+    },
   ];
 
   const adminLinks = [

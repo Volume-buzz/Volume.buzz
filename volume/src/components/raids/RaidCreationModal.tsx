@@ -12,6 +12,7 @@ import type { RaidEscrow } from '@/lib/types/raid_escrow';
 
 interface RaidCreationModalProps {
   track: QueuedTrack;
+  platform?: 'spotify' | 'audius';
   onClose: () => void;
 }
 
@@ -22,7 +23,7 @@ interface UserToken {
   balance: number;
 }
 
-export function RaidCreationModal({ track, onClose }: RaidCreationModalProps) {
+export function RaidCreationModal({ track, platform = 'spotify', onClose }: RaidCreationModalProps) {
   const { user, authenticated, login, logout } = usePrivy();
   const { createRaid } = useRaid();
 
@@ -109,9 +110,10 @@ export function RaidCreationModal({ track, onClose }: RaidCreationModalProps) {
       return;
     }
 
-    // Generate unique raid ID OUTSIDE try block so it's accessible in catch
+    // Generate unique raid ID with platform prefix
+    // Format: {platform}_{trackId}_{timestamp}
     const timestamp = Date.now().toString().slice(-6);
-    const raidId = `${track.id}_${timestamp}`;
+    const raidId = `${platform}_${track.id}_${timestamp}`;
 
     try {
       setError('');
@@ -120,7 +122,8 @@ export function RaidCreationModal({ track, onClose }: RaidCreationModalProps) {
       console.log('✅ Calling deployed raid escrow program on devnet...');
 
       console.log('🆔 Generated raid ID:', raidId);
-      console.log('🎵 Spotify Track ID:', track.id);
+      console.log('🎵 Platform:', platform);
+      console.log('🎵 Track ID:', track.id);
       console.log('📏 Raid ID length:', raidId.length);
 
       // Set up connection and program
