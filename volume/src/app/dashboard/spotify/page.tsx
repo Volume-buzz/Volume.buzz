@@ -364,6 +364,41 @@ function SpotifyPageContent() {
     localStorage.setItem('spotify_queue', JSON.stringify(queuedTracks));
   }, [queuedTracks]);
 
+  // Track listening time for raid participation - RESTORED FROM WORKING COMMIT
+  useEffect(() => {
+    if (!activeRaid || !privyUser?.wallet?.address) return;
+
+    // Reset timer when raid changes
+    console.log('🔄 Starting listening timer for raid:', activeRaid.raidId);
+    setListeningTime(0);
+    setCanClaim(false);
+
+    const interval = setInterval(() => {
+      if (playerRef.current) {
+        playerRef.current.getCurrentState().then((state: WebPlaybackState | null) => {
+          if (state && !state.paused) {
+            const position = Math.floor(state.position / 1000);
+            setListeningTime(position);
+            console.log('⏱️ Listening time:', position, 'seconds');
+
+            // Enable claim button after 5 seconds (reduced for testing)
+            if (position >= 5) {
+              setCanClaim(true);
+              console.log('🎉 5 seconds reached! You can claim your tokens now!');
+            }
+          } else if (state?.paused) {
+            console.log('⏸️ Player is paused, timer not incrementing');
+          }
+        });
+      }
+    }, 1000); // Update every second
+
+    return () => {
+      console.log('🛑 Stopping listening timer for raid:', activeRaid.raidId);
+      clearInterval(interval);
+    };
+  }, [activeRaid?.raidId, privyUser?.wallet?.address]);
+
   useEffect(() => {
     checkSpotifyConnection();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1035,62 +1070,448 @@ function SpotifyPageContent() {
     }
   };
 
-  // Raid banner handlers
-  const handleJoinRaid = async () => {
-    if (!activeRaid) return;
-    
-    try {
-      // Start playing the raid track
-      const raidTrackUri = `spotify:track:${activeRaid.trackId}`;
-      await playTrack(raidTrackUri);
-      
-      // Start tracking listening time
-      setListeningTime(0);
-      const interval = setInterval(() => {
-        setListeningTime(prev => {
-          const newTime = prev + 1000; // Add 1 second
-          // Enable claiming after 30 seconds of listening
-          if (newTime >= 30000 && !canClaim) {
-            setCanClaim(true);
+  // Helper function to get wallet adapter (from working commit)
+  const getWalletAdapter = () => {
+    console.log('🔍 Finding compatible Solana wallet...');
+
+    // Try to use Privy's standard Solana wallet first
+    if (solanaWallets.length > 0) {
+      const solanaWallet = solanaWallets[0];
+      console.log('✅ Using Privy standard Solana wallet:', solanaWallet.address);
+
+      return {
+        publicKey: new PublicKey(solanaWallet.address),
+        signTransaction: async <T extends Transaction | VersionedTransaction>(transaction: T): Promise<T> => {
+          console.log('📝 Signing transaction with Privy standard wallet...');
+
+          try {
+            // Serialize based on transaction type
+            let serializedTransaction: Uint8Array;
+            if (transaction instanceof VersionedTransaction) {
+              serializedTransaction = transaction.serialize();
+            } else {
+              serializedTransaction = transaction.serialize({ requireAllSignatures: false });
+            }
+
+            // Use Privy's sign transaction method - this will prompt the user
+            console.log('🎯 Requesting wallet signature - this should prompt your wallet!');
+            const result = await signTransaction({
+              transaction: serializedTransaction,
+              wallet: solanaWallet
+            });
+
+            console.log('✅ Transaction signed by Privy standard wallet:', result);
+
+            // Reconstruct based on transaction type
+            if (transaction instanceof VersionedTransaction) {
+              return VersionedTransaction.deserialize(result.signedTransaction) as T;
+            } else {
+              return Transaction.from(result.signedTransaction) as T;
+            }
+          } catch (error) {
+            console.error('❌ Privy standard wallet signing failed:', error);
+            throw error;
           }
-          return newTime;
-        });
-      }, 1000);
-      
-      // Store interval reference for cleanup
-      return () => clearInterval(interval);
+        },
+        signAllTransactions: async <T extends Transaction | VersionedTransaction>(transactions: T[]): Promise<T[]> => {
+          console.log('📝 Signing multiple transactions...');
+          const signed = [];
+          for (const tx of transactions) {
+            let serializedTransaction: Uint8Array;
+            if (tx instanceof VersionedTransaction) {
+              serializedTransaction = tx.serialize();
+            } else {
+              serializedTransaction = tx.serialize({ requireAllSignatures: false });
+            }
+
+            const result = await signTransaction({
+              transaction: serializedTransaction,
+              wallet: solanaWallet
+            });
+
+            if (tx instanceof VersionedTransaction) {
+              signed.push(VersionedTransaction.deserialize(result.signedTransaction) as T);
+            } else {
+              signed.push(Transaction.from(result.signedTransaction) as T);
+            }
+          }
+          return signed;
+        }
+      };
+    }
+
+    console.error('❌ No compatible Solana wallet found');
+    return null;
+  };
+
+  // Raid banner handlers - RESTORED FROM WORKING COMMIT
+  const handleJoinRaid = async () => {
+    console.log('🎯 Join raid clicked!', {
+      hasRaid: !!activeRaid,
+      hasWallet: !!privyUser?.wallet?.address,
+      authenticated,
+      playerReady: ready,
+      deviceId,
+      activeRaid: activeRaid ? { trackName: activeRaid.trackName, trackUri: activeRaid.trackUri } : null
+    });
+
+    if (!activeRaid) {
+      alert('No active raid found!');
+      return;
+    }
+
+    // Check authentication and prompt wallet connection if needed
+    if (!authenticated) {
+      console.log('🔐 User not authenticated, prompting login...');
+      await login();
+      return;
+    }
+
+    // Check if wallet is connected
+    if (!privyUser?.wallet?.address) {
+      console.log('👛 No wallet connected, prompting connection...');
+      await connectWallet();
+      return;
+    }
+
+    // Check if Solana wallet is available
+    if (solanaWallets.length === 0) {
+      console.log('⚠️ No Solana wallet found. Prompting wallet connection...');
+      alert('Please connect a Solana wallet to join the raid.');
+      await connectWallet();
+      return;
+    }
+
+    if (!ready || !deviceId) {
+      alert('Spotify player is not ready. Please make sure you have Spotify Premium and the player is initialized.');
+      return;
+    }
+
+    console.log('✅ All checks passed, starting raid listening...');
+
+    // Start playing the raid track (no need to "join", just start listening)
+    try {
+      const token = await getValidToken();
+      console.log('📡 Requesting Spotify to play:', activeRaid.trackUri);
+
+      const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          uris: [activeRaid.trackUri]
+        })
+      });
+
+      if (response.ok) {
+        console.log('✅ Playing raid track:', activeRaid.trackName);
+        setListeningTime(0);
+        setCanClaim(false);
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Failed to play track. Status:', response.status, 'Response:', errorText);
+        alert(`Failed to play track: ${response.status} ${errorText}`);
+      }
     } catch (error) {
-      console.error('Failed to join raid:', error);
-      setPlayerError('Failed to join raid');
+      console.error('❌ Error playing track:', error);
+      alert(`Error playing track: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
   const handleClaimTokens = async () => {
-    if (!activeRaid || claiming) return;
-    
+    if (!activeRaid) {
+      console.log('Cannot claim tokens: No active raid');
+      return;
+    }
+
+    // Check if user is authenticated
+    if (!authenticated) {
+      console.log('🔐 User not authenticated, prompting login...');
+      await login();
+      return;
+    }
+
+    // Check if wallet is connected
+    if (!privyUser?.wallet?.address) {
+      console.log('👛 No wallet connected, prompting connection...');
+      await connectWallet();
+      return;
+    }
+
+    // Check if Solana wallet is available
+    if (solanaWallets.length === 0) {
+      console.log('⚠️ No Solana wallet found. Prompting wallet connection...');
+      alert('Please connect a Solana wallet first. Click OK to connect.');
+      await connectWallet();
+      return;
+    }
+
     setClaiming(true);
+    console.log('🎁 Claiming raid tokens via deployed program...');
+
     try {
-      // TODO: Implement token claiming logic with Solana
-      console.log('Claiming tokens for raid:', activeRaid.raidId);
-      
-      // Simulate claiming delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Reset states after successful claim
+      // Dynamic imports
+      const { Program, AnchorProvider, BN } = await import('@coral-xyz/anchor');
+      const { RAID_PROGRAM_ID, SOLANA_RPC_URL } = await import('@/lib/raid-program');
+      const idl = await import('@/lib/idl/raid_escrow.json');
+
+      // Get wallet adapter
+      const walletAdapter = getWalletAdapter();
+      if (!walletAdapter) {
+        throw new Error('No compatible Solana wallet found. Please try connecting your wallet again.');
+      }
+
+      console.log('✅ Wallet adapter ready:', walletAdapter.publicKey.toBase58());
+
+      // Setup connection
+      const connection = new Connection(SOLANA_RPC_URL, 'confirmed');
+
+      // Create provider
+      const provider = new AnchorProvider(
+        connection,
+        walletAdapter,
+        { commitment: 'confirmed' }
+      );
+
+      // Initialize program
+      const program = new Program(idl as any, provider);
+
+      // Use the stored raid ID (must match what was used in creation)
+      const raidId = activeRaid.raidId;
+
+      // Derive PDAs
+      const [raidEscrowPDA] = PublicKey.findProgramAddressSync(
+        [Buffer.from('raid'), Buffer.from(raidId)],
+        RAID_PROGRAM_ID
+      );
+
+      const tokenMintPubkey = new PublicKey(activeRaid.tokenMint);
+      const participantPubkey = walletAdapter.publicKey;
+
+      // Get escrow token account
+      const escrowTokenAccount = await getAssociatedTokenAddress(
+        tokenMintPubkey,
+        raidEscrowPDA,
+        true // Allow PDA
+      );
+
+      // Get participant token account
+      const participantTokenAccount = await getAssociatedTokenAddress(
+        tokenMintPubkey,
+        participantPubkey
+      );
+
+      console.log('📡 Calling claim_tokens on devnet program...');
+      console.log('  Raid ID:', raidId);
+      console.log('  Raid PDA:', raidEscrowPDA.toBase58());
+      console.log('  Participant:', participantPubkey.toBase58());
+
+      // Check if raid still exists on-chain and is owned by our program
+      try {
+        const accountInfo = await connection.getAccountInfo(raidEscrowPDA);
+        if (!accountInfo) {
+          throw new Error('Raid no longer exists on-chain (may have expired or been closed)');
+        }
+        if (!accountInfo.owner.equals(RAID_PROGRAM_ID)) {
+          throw new Error('Invalid raid account - not owned by raid program');
+        }
+      } catch (err) {
+        console.error('Raid account check failed:', err);
+        throw new Error('Raid may have expired or been closed. Please check the blockchain.');
+      }
+
+      // Check if participant's token account exists, create if not
+      const participantAccountInfo = await connection.getAccountInfo(participantTokenAccount);
+      if (!participantAccountInfo) {
+        console.log('📦 Creating participant token account...');
+        const createAtaIx = createAssociatedTokenAccountInstruction(
+          participantPubkey,
+          participantTokenAccount,
+          participantPubkey,
+          tokenMintPubkey,
+          TOKEN_PROGRAM_ID,
+          ASSOCIATED_TOKEN_PROGRAM_ID
+        );
+
+        // Send create ATA transaction
+        const createTx = new Transaction().add(createAtaIx);
+        const { blockhash } = await connection.getLatestBlockhash();
+        createTx.recentBlockhash = blockhash;
+        createTx.feePayer = participantPubkey;
+
+        const signedCreateTx = await walletAdapter.signTransaction(createTx);
+        const createSig = await connection.sendRawTransaction(signedCreateTx.serialize());
+        await connection.confirmTransaction(createSig, 'confirmed');
+        console.log('✅ Created participant token account:', createSig);
+      }
+
+      // Call claim_tokens (must include associatedTokenProgram and systemProgram)
+      const tx = await program.methods
+        .claimTokens(raidId)
+        .accounts({
+          raidEscrow: raidEscrowPDA,
+          escrowTokenAccount,
+          participant: participantPubkey,
+          participantTokenAccount,
+          tokenMint: tokenMintPubkey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          systemProgram: new PublicKey('11111111111111111111111111111111'),
+        })
+        .rpc({
+          skipPreflight: false,
+          preflightCommitment: 'confirmed',
+        });
+
+      console.log('🎉 Tokens claimed successfully!');
+      console.log('🔗 Transaction:', tx);
+      console.log('🔗 View on explorer:', `https://explorer.solana.com/tx/${tx}?cluster=devnet`);
+
+      // Reset claim state
       setCanClaim(false);
-      setListeningTime(0);
-    } catch (error) {
-      console.error('Failed to claim tokens:', error);
+      setClaiming(false);
+
+      // Show success message
+      alert(`✅ Successfully claimed ${activeRaid.tokensPerParticipant} ${activeRaid.tokenSymbol}!\n\nTransaction: ${tx}\n\nView on explorer:\nhttps://explorer.solana.com/tx/${tx}?cluster=devnet`);
+    } catch (err: any) {
+      console.error('❌ Claim error:', err);
+
+      let errorMessage = 'Failed to claim tokens';
+      if (err.message) {
+        errorMessage = err.message;
+      }
+
+      // Check for specific error types
+      if (err.logs) {
+        console.error('Program logs:', err.logs);
+
+        if (err.logs.some((log: string) => log.includes('already claimed'))) {
+          errorMessage = 'You have already claimed tokens for this raid!';
+        } else if (err.logs.some((log: string) => log.includes('raid is full'))) {
+          errorMessage = 'Raid is full - all tokens have been claimed!';
+        } else if (err.logs.some((log: string) => log.includes('expired'))) {
+          errorMessage = 'This raid has expired!';
+        }
+      }
+
+      alert(`❌ ${errorMessage}`);
     } finally {
       setClaiming(false);
     }
   };
 
-  const handleEndRaid = () => {
-    if (activeRaid) {
+  // Handle ending raid - calls on-chain close_raid to return unclaimed tokens
+  const handleEndRaid = async () => {
+    if (!activeRaid) return;
+
+    // Check if user is the creator
+    const userWallet = privyUser?.wallet?.address;
+    if (!userWallet || userWallet !== activeRaid.creatorWallet) {
+      // Not the creator, just clear locally
+      endRaid();
+      return;
+    }
+
+    const confirmed = confirm('End this raid and return unclaimed tokens to your wallet?');
+    if (!confirmed) return;
+
+    try {
+      console.log('🛑 Ending raid and closing escrow...');
+
+      const { Program, AnchorProvider } = await import('@coral-xyz/anchor');
+      const { Connection, PublicKey } = await import('@solana/web3.js');
+      const { RAID_PROGRAM_ID, SOLANA_RPC_URL } = await import('@/lib/raid-program');
+      const idl = await import('@/lib/idl/raid_escrow.json');
+
+      const walletAdapter = getWalletAdapter();
+      if (!walletAdapter) {
+        throw new Error('No wallet connected');
+      }
+
+      const connection = new Connection(SOLANA_RPC_URL, 'confirmed');
+      const provider = new AnchorProvider(connection, walletAdapter, { commitment: 'confirmed' });
+      const program = new Program(idl as any, provider);
+
+      const raidId = activeRaid.raidId;
+      const [raidEscrowPDA] = PublicKey.findProgramAddressSync(
+        [Buffer.from('raid'), Buffer.from(raidId)],
+        RAID_PROGRAM_ID
+      );
+
+      const tokenMintPubkey = new PublicKey(activeRaid.tokenMint);
+      const creatorPubkey = new PublicKey(userWallet);
+
+      const { getAssociatedTokenAddress, TOKEN_PROGRAM_ID } = await import('@solana/spl-token');
+
+      const creatorTokenAccount = await getAssociatedTokenAddress(tokenMintPubkey, creatorPubkey);
+      const escrowTokenAccount = await getAssociatedTokenAddress(tokenMintPubkey, raidEscrowPDA, true);
+
+      // Check if raid still exists on-chain and is owned by our program
+      try {
+        const accountInfo = await connection.getAccountInfo(raidEscrowPDA);
+        if (!accountInfo) {
+          // Raid doesn't exist, just clear UI
+          console.log('⚠️ Raid already closed or expired, clearing UI only');
+          endRaid();
+          return;
+        }
+        if (!accountInfo.owner.equals(RAID_PROGRAM_ID)) {
+          console.log('⚠️ Raid account is not owned by the raid program, clearing UI');
+          endRaid();
+          return;
+        }
+      } catch (err) {
+        console.log('⚠️ Raid account check failed, clearing UI only');
+        endRaid();
+        return;
+      }
+
+      console.log('📡 Calling close_raid on devnet...');
+
+      // Call close_raid to return unclaimed tokens and close account
+      const tx = await program.methods
+        .closeRaid(raidId)
+        .accounts({
+          raidEscrow: raidEscrowPDA,
+          escrowTokenAccount,
+          creator: creatorPubkey,
+          creatorTokenAccount,
+          tokenMint: tokenMintPubkey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .rpc({
+          skipPreflight: false,
+          preflightCommitment: 'confirmed',
+        });
+
+      console.log('✅ Raid closed successfully!');
+      console.log('🔗 Transaction:', tx);
+      console.log('🔗 View on explorer:', `https://explorer.solana.com/tx/${tx}?cluster=devnet`);
+
+      // Clear raid from UI
       endRaid();
       setCanClaim(false);
       setListeningTime(0);
+
+      alert(`✅ Raid ended successfully!\n\nUnclaimed tokens have been returned to your wallet.\n\nTransaction: ${tx}\n\nView on explorer:\nhttps://explorer.solana.com/tx/${tx}?cluster=devnet`);
+
+    } catch (error) {
+      console.error('❌ Failed to close raid:', error);
+
+      // If error is that account doesn't exist, just clear UI
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      if (errorMsg.includes('Account does not exist') || errorMsg.includes('Invalid account')) {
+        console.log('⚠️ Raid account not found on-chain, clearing UI only');
+        endRaid();
+        return;
+      }
+
+      alert(`Failed to end raid on-chain: ${errorMsg}\n\nThe raid has been cleared from your UI, but you may need to manually close it on-chain later.`);
+
+      // Clear from UI anyway
+      endRaid();
     }
   };
 

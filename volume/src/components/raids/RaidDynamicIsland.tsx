@@ -32,42 +32,43 @@ const BOUNCE_VARIANTS = {
   expanded: 0.3,
 } as const;
 
-export function RaidDynamicIsland({ 
-  onJoinRaid, 
-  listeningTime = 0, 
-  canClaim = false, 
-  onClaimTokens, 
-  claiming = false, 
-  onEndRaid 
+export function RaidDynamicIsland({
+  onJoinRaid,
+  listeningTime = 0,
+  canClaim = false,
+  onClaimTokens,
+  claiming = false,
+  onEndRaid
 }: RaidDynamicIslandProps) {
   const { activeRaid, hasClaimed } = useRaid();
   const { user, authenticated, login } = usePrivy();
   const { wallets } = useWallets();
-  const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState<number>(0);
 
-  // Update timer every second
+  // Update timer every second ONLY when expanded (to prevent collapsed island from refreshing)
   useEffect(() => {
     if (!activeRaid) return;
 
-    const interval = setInterval(() => {
+    // Only update timer if expanded
+    if (isExpanded) {
+      const interval = setInterval(() => {
+        const elapsed = Date.now() - activeRaid.createdAt;
+        const remaining = Math.max(0, (30 * 60 * 1000) - elapsed);
+        setTimeRemaining(remaining);
+      }, 1000);
+
+      return () => clearInterval(interval);
+    } else {
+      // When collapsed, just calculate once
       const elapsed = Date.now() - activeRaid.createdAt;
-      const remaining = Math.max(0, (30 * 60 * 1000) - elapsed); // 30 minute raid
+      const remaining = Math.max(0, (30 * 60 * 1000) - elapsed);
       setTimeRemaining(remaining);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [activeRaid]);
-
-  // Auto-expand when raid becomes active
-  useEffect(() => {
-    if (activeRaid && !isExpanded) {
-      setIsExpanded(true);
-      // Auto-collapse after 10 seconds
-      const timer = setTimeout(() => setIsExpanded(false), 10000);
-      return () => clearTimeout(timer);
     }
-  }, [activeRaid]);
+  }, [activeRaid, isExpanded]);
+
+  // Keep collapsed by default - user must click to expand
+  // (Removed auto-expand behavior)
 
   const formatTime = (ms: number) => {
     const seconds = Math.floor(ms / 1000);
@@ -231,7 +232,7 @@ export function RaidDynamicIsland({
           </TextureButton>
         ) : !isFull ? (
           <TextureButton
-            variant="primary"
+            variant="accent"
             size="sm"
             onClick={onJoinRaid}
             className="flex-1"
@@ -244,15 +245,32 @@ export function RaidDynamicIsland({
             <span className="text-sm text-gray-300">Raid Full</span>
           </div>
         )}
+      </div>
 
+      {/* End Raid and Clear Raid buttons - always visible for creator or as fallback */}
+      <div className="flex gap-2 mt-2">
         {isCreator && onEndRaid && (
           <TextureButton
             variant="destructive"
             size="sm"
             onClick={onEndRaid}
-            className="px-3"
+            className="flex-1"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4 mr-2" />
+            End Raid
+          </TextureButton>
+        )}
+
+        {/* Clear button - always show for stuck raids */}
+        {onEndRaid && (
+          <TextureButton
+            variant="destructive"
+            size="sm"
+            onClick={onEndRaid}
+            className="flex-1"
+          >
+            <X className="h-4 w-4 mr-2" />
+            Clear Raid
           </TextureButton>
         )}
       </div>
@@ -262,7 +280,7 @@ export function RaidDynamicIsland({
   return (
     <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
       <motion.div
-        layout
+        layout="position"
         transition={{
           type: "spring",
           bounce: BOUNCE_VARIANTS[isExpanded ? 'expanded' : 'idle'],
@@ -271,31 +289,23 @@ export function RaidDynamicIsland({
         style={{ borderRadius: 24 }}
         className="overflow-hidden bg-black/90 backdrop-blur-xl border border-white/10 shadow-2xl"
       >
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" initial={false}>
           {isExpanded ? (
-            <motion.div
-              key="expanded"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.2 }}
-            >
+            <div key="expanded">
               <ExpandedContent />
-            </motion.div>
+            </div>
           ) : (
-            <motion.div
-              key="compact"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.2 }}
-            >
+            <div key="compact">
               <CompactContent />
-            </motion.div>
+            </div>
           )}
         </AnimatePresence>
       </motion.div>
     </div>
   );
 }
+
+
+
+
 
