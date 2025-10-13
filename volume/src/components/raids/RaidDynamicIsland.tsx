@@ -247,33 +247,20 @@ export function RaidDynamicIsland({
         )}
       </div>
 
-      {/* End Raid and Clear Raid buttons - always visible for creator or as fallback */}
-      <div className="flex gap-2 mt-2">
-        {isCreator && onEndRaid && (
+      {/* End/Clear Raid button - one button for all users */}
+      {onEndRaid && (
+        <div className="mt-2">
           <TextureButton
             variant="destructive"
             size="sm"
             onClick={onEndRaid}
-            className="flex-1"
+            className="w-full"
           >
             <X className="h-4 w-4 mr-2" />
-            End Raid
+            {isCreator ? 'End Raid' : 'Clear Raid'}
           </TextureButton>
-        )}
-
-        {/* Clear button - always show for stuck raids */}
-        {onEndRaid && (
-          <TextureButton
-            variant="destructive"
-            size="sm"
-            onClick={onEndRaid}
-            className="flex-1"
-          >
-            <X className="h-4 w-4 mr-2" />
-            Clear Raid
-          </TextureButton>
-        )}
-      </div>
+        </div>
+      )}
     </motion.div>
   );
 

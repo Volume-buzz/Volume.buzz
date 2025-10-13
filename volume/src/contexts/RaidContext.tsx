@@ -45,6 +45,7 @@ export function RaidProvider({ children }: { children: ReactNode }) {
   const [activeRaid, setActiveRaid] = useState<ActiveRaid | null>(null);
   const [lastRaidId, setLastRaidId] = useState<string>('');
   const [manuallyCleared, setManuallyCleared] = useState<Set<string>>(new Set());
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Fetch active raids from blockchain
   const fetchActiveRaids = async () => {
@@ -175,9 +176,8 @@ export function RaidProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Load raid from localStorage on mount, then fetch from chain
+  // Load cleared raids on mount (one time only)
   useEffect(() => {
-    // Load cleared raids list
     const clearedRaidsStr = localStorage.getItem('cleared_raids');
     if (clearedRaidsStr) {
       try {
@@ -198,13 +198,21 @@ export function RaidProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // Fetch from blockchain
+    setIsInitialized(true);
+  }, []);
+
+  // Fetch raids from blockchain after initialization
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    // Initial fetch
     fetchActiveRaids();
 
     // Poll for active raids every 10 seconds
     const interval = setInterval(fetchActiveRaids, 10000);
     return () => clearInterval(interval);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInitialized, manuallyCleared]);
 
   // Save raid to localStorage whenever it changes
   useEffect(() => {
