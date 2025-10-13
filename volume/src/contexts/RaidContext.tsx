@@ -157,21 +157,23 @@ export function RaidProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Only update if raid actually changed (check all relevant fields)
+      // Only update if raid actually changed (check only on-chain data, not display fields)
       if (mostRecentRaid) {
         const hasChanged = !activeRaid ||
           activeRaid.raidId !== mostRecentRaid.raidId ||
           activeRaid.claimedCount !== mostRecentRaid.claimedCount ||
-          activeRaid.trackName !== mostRecentRaid.trackName ||
-          activeRaid.trackArtist !== mostRecentRaid.trackArtist ||
           JSON.stringify(activeRaid.claimedBy) !== JSON.stringify(mostRecentRaid.claimedBy);
 
         if (hasChanged) {
-          console.log('🎯 Setting active raid:', mostRecentRaid.raidId);
+          console.log('🎯 Raid data changed, updating:', {
+            raidId: mostRecentRaid.raidId,
+            claimedCount: mostRecentRaid.claimedCount
+          });
           setActiveRaid(mostRecentRaid);
           setLastRaidId(mostRecentRaid.raidId);
         } else {
-          console.log('✅ Same raid data, skipping update to prevent re-render');
+          // Raid data unchanged - don't trigger re-render
+          console.log('✅ Same raid data, no update needed');
         }
       } else if (!mostRecentRaid && activeRaid) {
         console.log('❌ No active raids found, clearing');
