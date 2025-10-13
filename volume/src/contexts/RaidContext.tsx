@@ -44,6 +44,7 @@ const RaidContext = createContext<RaidContextType | undefined>(undefined);
 export function RaidProvider({ children }: { children: ReactNode }) {
   const [activeRaid, setActiveRaid] = useState<ActiveRaid | null>(null);
   const [lastRaidId, setLastRaidId] = useState<string>('');
+  const [manuallyCleared, setManuallyCleared] = useState<Set<string>>(new Set());
 
   // Fetch active raids from blockchain
   const fetchActiveRaids = async () => {
@@ -82,8 +83,15 @@ export function RaidProvider({ children }: { children: ReactNode }) {
             expiryTime,
             currentTime,
             timeLeft: expiryTime - currentTime,
-            expired: currentTime >= expiryTime
+            expired: currentTime >= expiryTime,
+            manuallyCleared: manuallyCleared.has(raidData.raidId)
           });
+
+          // Skip raids that were manually cleared by user
+          if (manuallyCleared.has(raidData.raidId)) {
+            console.log('⏭️ Skipping manually cleared raid:', raidData.raidId);
+            continue;
+          }
 
           if (currentTime < expiryTime) {
             console.log('✅ Found active (non-expired) raid:', raidData.raidId);
@@ -169,6 +177,18 @@ export function RaidProvider({ children }: { children: ReactNode }) {
 
   // Load raid from localStorage on mount, then fetch from chain
   useEffect(() => {
+    // Load cleared raids list
+    const clearedRaidsStr = localStorage.getItem('cleared_raids');
+    if (clearedRaidsStr) {
+      try {
+        const clearedRaidsArray = JSON.parse(clearedRaidsStr);
+        setManuallyCleared(new Set(clearedRaidsArray));
+        console.log('📋 Loaded cleared raids list:', clearedRaidsArray);
+      } catch (error) {
+        console.error('Failed to load cleared raids:', error);
+      }
+    }
+
     const savedRaid = localStorage.getItem('active_raid');
     if (savedRaid) {
       try {
@@ -202,6 +222,12 @@ export function RaidProvider({ children }: { children: ReactNode }) {
   };
 
   const endRaid = () => {
+    // Mark current raid as manually cleared so it doesn't reappear
+    if (activeRaid) {
+      console.log('🚫 Marking raid as manually cleared:', activeRaid.raidId);
+      setManuallyCleared(prev => new Set([...prev, activeRaid.raidId]));
+      localStorage.setItem('cleared_raids', JSON.stringify([...manuallyCleared, activeRaid.raidId]));
+    }
     setActiveRaid(null);
   };
 
