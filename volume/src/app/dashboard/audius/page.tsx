@@ -79,7 +79,7 @@ function AudiusPageContent() {
 
   // Audius OAuth state
   const [audiusUser, setAudiusUser] = useState<AudiusUser | null>(null);
-  const [audiusConnected, setAudiusConnected] = useState(true); // Skip OAuth - use direct API access
+  const [audiusConnected, setAudiusConnected] = useState(false);
 
   // Audio player state
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -390,28 +390,13 @@ function AudiusPageContent() {
   };
 
   // Get stream URL from Audius API
-  const getStreamUrl = async (trackId: string): Promise<string | null> => {
-    try {
-      const apiHost = 'https://api.audius.co';
-      const apiKey = process.env.NEXT_PUBLIC_AUDIUS_API_KEY || '06ac216cd5916caeba332a0223469e28782a612eebc972a5c432efdc86aa78b9';
+  const getStreamUrl = (trackId: string): string => {
+    const apiHost = 'https://api.audius.co';
+    const apiKey = process.env.NEXT_PUBLIC_AUDIUS_API_KEY || '06ac216cd5916caeba332a0223469e28782a612eebc972a5c432efdc86aa78b9';
 
-      const response = await fetch(`${apiHost}/v1/tracks/${trackId}/stream?app_name=VOLUME`, {
-        headers: {
-          'Accept': 'audio/mpeg',
-          'X-API-Key': apiKey
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to get stream URL: ${response.status}`);
-      }
-
-      // The stream endpoint returns the audio file directly
-      return response.url;
-    } catch (error) {
-      console.error('Error getting stream URL:', error);
-      return null;
-    }
+    // Return the stream URL directly - the audio element will handle the redirect to the content node
+    // This avoids CSP issues with fetch() since the browser's native audio loading uses media-src
+    return `${apiHost}/v1/tracks/${trackId}/stream?app_name=VOLUME&api_key=${apiKey}`;
   };
 
   // Play track from queue
@@ -425,12 +410,8 @@ function AudiusPageContent() {
       setPlayerError("");
       console.log("🎵 Loading track:", track.name);
 
-      // Get stream URL
-      const streamUrl = await getStreamUrl(track.id);
-      if (!streamUrl) {
-        setPlayerError("Failed to get stream URL");
-        return;
-      }
+      // Get stream URL - the browser will handle redirects to content nodes
+      const streamUrl = getStreamUrl(track.id);
 
       // Set current track and load audio
       setCurrentTrack(track);
