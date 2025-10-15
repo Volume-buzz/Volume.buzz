@@ -33,8 +33,11 @@ const BOUNCE_VARIANTS = {
 } as const;
 
 // Separate timer component to isolate re-renders
-const RaidTimer = memo(({ createdAt }: { createdAt: number }) => {
-  const [timeRemaining, setTimeRemaining] = useState<number>(0);
+const RaidTimer = memo(({ expiresAt }: { expiresAt: number }) => {
+  // Initialize with current value immediately
+  const [timeRemaining, setTimeRemaining] = useState<number>(() =>
+    Math.max(0, expiresAt - Date.now())
+  );
 
   useEffect(() => {
     let rafId: number;
@@ -43,8 +46,7 @@ const RaidTimer = memo(({ createdAt }: { createdAt: number }) => {
     const updateTimer = () => {
       const now = Date.now();
       if (now - lastUpdate >= 1000) {
-        const elapsed = now - createdAt;
-        const remaining = Math.max(0, (30 * 60 * 1000) - elapsed);
+        const remaining = Math.max(0, expiresAt - now);
         setTimeRemaining(remaining);
         lastUpdate = now;
       }
@@ -53,7 +55,7 @@ const RaidTimer = memo(({ createdAt }: { createdAt: number }) => {
 
     rafId = requestAnimationFrame(updateTimer);
     return () => cancelAnimationFrame(rafId);
-  }, [createdAt]);
+  }, [expiresAt]);
 
   const formatTime = (ms: number) => {
     const seconds = Math.floor(ms / 1000);
@@ -129,7 +131,7 @@ const RaidDynamicIslandComponent = ({
         <Users className="h-3 w-3" />
         <span>{activeRaid.claimedCount}/{activeRaid.maxSeats}</span>
         <Clock className="h-3 w-3 ml-1" />
-        <span><RaidTimer createdAt={activeRaid.createdAt} /></span>
+        <span><RaidTimer expiresAt={activeRaid.expiresAt} /></span>
       </div>
     </motion.div>
   );
@@ -191,7 +193,7 @@ const RaidDynamicIslandComponent = ({
           <Clock className="h-4 w-4 text-orange-400 mx-auto mb-1" />
           <p className="text-xs text-white/60">Time Left</p>
           <p className="text-sm font-medium text-white">
-            <RaidTimer createdAt={activeRaid.createdAt} />
+            <RaidTimer expiresAt={activeRaid.expiresAt} />
           </p>
         </div>
       </div>

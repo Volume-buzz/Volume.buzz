@@ -14,8 +14,11 @@ interface RaidBannerProps {
 }
 
 // Separate timer component to isolate re-renders
-const RaidTimer = memo(({ createdAt }: { createdAt: number }) => {
-  const [timeRemaining, setTimeRemaining] = useState<number>(0);
+const RaidTimer = memo(({ expiresAt }: { expiresAt: number }) => {
+  // Initialize with current value immediately
+  const [timeRemaining, setTimeRemaining] = useState<number>(() =>
+    Math.max(0, expiresAt - Date.now())
+  );
 
   useEffect(() => {
     let rafId: number;
@@ -24,8 +27,7 @@ const RaidTimer = memo(({ createdAt }: { createdAt: number }) => {
     const updateTimer = () => {
       const now = Date.now();
       if (now - lastUpdate >= 1000) {
-        const elapsed = now - createdAt;
-        const remaining = Math.max(0, (30 * 60 * 1000) - elapsed);
+        const remaining = Math.max(0, expiresAt - now);
         setTimeRemaining(remaining);
         lastUpdate = now;
       }
@@ -34,7 +36,7 @@ const RaidTimer = memo(({ createdAt }: { createdAt: number }) => {
 
     rafId = requestAnimationFrame(updateTimer);
     return () => cancelAnimationFrame(rafId);
-  }, [createdAt]);
+  }, [expiresAt]);
 
   const formatTime = (ms: number) => {
     const minutes = Math.floor(ms / 60000);
@@ -97,7 +99,7 @@ const RaidBannerComponent = ({ onJoinRaid, listeningTime = 0, canClaim = false, 
                 <span className="opacity-75">Reward:</span> <strong>{activeRaid.tokensPerParticipant} {activeRaid.tokenSymbol}</strong>
               </div>
               <div>
-                <span className="opacity-75">Time:</span> <RaidTimer createdAt={activeRaid.createdAt} />
+                <span className="opacity-75">Time:</span> <RaidTimer expiresAt={activeRaid.expiresAt} />
               </div>
             </div>
           </div>
@@ -162,9 +164,9 @@ const RaidBannerComponent = ({ onJoinRaid, listeningTime = 0, canClaim = false, 
 };
 
 // Memoize component to prevent re-renders when props haven't changed
+// NOTE: listeningTime is intentionally excluded - it changes every second but doesn't affect banner display
 export const RaidBanner = memo(RaidBannerComponent, (prevProps, nextProps) => {
   return (
-    prevProps.listeningTime === nextProps.listeningTime &&
     prevProps.canClaim === nextProps.canClaim &&
     prevProps.claiming === nextProps.claiming &&
     prevProps.onJoinRaid === nextProps.onJoinRaid &&

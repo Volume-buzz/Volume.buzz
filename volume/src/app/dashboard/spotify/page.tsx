@@ -1791,11 +1791,12 @@ function SpotifyPageContent() {
           {/* Queue Card */}
           <motion.div
             className="card card--border-glow queue"
+            style={{ maxHeight: '600px', display: 'flex', flexDirection: 'column' }}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.3 }}
           >
-            <div className="card__header">
+            <div className="card__header" style={{ flexShrink: 0 }}>
               {queuedTracks.length > 0 && (
                 <TextureButton onClick={clearQueue} variant="destructive" size="sm" className="w-auto !h-8 ml-auto">
                   Clear All
