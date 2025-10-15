@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Script from 'next/script';
 import { motion } from 'framer-motion';
@@ -153,6 +153,7 @@ function SpotifyPageContent() {
   const [claiming, setClaiming] = useState(false);
 
   const playerRef = useRef<SpotifyPlayer | null>(null);
+  const lastListeningTimeRef = useRef<number>(-1); // Track previous value to prevent unnecessary re-renders
   const searchParams = useSearchParams();
 
   // Token retrieval function (following Spotify documentation)
@@ -379,19 +380,25 @@ function SpotifyPageContent() {
     console.log('🔄 Starting listening timer for raid:', activeRaid.raidId);
     setListeningTime(0);
     setCanClaim(false);
+    lastListeningTimeRef.current = -1; // Reset tracking ref
 
     const interval = setInterval(() => {
       if (playerRef.current) {
         playerRef.current.getCurrentState().then((state: WebPlaybackState | null) => {
           if (state && !state.paused) {
             const position = Math.floor(state.position / 1000);
-            setListeningTime(position);
-            console.log('⏱️ Listening time:', position, 'seconds');
 
-            // Enable claim button after 5 seconds (reduced for testing)
-            if (position >= 5) {
-              setCanClaim(true);
-              console.log('🎉 5 seconds reached! You can claim your tokens now!');
+            // Only update state if value has actually changed
+            if (position !== lastListeningTimeRef.current) {
+              setListeningTime(position);
+              lastListeningTimeRef.current = position;
+              console.log('⏱️ Listening time:', position, 'seconds');
+
+              // Enable claim button after 5 seconds (reduced for testing)
+              if (position >= 5 && !canClaim) {
+                setCanClaim(true);
+                console.log('🎉 5 seconds reached! You can claim your tokens now!');
+              }
             }
           } else if (state?.paused) {
             console.log('⏸️ Player is paused, timer not incrementing');
@@ -1154,8 +1161,8 @@ function SpotifyPageContent() {
     return null;
   };
 
-  // Raid banner handlers - RESTORED FROM WORKING COMMIT
-  const handleJoinRaid = async () => {
+  // Raid banner handlers - MEMOIZED to prevent re-renders
+  const handleJoinRaid = useCallback(async () => {
     console.log('🎯 Join raid clicked!', {
       hasRaid: !!activeRaid,
       hasWallet: !!privyUser?.wallet?.address,
@@ -1228,9 +1235,9 @@ function SpotifyPageContent() {
       console.error('❌ Error playing track:', error);
       alert(`Error playing track: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  };
+  }, [activeRaid, authenticated, privyUser, solanaWallets, ready, deviceId, login, connectWallet, getValidToken]);
 
-  const handleClaimTokens = async () => {
+  const handleClaimTokens = useCallback(async () => {
     if (!activeRaid) {
       console.log('Cannot claim tokens: No active raid');
       return;
@@ -1410,10 +1417,10 @@ function SpotifyPageContent() {
     } finally {
       setClaiming(false);
     }
-  };
+  }, [activeRaid, authenticated, privyUser, solanaWallets, login, connectWallet, getWalletAdapter]);
 
   // Handle ending raid - calls on-chain close_raid to return unclaimed tokens
-  const handleEndRaid = async () => {
+  const handleEndRaid = useCallback(async () => {
     if (!activeRaid) return;
 
     // Check if user is the creator
@@ -1523,7 +1530,7 @@ function SpotifyPageContent() {
       // Clear from UI anyway
       endRaid();
     }
-  };
+  }, [activeRaid, privyUser, endRaid, getWalletAdapter]);
 
 
   const formatTime = (ms: number) => {

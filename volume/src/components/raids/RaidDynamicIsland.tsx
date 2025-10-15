@@ -2,7 +2,7 @@
 
 import { useRaid } from '@/contexts/RaidContext';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { useState, useEffect, useMemo, memo } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { TextureButton } from '@/components/ui/texture-button';
 import { 
@@ -44,51 +44,6 @@ const RaidDynamicIslandComponent = ({
   const { user, authenticated, login } = usePrivy();
   const { wallets } = useWallets();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState<number>(0);
-
-  // Extract stable values to prevent effect re-runs on object reference changes
-  const raidCreatedAt = activeRaid?.createdAt;
-  const raidId = activeRaid?.raidId;
-
-  // Update timer using requestAnimationFrame ONLY when expanded
-  useEffect(() => {
-    if (!raidCreatedAt) return;
-
-    let rafId: number;
-    let lastUpdate = Date.now();
-
-    const updateTimer = () => {
-      const now = Date.now();
-
-      // Only update state once per second when expanded
-      if (isExpanded && now - lastUpdate >= 1000) {
-        const elapsed = now - raidCreatedAt;
-        const remaining = Math.max(0, (30 * 60 * 1000) - elapsed);
-        setTimeRemaining(remaining);
-        lastUpdate = now;
-      }
-
-      if (isExpanded) {
-        rafId = requestAnimationFrame(updateTimer);
-      }
-    };
-
-    if (isExpanded) {
-      rafId = requestAnimationFrame(updateTimer);
-    } else {
-      // When collapsed, calculate once
-      const elapsed = Date.now() - raidCreatedAt;
-      const remaining = Math.max(0, (30 * 60 * 1000) - elapsed);
-      setTimeRemaining(remaining);
-    }
-
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-    };
-  }, [raidCreatedAt, raidId, isExpanded]);
-
-  // Keep collapsed by default - user must click to expand
-  // (Removed auto-expand behavior)
 
   const formatTime = (ms: number) => {
     const seconds = Math.floor(ms / 1000);
@@ -119,6 +74,9 @@ const RaidDynamicIslandComponent = ({
   );
 
   if (!activeRaid) return null;
+
+  // Calculate time remaining directly from expiresAt (no state needed, no re-renders)
+  const timeRemaining = Math.max(0, activeRaid.expiresAt - Date.now());
 
   // Handle wallet connection
   const handleWalletConnect = async () => {

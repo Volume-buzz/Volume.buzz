@@ -13,40 +13,41 @@ interface RaidBannerProps {
   onEndRaid?: () => void;
 }
 
-const RaidBannerComponent = ({ onJoinRaid, listeningTime = 0, canClaim = false, onClaimTokens, claiming = false, onEndRaid }: RaidBannerProps) => {
-  const { activeRaid, hasClaimed } = useRaid();
-  const { user, logout, login, authenticated, connectWallet } = usePrivy();
-  const { wallets } = useWallets();
+// Separate timer component to isolate re-renders
+const RaidTimer = memo(({ createdAt }: { createdAt: number }) => {
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
 
-  // Extract stable values to prevent effect re-runs on object reference changes
-  const raidCreatedAt = activeRaid?.createdAt;
-  const raidId = activeRaid?.raidId;
-
-  // Update timer using requestAnimationFrame for smoother updates
   useEffect(() => {
-    if (!raidCreatedAt) return;
-
     let rafId: number;
     let lastUpdate = Date.now();
 
     const updateTimer = () => {
       const now = Date.now();
-      // Only update state once per second to avoid excessive re-renders
       if (now - lastUpdate >= 1000) {
-        const elapsed = now - raidCreatedAt;
+        const elapsed = now - createdAt;
         const remaining = Math.max(0, (30 * 60 * 1000) - elapsed);
         setTimeRemaining(remaining);
         lastUpdate = now;
       }
-
       rafId = requestAnimationFrame(updateTimer);
     };
 
     rafId = requestAnimationFrame(updateTimer);
-
     return () => cancelAnimationFrame(rafId);
-  }, [raidCreatedAt, raidId]);
+  }, [createdAt]);
+
+  const formatTime = (ms: number) => {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  return <strong>{formatTime(timeRemaining)}</strong>;
+});
+
+const RaidBannerComponent = ({ onJoinRaid, listeningTime = 0, canClaim = false, onClaimTokens, claiming = false, onEndRaid }: RaidBannerProps) => {
+  const { activeRaid, hasClaimed } = useRaid();
+  const { user, logout, login, authenticated, connectWallet } = usePrivy();
 
   // Check if user is authenticated and has a wallet
   const userWallet = authenticated && user?.wallet?.address ? user.wallet.address : '';
@@ -78,6 +79,9 @@ const RaidBannerComponent = ({ onJoinRaid, listeningTime = 0, canClaim = false, 
     const seconds = Math.floor((ms % 60000) / 1000);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
+
+  // Calculate time remaining directly from expiresAt (no state needed, no re-renders)
+  const timeRemaining = Math.max(0, activeRaid.expiresAt - Date.now());
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg">
