@@ -37,6 +37,21 @@ interface AudiusTrack {
   };
 }
 
+// Audius OAuth user type
+interface AudiusUser {
+  userId: number;
+  email: string;
+  name: string;
+  handle: string;
+  verified: boolean;
+  profilePicture: {
+    '150x150': string;
+    '480x480': string;
+    '1000x1000': string;
+  } | null;
+  apiKey: string | null;
+}
+
 // Extend window type for Audius SDK
 declare global {
   interface Window {
@@ -62,6 +77,10 @@ function AudiusPageContent() {
   const [sdkReady, setSdkReady] = useState(false);
   const sdkRef = useRef<any>(null);
 
+  // Audius OAuth state
+  const [audiusUser, setAudiusUser] = useState<AudiusUser | null>(null);
+  const [audiusConnected, setAudiusConnected] = useState(false);
+
   // Audio player state
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -79,11 +98,73 @@ function AudiusPageContent() {
   const [claiming, setClaiming] = useState<boolean>(false);
   const lastListeningTimeRef = useRef<number>(-1); // Track previous value to prevent unnecessary re-renders
 
-  // Mark SDK as ready immediately (using direct API instead of SDK)
+  // Initialize Audius SDK with OAuth (using browser CDN)
   useEffect(() => {
-    setSdkReady(true);
-    console.log('✅ Audius direct API ready');
-  }, []);
+    const initSDK = () => {
+      // Wait for SDK to load from CDN
+      const checkSDK = setInterval(() => {
+        if (window.audiusSdk) {
+          clearInterval(checkSDK);
+
+          try {
+            const audiusSdk = window.audiusSdk({
+              appName: 'VOLUME',
+              apiKey: process.env.NEXT_PUBLIC_AUDIUS_API_KEY || '06ac216cd5916caeba332a0223469e28782a612eebc972a5c432efdc86aa78b9'
+            });
+
+            // Initialize OAuth
+            audiusSdk.oauth.init({
+              successCallback: (user: AudiusUser) => {
+                console.log('✅ Audius OAuth success:', user);
+                setAudiusUser(user);
+                setAudiusConnected(true);
+                // Store in localStorage
+                localStorage.setItem('audius_user', JSON.stringify(user));
+              },
+              errorCallback: (error: Error) => {
+                console.error('❌ Audius OAuth error:', error);
+                setAudiusConnected(false);
+              }
+            });
+
+            sdkRef.current = audiusSdk;
+            setSdkReady(true);
+            console.log('✅ Audius SDK ready with OAuth');
+
+            // Check for existing OAuth session
+            const savedUser = localStorage.getItem('audius_user');
+            if (savedUser) {
+              try {
+                const user = JSON.parse(savedUser);
+                setAudiusUser(user);
+                setAudiusConnected(true);
+                console.log('✅ Restored Audius session:', user.handle);
+              } catch (e) {
+                console.error('Failed to restore Audius session:', e);
+                localStorage.removeItem('audius_user');
+              }
+            }
+          } catch (error) {
+            console.error('Failed to initialize Audius SDK:', error);
+            // Fallback to direct API without OAuth
+            setSdkReady(true);
+            console.log('⚠️ Using direct API fallback (no OAuth)');
+          }
+        }
+      }, 100);
+
+      // Timeout after 10 seconds
+      setTimeout(() => {
+        clearInterval(checkSDK);
+        if (!sdkReady) {
+          console.warn('⚠️ Audius SDK did not load, using direct API');
+          setSdkReady(true);
+        }
+      }, 10000);
+    };
+
+    initSDK();
+  }, [sdkReady]);
 
   // Initialize audio element
   useEffect(() => {
@@ -370,6 +451,30 @@ function AudiusPageContent() {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Audius OAuth functions
+  const handleAudiusLogin = async () => {
+    if (!sdkRef.current) {
+      console.error('Audius SDK not ready');
+      return;
+    }
+
+    try {
+      // Trigger OAuth login popup
+      await sdkRef.current.oauth.login({ scope: 'read' });
+      console.log('🔐 Audius OAuth login initiated');
+    } catch (error) {
+      console.error('Failed to initiate Audius login:', error);
+      alert('Failed to connect to Audius. Please try again.');
+    }
+  };
+
+  const handleAudiusLogout = () => {
+    setAudiusUser(null);
+    setAudiusConnected(false);
+    localStorage.removeItem('audius_user');
+    console.log('🔐 Logged out of Audius');
   };
 
   // Remove track from queue
@@ -740,7 +845,9 @@ function AudiusPageContent() {
 
   return (
     <div>
-      {/* Note: Audius SDK loading disabled - using direct API instead */}
+      {/* Load Audius SDK from CDN */}
+      <Script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js" strategy="beforeInteractive" />
+      <Script src="https://cdn.jsdelivr.net/npm/@audius/sdk@latest/dist/sdk.min.js" strategy="beforeInteractive" />
 
       {/* Raid Banner */}
       <RaidBanner
@@ -755,12 +862,51 @@ function AudiusPageContent() {
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold text-foreground">🎵 Audius Integration</h1>
-          {sdkReady && (
-            <div className="text-sm text-green-600 flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span>SDK Ready</span>
-            </div>
-          )}
+          <div className="flex items-center gap-4">
+            {sdkReady && (
+              <div className="text-sm text-green-600 flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span>SDK Ready</span>
+              </div>
+            )}
+
+            {/* Audius OAuth Status */}
+            {audiusConnected && audiusUser ? (
+              <div className="flex items-center gap-3 p-2 bg-card border rounded-lg">
+                {audiusUser.profilePicture && (
+                  <img
+                    src={audiusUser.profilePicture['150x150']}
+                    alt={audiusUser.handle}
+                    className="w-8 h-8 rounded-full"
+                  />
+                )}
+                <div className="text-sm">
+                  <div className="font-medium text-foreground flex items-center gap-1">
+                    @{audiusUser.handle}
+                    {audiusUser.verified && <span className="text-blue-500">✓</span>}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Audius Connected</div>
+                </div>
+                <button
+                  onClick={handleAudiusLogout}
+                  className="px-3 py-1 text-xs bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-md transition-colors"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleAudiusLogin}
+                disabled={!sdkReady}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg disabled:opacity-50 font-medium transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+                </svg>
+                Connect Audius
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="grid gap-6">
