@@ -931,10 +931,10 @@ function SpotifyPageContent() {
       return;
     }
 
-    // Generate unique raid ID with platform prefix
-    // Format: {platform}_{trackId}_{timestamp}
+    // Generate unique raid ID
+    // Format: {trackId}_{timestamp}
     const timestamp = Date.now().toString().slice(-6);
-    const raidId = `spotify_${selectedTrackForRaid.id}_${timestamp}`;
+    const raidId = `${selectedTrackForRaid.id}_${timestamp}`;
 
     try {
       console.log('✅ Calling deployed raid escrow program on devnet...');

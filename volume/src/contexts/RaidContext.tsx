@@ -101,30 +101,24 @@ export function RaidProvider({ children }: { children: ReactNode }) {
             console.log('✅ Found active (non-expired) raid:', raidData.raidId);
 
             // Parse track ID from raid_id
-            // New format: {platform}_{trackId}_{timestamp} (e.g., spotify_abc123_456789 or audius_Q47QxBW_456789)
-            // Old format: {trackId}_{timestamp} (e.g., abc123_456789) - treat as Spotify
+            // Format: {trackId}_{timestamp} (e.g., abc123_456789)
             const parts = raidData.raidId.split('_');
 
-            let platform = 'spotify';
-            let trackId = '';
+            // Extract track ID (everything except last part which is timestamp)
+            const trackId = parts.slice(0, -1).join('_');
 
-            if (parts.length >= 3 && (parts[0] === 'spotify' || parts[0] === 'audius')) {
-              // New format with platform prefix
-              platform = parts[0];
-              trackId = parts.slice(1, -1).join('_'); // Handle track IDs with underscores
-            } else {
-              // Old format without platform prefix - assume Spotify
-              platform = 'spotify';
-              trackId = parts.slice(0, -1).join('_'); // Everything except last part (timestamp)
-            }
-
-            // Construct URI based on platform
+            // Construct URI - default to Spotify format
+            // Note: Audius track IDs are typically alphanumeric (e.g., Q47QxBW)
+            // while Spotify track IDs are exactly 22 chars alphanumeric
             let trackUri = '';
             if (trackId) {
-              if (platform === 'audius') {
-                trackUri = `https://audius.co/track/${trackId}`;
-              } else {
+              // Simple heuristic: if trackId looks like a Spotify ID (22 chars), use spotify: URI
+              // Otherwise use Audius URL format
+              if (trackId.length === 22 && /^[a-zA-Z0-9]+$/.test(trackId)) {
                 trackUri = `spotify:track:${trackId}`;
+              } else {
+                // Assume Audius
+                trackUri = `https://audius.co/track/${trackId}`;
               }
             }
 

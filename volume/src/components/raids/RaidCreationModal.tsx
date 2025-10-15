@@ -110,10 +110,10 @@ export function RaidCreationModal({ track, platform = 'spotify', onClose }: Raid
       return;
     }
 
-    // Generate unique raid ID with platform prefix
-    // Format: {platform}_{trackId}_{timestamp}
+    // Generate unique raid ID
+    // Format: {trackId}_{timestamp}
     const timestamp = Date.now().toString().slice(-6);
-    const raidId = `${platform}_${track.id}_${timestamp}`;
+    const raidId = `${track.id}_${timestamp}`;
 
     try {
       setError('');
