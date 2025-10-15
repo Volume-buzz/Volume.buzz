@@ -254,7 +254,15 @@ export function RaidProvider({ children }: { children: ReactNode }) {
     const savedRaid = localStorage.getItem('active_raid');
     if (savedRaid) {
       try {
-        setActiveRaid(JSON.parse(savedRaid));
+        const parsedRaid = JSON.parse(savedRaid);
+        // Only restore if not expired
+        if (parsedRaid.expiresAt && parsedRaid.expiresAt > Date.now()) {
+          setActiveRaid(parsedRaid);
+          console.log('✅ Restored non-expired raid from localStorage');
+        } else {
+          console.log('⏰ Saved raid is expired, not restoring');
+          localStorage.removeItem('active_raid');
+        }
       } catch (error) {
         console.error('Failed to load raid from localStorage:', error);
       }
