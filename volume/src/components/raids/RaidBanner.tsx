@@ -74,15 +74,6 @@ const RaidBannerComponent = ({ onJoinRaid, listeningTime = 0, canClaim = false, 
     }
   };
 
-  const formatTime = (ms: number) => {
-    const minutes = Math.floor(ms / 60000);
-    const seconds = Math.floor((ms % 60000) / 1000);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  // Calculate time remaining directly from expiresAt (no state needed, no re-renders)
-  const timeRemaining = Math.max(0, activeRaid.expiresAt - Date.now());
-
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg">
       <div className="container mx-auto px-4 py-3">
@@ -106,7 +97,7 @@ const RaidBannerComponent = ({ onJoinRaid, listeningTime = 0, canClaim = false, 
                 <span className="opacity-75">Reward:</span> <strong>{activeRaid.tokensPerParticipant} {activeRaid.tokenSymbol}</strong>
               </div>
               <div>
-                <span className="opacity-75">Time:</span> <strong>{formatTime(timeRemaining)}</strong>
+                <span className="opacity-75">Time:</span> <RaidTimer createdAt={activeRaid.createdAt} />
               </div>
             </div>
           </div>
