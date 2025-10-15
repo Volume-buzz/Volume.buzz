@@ -112,11 +112,15 @@ export function RaidProvider({ children }: { children: ReactNode }) {
             console.log('✅ Found active (non-expired) raid:', raidData.raidId);
 
             // Parse track ID from raid_id
-            // Format: {trackId}_{timestamp} (e.g., abc123_456789)
-            const parts = raidData.raidId.split('_');
+            // Format: {trackId}_{timestamp}{random} or {trackId}_{timestamp}
+            // Extract track ID by removing timestamp+random suffix
+            const raidIdStr = raidData.raidId;
 
-            // Extract track ID (everything except last part which is timestamp)
-            const trackId = parts.slice(0, -1).join('_');
+            // Find the last underscore - everything before it is the track ID
+            const lastUnderscoreIndex = raidIdStr.lastIndexOf('_');
+            const trackId = lastUnderscoreIndex >= 0
+              ? raidIdStr.substring(0, lastUnderscoreIndex)
+              : raidIdStr;
 
             // Construct URI - default to Spotify format
             // Note: Audius track IDs are typically alphanumeric (e.g., Q47QxBW)

@@ -931,10 +931,12 @@ function SpotifyPageContent() {
       return;
     }
 
-    // Generate unique raid ID
-    // Format: {trackId}_{timestamp}
-    const timestamp = Date.now().toString().slice(-6);
-    const raidId = `${selectedTrackForRaid.id}_${timestamp}`;
+    // Generate unique raid ID with random suffix for guaranteed uniqueness
+    // Format: {trackId}_{timestamp+random} to prevent collisions while staying under 32 bytes
+    // Spotify track IDs: 22 chars + underscore (1) + 6 timestamp + 2 random = 31 chars total
+    const timestamp = Date.now().toString().slice(-6); // Last 6 digits
+    const random = Math.floor(Math.random() * 100).toString().padStart(2, '0'); // 2-digit random
+    const raidId = `${selectedTrackForRaid.id}_${timestamp}${random}`;
 
     try {
       console.log('✅ Calling deployed raid escrow program on devnet...');
