@@ -79,7 +79,7 @@ function AudiusPageContent() {
 
   // Audius OAuth state
   const [audiusUser, setAudiusUser] = useState<AudiusUser | null>(null);
-  const [audiusConnected, setAudiusConnected] = useState(false);
+  const [audiusConnected, setAudiusConnected] = useState(true); // Skip OAuth - use direct API access
 
   // Audio player state
   const audioRef = useRef<HTMLAudioElement | null>(null);
