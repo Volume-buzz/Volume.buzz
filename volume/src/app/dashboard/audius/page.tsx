@@ -107,10 +107,22 @@ function AudiusPageContent() {
           clearInterval(checkSDK);
 
           try {
+            // Get API key from environment
+            const apiKey = process.env.NEXT_PUBLIC_AUDIUS_API_KEY;
+
+            if (!apiKey) {
+              console.error('❌ NEXT_PUBLIC_AUDIUS_API_KEY is not set!');
+              throw new Error('Audius API key not configured');
+            }
+
+            console.log('🔑 Initializing Audius SDK with API key:', apiKey.substring(0, 8) + '...');
+
             const audiusSdk = window.audiusSdk({
               appName: 'VOLUME',
-              apiKey: process.env.NEXT_PUBLIC_AUDIUS_API_KEY || '06ac216cd5916caeba332a0223469e28782a612eebc972a5c432efdc86aa78b9'
+              apiKey: apiKey
             });
+
+            console.log('📡 Audius SDK instance created, initializing OAuth...');
 
             // Initialize OAuth
             audiusSdk.oauth.init({
@@ -123,6 +135,7 @@ function AudiusPageContent() {
               },
               errorCallback: (error: Error) => {
                 console.error('❌ Audius OAuth error:', error);
+                console.error('Error details:', error);
                 setAudiusConnected(false);
               }
             });
