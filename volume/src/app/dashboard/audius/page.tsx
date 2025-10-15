@@ -62,6 +62,13 @@ function AudiusPageContent() {
   const [sdkReady, setSdkReady] = useState(false);
   const sdkRef = useRef<any>(null);
 
+  // Audio player state
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [playerError, setPlayerError] = useState<string>("");
+
   // Raid creation state
   const [showRaidModal, setShowRaidModal] = useState(false);
   const [selectedTrackForRaid, setSelectedTrackForRaid] = useState<QueuedTrack | null>(null);
@@ -70,11 +77,57 @@ function AudiusPageContent() {
   const [listeningTime, setListeningTime] = useState<number>(0);
   const [canClaim, setCanClaim] = useState<boolean>(false);
   const [claiming, setClaiming] = useState<boolean>(false);
+  const lastListeningTimeRef = useRef<number>(-1); // Track previous value to prevent unnecessary re-renders
 
   // Mark SDK as ready immediately (using direct API instead of SDK)
   useEffect(() => {
     setSdkReady(true);
     console.log('✅ Audius direct API ready');
+  }, []);
+
+  // Initialize audio element
+  useEffect(() => {
+    const audio = new Audio();
+    audio.crossOrigin = "anonymous";
+
+    // Event listeners for audio element
+    audio.addEventListener('loadedmetadata', () => {
+      setDuration(audio.duration);
+      console.log('🎵 Audio loaded, duration:', audio.duration);
+    });
+
+    audio.addEventListener('timeupdate', () => {
+      setCurrentTime(audio.currentTime);
+    });
+
+    audio.addEventListener('play', () => {
+      setIsPlaying(true);
+      console.log('▶️ Audio started playing');
+    });
+
+    audio.addEventListener('pause', () => {
+      setIsPlaying(false);
+      console.log('⏸️ Audio paused');
+    });
+
+    audio.addEventListener('ended', () => {
+      setIsPlaying(false);
+      console.log('🏁 Audio ended');
+    });
+
+    audio.addEventListener('error', (e) => {
+      console.error('❌ Audio error:', e);
+      setPlayerError('Failed to load audio stream');
+      setIsPlaying(false);
+    });
+
+    audioRef.current = audio;
+
+    return () => {
+      audio.pause();
+      audio.src = '';
+      audio.remove();
+    };
   }, []);
 
   // Load queue from localStorage on component mount
@@ -235,10 +288,88 @@ function AudiusPageContent() {
     }
   };
 
+  // Get stream URL from Audius API
+  const getStreamUrl = async (trackId: string): Promise<string | null> => {
+    try {
+      const apiHost = 'https://api.audius.co';
+      const apiKey = process.env.NEXT_PUBLIC_AUDIUS_API_KEY || '06ac216cd5916caeba332a0223469e28782a612eebc972a5c432efdc86aa78b9';
+
+      const response = await fetch(`${apiHost}/v1/tracks/${trackId}/stream?app_name=VOLUME`, {
+        headers: {
+          'Accept': 'audio/mpeg',
+          'X-API-Key': apiKey
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to get stream URL: ${response.status}`);
+      }
+
+      // The stream endpoint returns the audio file directly
+      return response.url;
+    } catch (error) {
+      console.error('Error getting stream URL:', error);
+      return null;
+    }
+  };
+
   // Play track from queue
-  const playFromQueue = (track: QueuedTrack) => {
-    setCurrentTrack(track);
-    console.log("🎵 Now playing:", track.name);
+  const playFromQueue = async (track: QueuedTrack) => {
+    if (!audioRef.current) {
+      setPlayerError("Audio player not ready");
+      return;
+    }
+
+    try {
+      setPlayerError("");
+      console.log("🎵 Loading track:", track.name);
+
+      // Get stream URL
+      const streamUrl = await getStreamUrl(track.id);
+      if (!streamUrl) {
+        setPlayerError("Failed to get stream URL");
+        return;
+      }
+
+      // Set current track and load audio
+      setCurrentTrack(track);
+      audioRef.current.src = streamUrl;
+      await audioRef.current.play();
+
+      console.log("✅ Now playing:", track.name);
+    } catch (error) {
+      console.error("Error playing track:", error);
+      setPlayerError("Failed to play track");
+    }
+  };
+
+  // Playback control functions
+  const togglePlayback = async () => {
+    if (!audioRef.current) return;
+
+    try {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        await audioRef.current.play();
+      }
+    } catch (error) {
+      console.error("Error toggling playback:", error);
+      setPlayerError("Playback control failed");
+    }
+  };
+
+  const seekTo = (seconds: number) => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = seconds;
+    }
+  };
+
+  const formatTime = (seconds: number): string => {
+    if (!seconds || isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   // Remove track from queue
@@ -251,34 +382,42 @@ function AudiusPageContent() {
     setQueuedTracks([]);
   };
 
-  // Track listening time for raid participation
+  // Track listening time for raid participation (similar to Spotify implementation)
   useEffect(() => {
-    if (!activeRaid || !privyUser?.wallet?.address || !currentTrack) return;
+    if (!activeRaid || !privyUser?.wallet?.address) return;
 
+    // Reset timer when raid changes
     console.log('🔄 Starting listening timer for raid:', activeRaid.raidId);
     setListeningTime(0);
     setCanClaim(false);
+    lastListeningTimeRef.current = -1; // Reset tracking ref
 
     const interval = setInterval(() => {
-      setListeningTime(prev => {
-        const newTime = prev + 1;
-        console.log('⏱️ Listening time:', newTime, 'seconds');
+      if (audioRef.current && !audioRef.current.paused) {
+        const position = Math.floor(audioRef.current.currentTime);
 
-        // Enable claim button after 30 seconds
-        if (newTime >= 30) {
-          setCanClaim(true);
-          console.log('🎉 30 seconds reached! You can claim your tokens now!');
+        // Only update state if value has actually changed
+        if (position !== lastListeningTimeRef.current) {
+          setListeningTime(position);
+          lastListeningTimeRef.current = position;
+          console.log('⏱️ Listening time:', position, 'seconds');
+
+          // Enable claim button after 5 seconds (matching Spotify)
+          if (position >= 5 && !canClaim) {
+            setCanClaim(true);
+            console.log('🎉 5 seconds reached! You can claim your tokens now!');
+          }
         }
-
-        return newTime;
-      });
+      } else if (audioRef.current?.paused) {
+        console.log('⏸️ Player is paused, timer not incrementing');
+      }
     }, 1000); // Update every second
 
     return () => {
       console.log('🛑 Stopping listening timer for raid:', activeRaid.raidId);
       clearInterval(interval);
     };
-  }, [activeRaid?.raidId, privyUser?.wallet?.address, currentTrack]);
+  }, [activeRaid?.raidId, privyUser?.wallet?.address, canClaim]);
 
   // Handle joining a raid
   const handleJoinRaid = async () => {
@@ -324,8 +463,9 @@ function AudiusPageContent() {
       addedAt: Date.now()
     };
 
-    setCurrentTrack(raidTrack);
-    console.log('🎵 Now playing raid track:', activeRaid.trackName);
+    // Use playFromQueue to start playing
+    await playFromQueue(raidTrack);
+    console.log('🎵 Started playing raid track:', activeRaid.trackName);
   };
 
   // Handle claiming tokens
@@ -665,21 +805,53 @@ function AudiusPageContent() {
           {currentTrack && (
             <div className="p-6 bg-card rounded-lg border">
               <h2 className="text-xl font-semibold mb-4 text-foreground">Now Playing</h2>
-              <div className="space-y-3">
+              {playerError && (
+                <div className="mb-3 p-2 bg-destructive/10 border border-destructive/20 rounded-md">
+                  <div className="text-destructive text-sm">{playerError}</div>
+                </div>
+              )}
+              <div className="space-y-4">
                 <div>
                   <div className="text-lg font-medium text-foreground">{currentTrack.name}</div>
                   <div className="text-sm text-muted-foreground">{currentTrack.artist}</div>
                 </div>
-                <div className="w-full" style={{ height: '120px' }}>
-                  {/* Audius compact embed player */}
-                  <iframe
-                    src={`https://audius.co/embed/track/${currentTrack.id}?flavor=compact`}
-                    width="100%"
-                    height="120"
-                    allow="encrypted-media"
-                    style={{ border: 'none' }}
-                    title={`Audius player - ${currentTrack.name}`}
-                  />
+
+                {/* Progress Bar */}
+                <div className="space-y-2">
+                  <div className="relative h-2 bg-muted rounded-full overflow-hidden cursor-pointer"
+                       onClick={(e) => {
+                         const rect = e.currentTarget.getBoundingClientRect();
+                         const x = e.clientX - rect.left;
+                         const percentage = x / rect.width;
+                         seekTo(percentage * duration);
+                       }}>
+                    <div
+                      className="absolute h-full bg-purple-500 transition-all"
+                      style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{formatTime(currentTime)}</span>
+                    <span>{formatTime(duration)}</span>
+                  </div>
+                </div>
+
+                {/* Playback Controls */}
+                <div className="flex items-center justify-center gap-4">
+                  <button
+                    onClick={togglePlayback}
+                    className="w-12 h-12 rounded-full bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center transition-colors"
+                  >
+                    {isPlaying ? (
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                      </svg>
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
