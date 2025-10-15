@@ -843,6 +843,71 @@ function AudiusPageContent() {
     return null;
   };
 
+  // Show OAuth gate if not connected (matching Spotify flow)
+  if (!audiusConnected) {
+    return (
+      <div>
+        {/* Load Audius SDK from CDN */}
+        <Script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js" strategy="beforeInteractive" />
+        <Script src="https://cdn.jsdelivr.net/npm/@audius/sdk@latest/dist/sdk.min.js" strategy="beforeInteractive" />
+
+        <div className="h-full w-full flex items-center justify-center p-8">
+          <div className="max-w-md w-full bg-card border-2 rounded-3xl p-12 shadow-2xl">
+            <div className="flex flex-col items-center text-center space-y-8">
+              {/* Audius Logo/Icon */}
+              <div className="w-24 h-24 bg-gradient-to-br from-purple-600 to-pink-600 rounded-3xl flex items-center justify-center shadow-lg">
+                <svg className="w-14 h-14 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+                </svg>
+              </div>
+
+              {/* Text */}
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold text-foreground">Connect to Audius</h2>
+                <p className="text-muted-foreground text-sm">Required for music streaming</p>
+              </div>
+
+              {/* Connect Button */}
+              <button
+                onClick={handleAudiusLogin}
+                disabled={!sdkReady}
+                className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg flex items-center justify-center gap-2"
+              >
+                {!sdkReady ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                    </svg>
+                    Loading SDK...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+                    </svg>
+                    Connect with Audius
+                  </>
+                )}
+              </button>
+
+              {/* Info */}
+              <div className="text-xs text-muted-foreground">
+                <p>By connecting, you'll be able to:</p>
+                <ul className="mt-2 space-y-1 text-left">
+                  <li>• Stream decentralized music</li>
+                  <li>• Create and join raids</li>
+                  <li>• Support independent artists</li>
+                  <li>• Earn token rewards</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Load Audius SDK from CDN */}
