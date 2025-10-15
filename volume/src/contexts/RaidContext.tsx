@@ -97,6 +97,17 @@ export function RaidProvider({ children }: { children: ReactNode }) {
             continue;
           }
 
+          // Auto-clear expired raids so they don't keep showing up
+          if (currentTime >= expiryTime) {
+            console.log('⏰ Auto-clearing expired raid:', raidData.raidId);
+            setManuallyCleared(prev => {
+              const newSet = new Set([...prev, raidData.raidId]);
+              localStorage.setItem('cleared_raids', JSON.stringify([...newSet]));
+              return newSet;
+            });
+            continue;
+          }
+
           if (currentTime < expiryTime) {
             console.log('✅ Found active (non-expired) raid:', raidData.raidId);
 

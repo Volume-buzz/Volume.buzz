@@ -102,22 +102,23 @@ const RaidDynamicIslandComponent = ({
     return `${seconds}s`;
   };
 
-  if (!activeRaid) return null;
-
   // Check if user is authenticated and has a wallet
   const userWallet = authenticated && user?.wallet?.address ? user.wallet.address : '';
   const hasUserClaimed = hasClaimed(userWallet);
 
   // Memoize computed values to prevent unnecessary re-calculations
+  // IMPORTANT: These hooks MUST be called before the early return to avoid React error #310
   const isFull = useMemo(() =>
-    activeRaid.claimedCount >= activeRaid.maxSeats,
-    [activeRaid.claimedCount, activeRaid.maxSeats]
+    activeRaid ? activeRaid.claimedCount >= activeRaid.maxSeats : false,
+    [activeRaid?.claimedCount, activeRaid?.maxSeats]
   );
 
   const isCreator = useMemo(() =>
-    userWallet === activeRaid.creatorWallet,
-    [userWallet, activeRaid.creatorWallet]
+    activeRaid ? userWallet === activeRaid.creatorWallet : false,
+    [userWallet, activeRaid?.creatorWallet]
   );
+
+  if (!activeRaid) return null;
 
   // Handle wallet connection
   const handleWalletConnect = async () => {
