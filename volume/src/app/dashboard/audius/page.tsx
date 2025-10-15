@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useState, useRef } from 'react';
+import { motion } from 'framer-motion';
+import MagicBento from '@/components/MagicBento';
 import { RaidCreationModal } from '@/components/raids/RaidCreationModal';
-import { RaidBanner } from '@/components/raids/RaidBanner';
+import { RaidDynamicIsland } from '@/components/raids/RaidDynamicIsland';
 import { PrivyWalletProvider } from '@/components/wallet/privy-provider';
 import { useRaid } from '@/contexts/RaidContext';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
@@ -523,7 +525,7 @@ function AudiusPageContent() {
       console.log('🛑 Stopping listening timer for raid:', activeRaid.raidId);
       clearInterval(interval);
     };
-  }, [activeRaid?.raidId, privyUser?.wallet?.address, canClaim]);
+  }, [activeRaid?.raidId, privyUser?.wallet?.address]);
 
   // Handle joining a raid
   const handleJoinRaid = async () => {
@@ -910,13 +912,13 @@ function AudiusPageContent() {
   }
 
   return (
-    <div>
+    <div className="h-full w-full overflow-auto md:overflow-hidden" data-audius-page>
       {/* Load Audius SDK from CDN */}
       <Script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js" strategy="beforeInteractive" />
       <Script src="https://cdn.jsdelivr.net/npm/@audius/sdk@latest/dist/sdk.min.js" strategy="beforeInteractive" />
 
-      {/* Raid Banner */}
-      <RaidBanner
+      {/* Raid Dynamic Island */}
+      <RaidDynamicIsland
         onJoinRaid={handleJoinRaid}
         listeningTime={listeningTime}
         canClaim={canClaim}
@@ -925,9 +927,30 @@ function AudiusPageContent() {
         onEndRaid={handleEndRaid}
       />
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-foreground">🎵 Audius Integration</h1>
+      <div className="w-full h-auto md:h-full flex flex-col">
+        <div className="w-full flex-1 flex items-start md:items-center justify-center p-0 md:p-4 max-w-none">
+          <MagicBento
+            textAutoHide={true}
+            enableStars={false}
+            enableSpotlight={true}
+            enableBorderGlow={true}
+            disableAnimations={false}
+            spotlightRadius={400}
+            enableTilt={false}
+            clickEffect={false}
+            enableMagnetism={false}
+            simpleLayout
+            className="audius-layout"
+          >
+            {/* Control Center Card - Profile + URL Input */}
+            <motion.div
+              className="card card--border-glow control-center"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+            >
+              <div className="card__header">
+                <h1 className="text-lg font-bold text-white">Audius Integration</h1>
           <div className="flex items-center gap-4">
             {sdkReady && (
               <div className="text-sm text-green-600 flex items-center gap-2">

@@ -137,23 +137,12 @@ const RaidBannerComponent = ({ onJoinRaid, listeningTime = 0, canClaim = false, 
               </div>
             )}
 
-            {isCreator && onEndRaid && (
+            {onEndRaid && (
               <button
                 onClick={onEndRaid}
                 className="px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors"
               >
-                End Raid
-              </button>
-            )}
-
-            {/* Force clear button - always show for stuck raids */}
-            {onEndRaid && (
-              <button
-                onClick={onEndRaid}
-                className="px-4 py-2 bg-red-500/80 hover:bg-red-500 text-white text-sm font-medium rounded-lg transition-colors"
-                title="End raid"
-              >
-                ❌ Clear Raid
+                {isCreator ? 'End Raid' : '❌ Clear Raid'}
               </button>
             )}
           </div>
