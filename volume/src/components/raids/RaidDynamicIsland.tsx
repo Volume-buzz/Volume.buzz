@@ -2,7 +2,7 @@
 
 import { useRaid } from '@/contexts/RaidContext';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { useState, useMemo, memo } from 'react';
+import { useState, useEffect, useMemo, memo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { TextureButton } from '@/components/ui/texture-button';
 import { 
@@ -32,6 +32,39 @@ const BOUNCE_VARIANTS = {
   expanded: 0.3,
 } as const;
 
+// Separate timer component to isolate re-renders
+const RaidTimer = memo(({ createdAt }: { createdAt: number }) => {
+  const [timeRemaining, setTimeRemaining] = useState<number>(0);
+
+  useEffect(() => {
+    let rafId: number;
+    let lastUpdate = Date.now();
+
+    const updateTimer = () => {
+      const now = Date.now();
+      if (now - lastUpdate >= 1000) {
+        const elapsed = now - createdAt;
+        const remaining = Math.max(0, (30 * 60 * 1000) - elapsed);
+        setTimeRemaining(remaining);
+        lastUpdate = now;
+      }
+      rafId = requestAnimationFrame(updateTimer);
+    };
+
+    rafId = requestAnimationFrame(updateTimer);
+    return () => cancelAnimationFrame(rafId);
+  }, [createdAt]);
+
+  const formatTime = (ms: number) => {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
+  return <>{formatTime(timeRemaining)}</>;
+});
+
 const RaidDynamicIslandComponent = ({
   onJoinRaid,
   listeningTime = 0,
@@ -44,13 +77,6 @@ const RaidDynamicIslandComponent = ({
   const { user, authenticated, login } = usePrivy();
   const { wallets } = useWallets();
   const [isExpanded, setIsExpanded] = useState(false);
-
-  const formatTime = (ms: number) => {
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
 
   const formatListeningTime = (ms: number) => {
     const seconds = Math.floor(ms / 1000);
@@ -74,9 +100,6 @@ const RaidDynamicIslandComponent = ({
   );
 
   if (!activeRaid) return null;
-
-  // Calculate time remaining directly from expiresAt (no state needed, no re-renders)
-  const timeRemaining = Math.max(0, activeRaid.expiresAt - Date.now());
 
   // Handle wallet connection
   const handleWalletConnect = async () => {
@@ -106,7 +129,7 @@ const RaidDynamicIslandComponent = ({
         <Users className="h-3 w-3" />
         <span>{activeRaid.claimedCount}/{activeRaid.maxSeats}</span>
         <Clock className="h-3 w-3 ml-1" />
-        <span>{formatTime(timeRemaining)}</span>
+        <span><RaidTimer createdAt={activeRaid.createdAt} /></span>
       </div>
     </motion.div>
   );
@@ -168,7 +191,7 @@ const RaidDynamicIslandComponent = ({
           <Clock className="h-4 w-4 text-orange-400 mx-auto mb-1" />
           <p className="text-xs text-white/60">Time Left</p>
           <p className="text-sm font-medium text-white">
-            {formatTime(timeRemaining)}
+            <RaidTimer createdAt={activeRaid.createdAt} />
           </p>
         </div>
       </div>
