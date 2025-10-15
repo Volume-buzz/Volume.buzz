@@ -110,15 +110,22 @@ function AudiusPageContent() {
             // Get API key from environment
             const apiKey = process.env.NEXT_PUBLIC_AUDIUS_API_KEY;
 
+            console.log('🔍 Environment check:', {
+              apiKeyDefined: !!apiKey,
+              apiKeyLength: apiKey?.length || 0,
+              apiKeyPreview: apiKey ? apiKey.substring(0, 8) + '...' : 'UNDEFINED',
+              allEnvVars: Object.keys(process.env).filter(k => k.includes('AUDIUS'))
+            });
+
             if (!apiKey) {
               console.error('❌ NEXT_PUBLIC_AUDIUS_API_KEY is not set!');
-              throw new Error('Audius API key not configured');
+              console.error('Available env vars:', Object.keys(process.env));
+              throw new Error('Audius API key not configured - check Railway environment variables');
             }
 
             console.log('🔑 Initializing Audius SDK with API key:', apiKey.substring(0, 8) + '...');
 
             const audiusSdk = window.audiusSdk({
-              appName: 'VOLUME',
               apiKey: apiKey
             });
 
