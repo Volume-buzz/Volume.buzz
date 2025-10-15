@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useRef, useMemo } from 'react';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Program, AnchorProvider } from '@coral-xyz/anchor';
 import { RAID_PROGRAM_ID, SOLANA_RPC_URL } from '@/lib/raid-program';
@@ -44,8 +44,10 @@ const RaidContext = createContext<RaidContextType | undefined>(undefined);
 export function RaidProvider({ children }: { children: ReactNode }) {
   const [activeRaid, setActiveRaid] = useState<ActiveRaid | null>(null);
   const [lastRaidId, setLastRaidId] = useState<string>('');
-  const [manuallyCleared, setManuallyCleared] = useState<Set<string>>(new Set());
   const [isInitialized, setIsInitialized] = useState(false);
+
+  // Use ref instead of state to avoid triggering re-renders and re-fetches
+  const manuallyClearedRef = useRef<Set<string>>(new Set());
 
   // Ref to store previous raid for deep comparison
   const prevRaidRef = useRef<ActiveRaid | null>(null);
@@ -88,11 +90,11 @@ export function RaidProvider({ children }: { children: ReactNode }) {
             currentTime,
             timeLeft: expiryTime - currentTime,
             expired: currentTime >= expiryTime,
-            manuallyCleared: manuallyCleared.has(raidData.raidId)
+            manuallyCleared: manuallyClearedRef.current.has(raidData.raidId)
           });
 
           // Skip raids that were manually cleared by user
-          if (manuallyCleared.has(raidData.raidId)) {
+          if (manuallyClearedRef.current.has(raidData.raidId)) {
             console.log('⏭️ Skipping manually cleared raid:', raidData.raidId);
             continue;
           }
@@ -100,11 +102,8 @@ export function RaidProvider({ children }: { children: ReactNode }) {
           // Auto-clear expired raids so they don't keep showing up
           if (currentTime >= expiryTime) {
             console.log('⏰ Auto-clearing expired raid:', raidData.raidId);
-            setManuallyCleared(prev => {
-              const newSet = new Set([...prev, raidData.raidId]);
-              localStorage.setItem('cleared_raids', JSON.stringify([...newSet]));
-              return newSet;
-            });
+            manuallyClearedRef.current.add(raidData.raidId);
+            localStorage.setItem('cleared_raids', JSON.stringify([...manuallyClearedRef.current]));
             continue;
           }
 
@@ -245,7 +244,7 @@ export function RaidProvider({ children }: { children: ReactNode }) {
     if (clearedRaidsStr) {
       try {
         const clearedRaidsArray = JSON.parse(clearedRaidsStr);
-        setManuallyCleared(new Set(clearedRaidsArray));
+        manuallyClearedRef.current = new Set(clearedRaidsArray);
         console.log('📋 Loaded cleared raids list:', clearedRaidsArray);
       } catch (error) {
         console.error('Failed to load cleared raids:', error);
@@ -275,7 +274,7 @@ export function RaidProvider({ children }: { children: ReactNode }) {
     const interval = setInterval(fetchActiveRaids, 10000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isInitialized, manuallyCleared]);
+  }, [isInitialized]); // Removed manuallyCleared to prevent re-fetch loop
 
   // Save raid to localStorage whenever it changes
   useEffect(() => {
@@ -296,8 +295,8 @@ export function RaidProvider({ children }: { children: ReactNode }) {
     // Mark current raid as manually cleared so it doesn't reappear
     if (activeRaid) {
       console.log('🚫 Marking raid as manually cleared:', activeRaid.raidId);
-      setManuallyCleared(prev => new Set([...prev, activeRaid.raidId]));
-      localStorage.setItem('cleared_raids', JSON.stringify([...manuallyCleared, activeRaid.raidId]));
+      manuallyClearedRef.current.add(activeRaid.raidId);
+      localStorage.setItem('cleared_raids', JSON.stringify([...manuallyClearedRef.current]));
     }
     setActiveRaid(null);
   };
@@ -307,8 +306,15 @@ export function RaidProvider({ children }: { children: ReactNode }) {
     return activeRaid.claimedBy.includes(walletAddress);
   };
 
+  // Memoize context value to prevent re-renders when object reference changes
+  // Only create new object when activeRaid actually changes
+  const contextValue = useMemo(
+    () => ({ activeRaid, createRaid, endRaid, hasClaimed, refreshRaids: fetchActiveRaids }),
+    [activeRaid]
+  );
+
   return (
-    <RaidContext.Provider value={{ activeRaid, createRaid, endRaid, hasClaimed, refreshRaids: fetchActiveRaids }}>
+    <RaidContext.Provider value={contextValue}>
       {children}
     </RaidContext.Provider>
   );
