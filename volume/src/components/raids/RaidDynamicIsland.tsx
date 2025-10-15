@@ -2,7 +2,7 @@
 
 import { useRaid } from '@/contexts/RaidContext';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, memo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { TextureButton } from '@/components/ui/texture-button';
 import { 
@@ -32,40 +32,60 @@ const BOUNCE_VARIANTS = {
   expanded: 0.3,
 } as const;
 
-export function RaidDynamicIsland({
+const RaidDynamicIslandComponent = ({
   onJoinRaid,
   listeningTime = 0,
   canClaim = false,
   onClaimTokens,
   claiming = false,
   onEndRaid
-}: RaidDynamicIslandProps) {
+}: RaidDynamicIslandProps) => {
   const { activeRaid, hasClaimed } = useRaid();
   const { user, authenticated, login } = usePrivy();
   const { wallets } = useWallets();
   const [isExpanded, setIsExpanded] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
 
-  // Update timer every second ONLY when expanded (to prevent collapsed island from refreshing)
-  useEffect(() => {
-    if (!activeRaid) return;
+  // Extract stable values to prevent effect re-runs on object reference changes
+  const raidCreatedAt = activeRaid?.createdAt;
+  const raidId = activeRaid?.raidId;
 
-    // Only update timer if expanded
-    if (isExpanded) {
-      const interval = setInterval(() => {
-        const elapsed = Date.now() - activeRaid.createdAt;
+  // Update timer using requestAnimationFrame ONLY when expanded
+  useEffect(() => {
+    if (!raidCreatedAt) return;
+
+    let rafId: number;
+    let lastUpdate = Date.now();
+
+    const updateTimer = () => {
+      const now = Date.now();
+
+      // Only update state once per second when expanded
+      if (isExpanded && now - lastUpdate >= 1000) {
+        const elapsed = now - raidCreatedAt;
         const remaining = Math.max(0, (30 * 60 * 1000) - elapsed);
         setTimeRemaining(remaining);
-      }, 1000);
+        lastUpdate = now;
+      }
 
-      return () => clearInterval(interval);
+      if (isExpanded) {
+        rafId = requestAnimationFrame(updateTimer);
+      }
+    };
+
+    if (isExpanded) {
+      rafId = requestAnimationFrame(updateTimer);
     } else {
-      // When collapsed, just calculate once
-      const elapsed = Date.now() - activeRaid.createdAt;
+      // When collapsed, calculate once
+      const elapsed = Date.now() - raidCreatedAt;
       const remaining = Math.max(0, (30 * 60 * 1000) - elapsed);
       setTimeRemaining(remaining);
     }
-  }, [activeRaid, isExpanded]);
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [raidCreatedAt, raidId, isExpanded]);
 
   // Keep collapsed by default - user must click to expand
   // (Removed auto-expand behavior)
@@ -87,8 +107,17 @@ export function RaidDynamicIsland({
   // Check if user is authenticated and has a wallet
   const userWallet = authenticated && user?.wallet?.address ? user.wallet.address : '';
   const hasUserClaimed = hasClaimed(userWallet);
-  const isFull = activeRaid.claimedCount >= activeRaid.maxSeats;
-  const isCreator = userWallet === activeRaid.creatorWallet;
+
+  // Memoize computed values to prevent unnecessary re-calculations
+  const isFull = useMemo(() =>
+    activeRaid.claimedCount >= activeRaid.maxSeats,
+    [activeRaid.claimedCount, activeRaid.maxSeats]
+  );
+
+  const isCreator = useMemo(() =>
+    userWallet === activeRaid.creatorWallet,
+    [userWallet, activeRaid.creatorWallet]
+  );
 
   // Handle wallet connection
   const handleWalletConnect = async () => {
@@ -290,9 +319,17 @@ export function RaidDynamicIsland({
       </motion.div>
     </div>
   );
-}
+};
 
-
-
-
+// Memoize component to prevent re-renders when props haven't changed
+export const RaidDynamicIsland = memo(RaidDynamicIslandComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.listeningTime === nextProps.listeningTime &&
+    prevProps.canClaim === nextProps.canClaim &&
+    prevProps.claiming === nextProps.claiming &&
+    prevProps.onJoinRaid === nextProps.onJoinRaid &&
+    prevProps.onClaimTokens === nextProps.onClaimTokens &&
+    prevProps.onEndRaid === nextProps.onEndRaid
+  );
+});
 

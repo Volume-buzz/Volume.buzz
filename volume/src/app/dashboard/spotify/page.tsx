@@ -179,7 +179,7 @@ function SpotifyPageContent() {
             body: new URLSearchParams({
               grant_type: 'refresh_token',
               refresh_token: refreshToken,
-              client_id: process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID || '0cbcfab23fce4d88901cb75b610e63b4'
+              client_id: process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID!
             }),
           });
 
@@ -931,9 +931,10 @@ function SpotifyPageContent() {
       return;
     }
 
-    // Generate unique raid ID
+    // Generate unique raid ID with platform prefix
+    // Format: {platform}_{trackId}_{timestamp}
     const timestamp = Date.now().toString().slice(-6);
-    const raidId = `${selectedTrackForRaid.id}_${timestamp}`;
+    const raidId = `spotify_${selectedTrackForRaid.id}_${timestamp}`;
 
     try {
       console.log('✅ Calling deployed raid escrow program on devnet...');

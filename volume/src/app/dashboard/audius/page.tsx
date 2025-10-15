@@ -94,17 +94,22 @@ function AudiusPageContent() {
     localStorage.setItem('audius_queue', JSON.stringify(queuedTracks));
   }, [queuedTracks]);
 
-  // Extract track ID from Audius URL or permalink
+  // Extract track ID from Audius URL
   const extractTrackId = (url: string): string | null => {
     try {
-      // Match patterns like:
-      // https://audius.co/artist/track-slug-123
-      // /artist/track-slug-123
-      const match = url.match(/audius\.co\/([^\/]+)\/([^\/\?]+)/);
-      if (match) {
-        // Return the full permalink path: "artist/track-slug"
-        return `${match[1]}/${match[2]}`;
+      // Match track ID from embed URLs: https://audius.co/embed/track/Q47QxBW
+      const embedMatch = url.match(/audius\.co\/embed\/track\/([^\/\?]+)/);
+      if (embedMatch) {
+        return embedMatch[1];
       }
+
+      // Match permalink from regular URLs: https://audius.co/artist/track-slug
+      const permalinkMatch = url.match(/audius\.co\/([^\/]+)\/([^\/\?]+)/);
+      if (permalinkMatch) {
+        // Return the full permalink path for resolve endpoint
+        return `/${permalinkMatch[1]}/${permalinkMatch[2]}`;
+      }
+
       return null;
     } catch {
       return null;
@@ -112,20 +117,35 @@ function AudiusPageContent() {
   };
 
   // Fetch track metadata from Audius using official API
-  const getTrackFromAudius = async (permalink: string): Promise<AudiusTrack | null> => {
+  const getTrackFromAudius = async (trackIdOrPermalink: string): Promise<AudiusTrack | null> => {
     try {
-      console.log('🔍 Fetching track from Audius API:', permalink);
+      console.log('🔍 Fetching track from Audius API:', trackIdOrPermalink);
 
-      // Use official Audius API with your API key
       const apiHost = 'https://api.audius.co';
       const apiKey = process.env.NEXT_PUBLIC_AUDIUS_API_KEY || '06ac216cd5916caeba332a0223469e28782a612eebc972a5c432efdc86aa78b9';
 
-      const response = await fetch(`${apiHost}/v1/tracks/search?query=${encodeURIComponent(permalink)}&limit=1&app_name=VOLUME`, {
-        headers: {
-          'Accept': 'application/json',
-          'X-API-Key': apiKey
-        }
-      });
+      let response;
+
+      // Check if it's a direct track ID (from embed) or a permalink
+      if (trackIdOrPermalink.startsWith('/')) {
+        // It's a permalink - use resolve endpoint
+        console.log('📍 Using resolve endpoint for permalink:', trackIdOrPermalink);
+        response = await fetch(`${apiHost}/v1/resolve?url=https://audius.co${trackIdOrPermalink}&app_name=VOLUME`, {
+          headers: {
+            'Accept': 'application/json',
+            'X-API-Key': apiKey
+          }
+        });
+      } else {
+        // It's a direct track ID - use tracks endpoint
+        console.log('🆔 Using tracks endpoint for ID:', trackIdOrPermalink);
+        response = await fetch(`${apiHost}/v1/tracks/${trackIdOrPermalink}?app_name=VOLUME`, {
+          headers: {
+            'Accept': 'application/json',
+            'X-API-Key': apiKey
+          }
+        });
+      }
 
       if (!response.ok) {
         throw new Error(`API request failed: ${response.status}`);
@@ -133,8 +153,13 @@ function AudiusPageContent() {
 
       const data = await response.json();
 
-      if (data?.data && data.data.length > 0) {
-        const track = data.data[0];
+      // Handle different response formats
+      let track;
+      if (data?.data) {
+        track = Array.isArray(data.data) ? data.data[0] : data.data;
+      }
+
+      if (track) {
         console.log('✅ Found track:', track.title);
         return {
           id: track.id,
@@ -162,6 +187,8 @@ function AudiusPageContent() {
   const handleUrlSubmit = async () => {
     setUrlError("");
 
+    console.log("🔍 handleUrlSubmit called with audiusUrl:", audiusUrl);
+
     if (!audiusUrl.trim()) {
       setUrlError("Please enter an Audius URL");
       return;
@@ -173,25 +200,22 @@ function AudiusPageContent() {
     }
 
     const permalink = extractTrackId(audiusUrl);
+    console.log("📍 Extracted permalink:", permalink);
     if (!permalink) {
       setUrlError("Invalid Audius URL. Please use a track link from Audius.");
-      return;
-    }
-
-    // Check if track already exists in queue
-    if (queuedTracks.some(track => track.id === permalink)) {
-      setUrlError("This track is already in your queue");
       return;
     }
 
     try {
       // Fetch track metadata from Audius
       const trackInfo = await getTrackFromAudius(permalink);
+      console.log("📦 Fetched track info:", trackInfo);
       if (!trackInfo) {
         setUrlError("Could not fetch track information. Please check the URL.");
         return;
       }
 
+      // Allow same track to be added multiple times - use timestamp to differentiate
       const newTrack: QueuedTrack = {
         id: trackInfo.id,
         uri: audiusUrl,
@@ -201,6 +225,7 @@ function AudiusPageContent() {
         permalink: trackInfo.permalink
       };
 
+      console.log("➕ Adding track to queue:", newTrack);
       setQueuedTracks(prev => [...prev, newTrack]);
       setAudiusUrl("");
       console.log("✅ Track added to queue:", newTrack.name);
@@ -684,7 +709,7 @@ function AudiusPageContent() {
               <div className="space-y-3">
                 {queuedTracks.map((track, index) => (
                   <div
-                    key={track.id}
+                    key={`${track.id}-${track.addedAt}`}
                     className="flex items-center justify-between p-3 bg-muted/50 rounded-md hover:bg-muted/70 transition-colors"
                   >
                     <div className="flex-1">

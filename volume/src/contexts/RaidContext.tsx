@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Program, AnchorProvider } from '@coral-xyz/anchor';
 import { RAID_PROGRAM_ID, SOLANA_RPC_URL } from '@/lib/raid-program';
@@ -46,6 +46,9 @@ export function RaidProvider({ children }: { children: ReactNode }) {
   const [lastRaidId, setLastRaidId] = useState<string>('');
   const [manuallyCleared, setManuallyCleared] = useState<Set<string>>(new Set());
   const [isInitialized, setIsInitialized] = useState(false);
+
+  // Ref to store previous raid for deep comparison
+  const prevRaidRef = useRef<ActiveRaid | null>(null);
 
   // Fetch active raids from blockchain
   const fetchActiveRaids = async () => {
@@ -97,11 +100,33 @@ export function RaidProvider({ children }: { children: ReactNode }) {
           if (currentTime < expiryTime) {
             console.log('✅ Found active (non-expired) raid:', raidData.raidId);
 
-            // Parse track ID from raid_id (format: {spotifyTrackId}_{timestamp})
-            const trackId = raidData.raidId.includes('_')
-              ? raidData.raidId.split('_')[0]
-              : '';
-            const trackUri = trackId ? `spotify:track:${trackId}` : '';
+            // Parse track ID from raid_id
+            // New format: {platform}_{trackId}_{timestamp} (e.g., spotify_abc123_456789 or audius_Q47QxBW_456789)
+            // Old format: {trackId}_{timestamp} (e.g., abc123_456789) - treat as Spotify
+            const parts = raidData.raidId.split('_');
+
+            let platform = 'spotify';
+            let trackId = '';
+
+            if (parts.length >= 3 && (parts[0] === 'spotify' || parts[0] === 'audius')) {
+              // New format with platform prefix
+              platform = parts[0];
+              trackId = parts.slice(1, -1).join('_'); // Handle track IDs with underscores
+            } else {
+              // Old format without platform prefix - assume Spotify
+              platform = 'spotify';
+              trackId = parts.slice(0, -1).join('_'); // Everything except last part (timestamp)
+            }
+
+            // Construct URI based on platform
+            let trackUri = '';
+            if (trackId) {
+              if (platform === 'audius') {
+                trackUri = `https://audius.co/track/${trackId}`;
+              } else {
+                trackUri = `spotify:track:${trackId}`;
+              }
+            }
 
             console.log('🎵 Parsed track ID from raid_id:', trackId);
             console.log('🔗 Constructed track URI:', trackUri);
@@ -157,26 +182,46 @@ export function RaidProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Only update if raid actually changed (check only on-chain data, not display fields)
+      // Only update if raid actually changed (deep equality check on ALL properties)
       if (mostRecentRaid) {
         const hasChanged = !activeRaid ||
           activeRaid.raidId !== mostRecentRaid.raidId ||
           activeRaid.claimedCount !== mostRecentRaid.claimedCount ||
-          JSON.stringify(activeRaid.claimedBy) !== JSON.stringify(mostRecentRaid.claimedBy);
+          activeRaid.maxSeats !== mostRecentRaid.maxSeats ||
+          activeRaid.tokensPerParticipant !== mostRecentRaid.tokensPerParticipant ||
+          activeRaid.trackName !== mostRecentRaid.trackName ||
+          activeRaid.trackArtist !== mostRecentRaid.trackArtist ||
+          activeRaid.tokenSymbol !== mostRecentRaid.tokenSymbol ||
+          activeRaid.tokenName !== mostRecentRaid.tokenName ||
+          activeRaid.tokenMint !== mostRecentRaid.tokenMint ||
+          activeRaid.trackUri !== mostRecentRaid.trackUri ||
+          activeRaid.trackId !== mostRecentRaid.trackId ||
+          activeRaid.creatorWallet !== mostRecentRaid.creatorWallet ||
+          activeRaid.createdAt !== mostRecentRaid.createdAt ||
+          activeRaid.expiresAt !== mostRecentRaid.expiresAt ||
+          JSON.stringify(activeRaid.claimedBy.slice().sort()) !== JSON.stringify(mostRecentRaid.claimedBy.slice().sort());
 
         if (hasChanged) {
           console.log('🎯 Raid data changed, updating:', {
             raidId: mostRecentRaid.raidId,
-            claimedCount: mostRecentRaid.claimedCount
+            claimedCount: mostRecentRaid.claimedCount,
+            changes: {
+              raidId: activeRaid?.raidId !== mostRecentRaid.raidId,
+              claimedCount: activeRaid?.claimedCount !== mostRecentRaid.claimedCount,
+              trackName: activeRaid?.trackName !== mostRecentRaid.trackName,
+              trackArtist: activeRaid?.trackArtist !== mostRecentRaid.trackArtist,
+            }
           });
+          prevRaidRef.current = mostRecentRaid;
           setActiveRaid(mostRecentRaid);
           setLastRaidId(mostRecentRaid.raidId);
         } else {
-          // Raid data unchanged - don't trigger re-render
+          // Raid data unchanged - don't call setActiveRaid to prevent re-render
           console.log('✅ Same raid data, no update needed');
         }
       } else if (!mostRecentRaid && activeRaid) {
         console.log('❌ No active raids found, clearing');
+        prevRaidRef.current = null;
         setActiveRaid(null);
         setLastRaidId('');
       }

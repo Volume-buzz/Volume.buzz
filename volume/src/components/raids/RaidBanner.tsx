@@ -2,7 +2,7 @@
 
 import { useRaid } from '@/contexts/RaidContext';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, memo } from 'react';
 
 interface RaidBannerProps {
   onJoinRaid: () => void;
@@ -13,32 +13,57 @@ interface RaidBannerProps {
   onEndRaid?: () => void;
 }
 
-export function RaidBanner({ onJoinRaid, listeningTime = 0, canClaim = false, onClaimTokens, claiming = false, onEndRaid }: RaidBannerProps) {
+const RaidBannerComponent = ({ onJoinRaid, listeningTime = 0, canClaim = false, onClaimTokens, claiming = false, onEndRaid }: RaidBannerProps) => {
   const { activeRaid, hasClaimed } = useRaid();
   const { user, logout, login, authenticated, connectWallet } = usePrivy();
   const { wallets } = useWallets();
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
 
-  // Update timer every second
+  // Extract stable values to prevent effect re-runs on object reference changes
+  const raidCreatedAt = activeRaid?.createdAt;
+  const raidId = activeRaid?.raidId;
+
+  // Update timer using requestAnimationFrame for smoother updates
   useEffect(() => {
-    if (!activeRaid) return;
+    if (!raidCreatedAt) return;
 
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - activeRaid.createdAt;
-      const remaining = Math.max(0, (30 * 60 * 1000) - elapsed); // 30 minute raid
-      setTimeRemaining(remaining);
-    }, 1000);
+    let rafId: number;
+    let lastUpdate = Date.now();
 
-    return () => clearInterval(interval);
-  }, [activeRaid]);
+    const updateTimer = () => {
+      const now = Date.now();
+      // Only update state once per second to avoid excessive re-renders
+      if (now - lastUpdate >= 1000) {
+        const elapsed = now - raidCreatedAt;
+        const remaining = Math.max(0, (30 * 60 * 1000) - elapsed);
+        setTimeRemaining(remaining);
+        lastUpdate = now;
+      }
+
+      rafId = requestAnimationFrame(updateTimer);
+    };
+
+    rafId = requestAnimationFrame(updateTimer);
+
+    return () => cancelAnimationFrame(rafId);
+  }, [raidCreatedAt, raidId]);
 
   if (!activeRaid) return null;
 
   // Check if user is authenticated and has a wallet
   const userWallet = authenticated && user?.wallet?.address ? user.wallet.address : '';
   const hasUserClaimed = hasClaimed(userWallet);
-  const isFull = activeRaid.claimedCount >= activeRaid.maxSeats;
-  const isCreator = userWallet === activeRaid.creatorWallet;
+
+  // Memoize computed values to prevent unnecessary re-calculations
+  const isFull = useMemo(() =>
+    activeRaid.claimedCount >= activeRaid.maxSeats,
+    [activeRaid.claimedCount, activeRaid.maxSeats]
+  );
+
+  const isCreator = useMemo(() =>
+    userWallet === activeRaid.creatorWallet,
+    [userWallet, activeRaid.creatorWallet]
+  );
 
   // Handle wallet connection
   const handleWalletConnect = async () => {
@@ -138,4 +163,16 @@ export function RaidBanner({ onJoinRaid, listeningTime = 0, canClaim = false, on
       </div>
     </div>
   );
-}
+};
+
+// Memoize component to prevent re-renders when props haven't changed
+export const RaidBanner = memo(RaidBannerComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.listeningTime === nextProps.listeningTime &&
+    prevProps.canClaim === nextProps.canClaim &&
+    prevProps.claiming === nextProps.claiming &&
+    prevProps.onJoinRaid === nextProps.onJoinRaid &&
+    prevProps.onClaimTokens === nextProps.onClaimTokens &&
+    prevProps.onEndRaid === nextProps.onEndRaid
+  );
+});
