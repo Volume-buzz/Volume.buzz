@@ -536,8 +536,8 @@ function AudiusPageContent() {
           lastListeningTimeRef.current = position;
           console.log('⏱️ Listening time:', position, 'seconds');
 
-          // Enable claim button after 5 seconds (matching Spotify)
-          if (position >= 5) {
+          // Enable claim button after 5 seconds (matching Spotify exactly)
+          if (position >= 5 && !canClaim) {
             setCanClaim(true);
             console.log('🎉 5 seconds reached! You can claim your tokens now!');
           }
