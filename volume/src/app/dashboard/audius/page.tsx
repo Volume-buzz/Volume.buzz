@@ -430,11 +430,20 @@ function AudiusPageContent() {
   };
 
   // Playback control functions
+  const togglePlaybackRef = useRef<boolean>(false);
   const togglePlayback = async () => {
     if (!audioRef.current) {
       console.error('❌ Audio ref not available');
       return;
     }
+
+    // Prevent rapid-fire toggles
+    if (togglePlaybackRef.current) {
+      console.log('⚠️ Toggle already in progress, ignoring');
+      return;
+    }
+
+    togglePlaybackRef.current = true;
 
     try {
       // Get the actual paused state from the audio element itself
@@ -451,6 +460,11 @@ function AudiusPageContent() {
     } catch (error) {
       console.error("❌ Error toggling playback:", error);
       setPlayerError("Playback control failed");
+    } finally {
+      // Reset lock after a short delay
+      setTimeout(() => {
+        togglePlaybackRef.current = false;
+      }, 300);
     }
   };
 
@@ -506,20 +520,21 @@ function AudiusPageContent() {
     if (!activeRaid || !privyUser?.wallet?.address) return;
 
     // Reset timer when raid changes
-    console.log('🔄 Starting listening timer for raid:', activeRaid.raidId);
+    console.log('🔄 Starting listening timer for raid:', activeRaid.raidId, 'track:', activeRaid.trackId);
     setListeningTime(0);
     setCanClaim(false);
     lastListeningTimeRef.current = -1; // Reset tracking ref
 
     const interval = setInterval(() => {
-      if (audioRef.current && !audioRef.current.paused) {
+      // Check if audio is playing AND we're playing the raid track
+      if (audioRef.current && !audioRef.current.paused && currentTrack?.id === activeRaid.trackId) {
         const position = Math.floor(audioRef.current.currentTime);
 
         // Only update state if value has actually changed
         if (position !== lastListeningTimeRef.current) {
           setListeningTime(position);
           lastListeningTimeRef.current = position;
-          console.log('⏱️ Listening time:', position, 'seconds');
+          console.log('⏱️ Listening time:', position, 'seconds (raid track:', activeRaid.trackId, ')');
 
           // Enable claim button after 5 seconds (matching Spotify)
           if (position >= 5 && !canClaim) {
@@ -529,6 +544,8 @@ function AudiusPageContent() {
         }
       } else if (audioRef.current?.paused) {
         console.log('⏸️ Player is paused, timer not incrementing');
+      } else if (currentTrack?.id !== activeRaid.trackId) {
+        console.log('⚠️ Not playing raid track. Current:', currentTrack?.id, 'Raid:', activeRaid.trackId);
       }
     }, 1000); // Update every second
 
@@ -536,7 +553,7 @@ function AudiusPageContent() {
       console.log('🛑 Stopping listening timer for raid:', activeRaid.raidId);
       clearInterval(interval);
     };
-  }, [activeRaid?.raidId, privyUser?.wallet?.address]);
+  }, [activeRaid?.raidId, activeRaid?.trackId, privyUser?.wallet?.address, currentTrack?.id, canClaim]);
 
   // Handle joining a raid
   const handleJoinRaid = async () => {
@@ -573,14 +590,26 @@ function AudiusPageContent() {
 
     console.log('✅ All checks passed, starting raid listening...');
 
-    // Play the raid track directly using the track data from the raid
-    const raidTrack: QueuedTrack = {
+    // Fetch full track info to get artwork
+    let raidTrack: QueuedTrack = {
       id: activeRaid.trackId,
       uri: activeRaid.trackUri,
       name: activeRaid.trackName,
       artist: activeRaid.trackArtist,
       addedAt: Date.now()
     };
+
+    // Try to fetch artwork from Audius API
+    try {
+      const trackInfo = await getTrackFromAudius(activeRaid.trackId);
+      if (trackInfo?.artwork) {
+        raidTrack.artwork = trackInfo.artwork['150x150'];
+        console.log('✅ Fetched artwork for raid track');
+      }
+    } catch (error) {
+      console.warn('Failed to fetch raid track artwork:', error);
+      // Continue without artwork
+    }
 
     // Use playFromQueue to start playing
     await playFromQueue(raidTrack);
@@ -799,10 +828,12 @@ function AudiusPageContent() {
         console.log('⚠️ Transaction may have succeeded despite error');
 
         try {
-          const connection = new Connection(SOLANA_RPC_URL, 'confirmed');
+          // Re-import to get SOLANA_RPC_URL in this scope
+          const { RAID_PROGRAM_ID: programId, SOLANA_RPC_URL: rpcUrl } = await import('@/lib/raid-program');
+          const connection = new Connection(rpcUrl, 'confirmed');
           const [raidEscrowPDA] = PublicKey.findProgramAddressSync(
             [Buffer.from('raid'), Buffer.from(activeRaid.raidId)],
-            RAID_PROGRAM_ID
+            programId
           );
 
           // Try to fetch the raid account
