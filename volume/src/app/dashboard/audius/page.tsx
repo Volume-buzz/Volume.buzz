@@ -942,7 +942,7 @@ function AudiusPageContent() {
             simpleLayout
             className="audius-layout"
           >
-            {/* Control Center Card - Profile + URL Input */}
+            {/* Control Center Card - Profile + URL Input + OAuth Status */}
             <motion.div
               className="card card--border-glow control-center"
               initial={{ opacity: 0, y: 20 }}
@@ -950,245 +950,234 @@ function AudiusPageContent() {
               transition={{ duration: 0.4, delay: 0.1 }}
             >
               <div className="card__header">
-                <h1 className="text-lg font-bold text-white">Audius Integration</h1>
-          <div className="flex items-center gap-4">
-            {sdkReady && (
-              <div className="text-sm text-green-600 flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span>SDK Ready</span>
-              </div>
-            )}
-
-            {/* Audius OAuth Status */}
-            {audiusConnected && audiusUser ? (
-              <div className="flex items-center gap-3 p-2 bg-card border rounded-lg">
-                {audiusUser.profilePicture && (
-                  <img
-                    src={audiusUser.profilePicture['150x150']}
-                    alt={audiusUser.handle}
-                    className="w-8 h-8 rounded-full"
-                  />
-                )}
-                <div className="text-sm">
-                  <div className="font-medium text-foreground flex items-center gap-1">
-                    @{audiusUser.handle}
-                    {audiusUser.verified && <span className="text-blue-500">✓</span>}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Audius Connected</div>
-                </div>
-                <button
-                  onClick={handleAudiusLogout}
-                  className="px-3 py-1 text-xs bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-md transition-colors"
-                >
-                  Logout
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={handleAudiusLogin}
-                disabled={!sdkReady}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg disabled:opacity-50 font-medium transition-colors flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
-                </svg>
-                Connect Audius
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="grid gap-6">
-          {/* Audius URL Input */}
-          <div className="p-6 bg-card rounded-lg border">
-            <h2 className="text-xl font-semibold mb-4 text-foreground">Play by Audius Link</h2>
-
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="audius-url" className="block text-sm font-medium text-foreground mb-2">
-                  Paste Audius track URL
-                </label>
-                <input
-                  id="audius-url"
-                  type="text"
-                  value={audiusUrl}
-                  onChange={(e) => setAudiusUrl(e.target.value)}
-                  placeholder="https://audius.co/artist/track-name"
-                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  onKeyPress={(e) => e.key === 'Enter' && handleUrlSubmit()}
-                />
-                {urlError && (
-                  <p className="mt-2 text-sm text-destructive">{urlError}</p>
-                )}
-              </div>
-
-              <button
-                onClick={handleUrlSubmit}
-                disabled={!audiusUrl.trim()}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md disabled:opacity-50 font-medium"
-              >
-                ➕ Add to Queue
-              </button>
-
-              <p className="text-xs text-muted-foreground">
-                Copy track links from Audius. Example: https://audius.co/artist/track-name
-              </p>
-            </div>
-          </div>
-
-          {/* Current Track */}
-          {currentTrack && (
-            <div className="p-6 bg-card rounded-lg border">
-              <h2 className="text-xl font-semibold mb-4 text-foreground">Now Playing</h2>
-              {playerError && (
-                <div className="mb-3 p-2 bg-destructive/10 border border-destructive/20 rounded-md">
-                  <div className="text-destructive text-sm">{playerError}</div>
-                </div>
-              )}
-              <div className="space-y-4">
-                <div>
-                  <div className="text-lg font-medium text-foreground">{currentTrack.name}</div>
-                  <div className="text-sm text-muted-foreground">{currentTrack.artist}</div>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="space-y-2">
-                  <div className="relative h-2 bg-muted rounded-full overflow-hidden cursor-pointer"
-                       onClick={(e) => {
-                         const rect = e.currentTarget.getBoundingClientRect();
-                         const x = e.clientX - rect.left;
-                         const percentage = x / rect.width;
-                         seekTo(percentage * duration);
-                       }}>
-                    <div
-                      className="absolute h-full bg-purple-500 transition-all"
-                      style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+                <div className="flex items-center gap-3 min-w-0">
+                  {audiusUser?.profilePicture ? (
+                    <img
+                      src={audiusUser.profilePicture['150x150']}
+                      alt={audiusUser.handle}
+                      className="w-10 h-10 rounded-full"
                     />
-                  </div>
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{formatTime(currentTime)}</span>
-                    <span>{formatTime(duration)}</span>
-                  </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
+                      A
+                    </div>
+                  )}
+                  <h2 className="text-lg font-bold text-white truncate">
+                    {audiusUser ? `@${audiusUser.handle}` : 'Audius'}
+                  </h2>
                 </div>
+              </div>
 
-                {/* Playback Controls */}
-                <div className="flex items-center justify-center gap-4">
-                  <button
-                    onClick={togglePlayback}
-                    className="w-12 h-12 rounded-full bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center transition-colors"
-                  >
-                    {isPlaying ? (
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z"/>
-                      </svg>
+              <div className="card__content mt-4">
+                <div className="space-y-4">
+                  {/* Audius URL Input */}
+                  <div>
+                    <label htmlFor="audius-url" className="block text-sm font-medium text-white/80 mb-2">
+                      Audius Track URL
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        id="audius-url"
+                        type="text"
+                        value={audiusUrl}
+                        onChange={(e) => setAudiusUrl(e.target.value)}
+                        placeholder="https://audius.co/artist/track-name"
+                        className="flex-1 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        onKeyPress={(e) => e.key === 'Enter' && handleUrlSubmit()}
+                      />
+                      <button
+                        onClick={handleUrlSubmit}
+                        disabled={!audiusUrl.trim()}
+                        className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Add
+                      </button>
+                    </div>
+                    {urlError && (
+                      <p className="mt-2 text-sm text-red-300">{urlError}</p>
                     )}
-                  </button>
+                  </div>
+
+                  {/* Connection Status */}
+                  {sdkReady && (
+                    <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                      <div className="flex items-center gap-2 text-green-400">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="font-medium">SDK Ready</span>
+                      </div>
+                      {audiusUser && (
+                        <div className="mt-2 flex items-center justify-between">
+                          <p className="text-sm text-white/60">
+                            Logged in as @{audiusUser.handle}
+                            {audiusUser.verified && <span className="text-blue-400 ml-1">✓</span>}
+                          </p>
+                          <button
+                            onClick={handleAudiusLogout}
+                            className="text-xs text-red-400 hover:text-red-300"
+                          >
+                            Logout
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          )}
+            </motion.div>
 
-          {/* Song Queue */}
-          <div className="p-6 bg-card rounded-lg border">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-foreground">Track Queue</h2>
-              {queuedTracks.length > 0 && (
-                <button
-                  onClick={clearQueue}
-                  className="text-sm text-destructive hover:text-destructive/80 font-medium"
-                >
-                  Clear All
-                </button>
-              )}
-            </div>
+            {/* Player Card - Only show when we have a current track */}
+            {currentTrack && (
+              <motion.div
+                className="card card--border-glow player"
+                style={{ height: 'auto', minHeight: 420 }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.2 }}
+              >
+                <div className="card__content">
+                  {/* Track info */}
+                  <div className="mb-4">
+                    <h3 className="text-xl font-bold text-white mb-1 truncate">
+                      {currentTrack.name}
+                    </h3>
+                    <p className="text-white/60 truncate">
+                      {currentTrack.artist}
+                    </p>
+                  </div>
 
-            {queuedTracks.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <div className="text-2xl mb-2">🎵</div>
-                <p>No tracks in queue</p>
-                <p className="text-sm">Add tracks using Audius links above</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {queuedTracks.map((track, index) => (
-                  <div
-                    key={`${track.id}-${track.addedAt}`}
-                    className="flex items-center justify-between p-3 bg-muted/50 rounded-md hover:bg-muted/70 transition-colors"
-                  >
-                    <div className="flex-1">
-                      <div className="font-medium text-foreground">{track.name}</div>
-                      <div className="text-sm text-muted-foreground">{track.artist}</div>
-                      <div className="text-xs text-muted-foreground">
-                        Added {new Date(track.addedAt).toLocaleTimeString()}
-                      </div>
+                  {/* Player error */}
+                  {playerError && (
+                    <div className="mb-3 p-2 bg-red-500/20 border border-red-500/30 rounded-md">
+                      <div className="text-red-300 text-sm">{playerError}</div>
                     </div>
+                  )}
 
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">#{index + 1}</span>
-                      {activeRaid && activeRaid.trackId === track.id && privyUser?.wallet?.address === activeRaid.creatorWallet ? (
-                        <button
-                          onClick={() => endRaid()}
-                          className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded"
-                        >
-                          🛑 End Raid
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setSelectedTrackForRaid(track);
-                            setShowRaidModal(true);
-                          }}
-                          disabled={!!activeRaid}
-                          className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded disabled:opacity-50"
-                        >
-                          🎯 Raid
-                        </button>
-                      )}
-                      <button
-                        onClick={() => playFromQueue(track)}
-                        className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded"
-                      >
-                        ▶️ Play
-                      </button>
-                      <button
-                        onClick={() => removeFromQueue(track.id)}
-                        className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded"
-                      >
-                        ✕
-                      </button>
+                  {/* Progress Bar */}
+                  <div className="space-y-2 mb-4">
+                    <div
+                      className="relative h-2 bg-white/10 rounded-full overflow-hidden cursor-pointer"
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        const percentage = x / rect.width;
+                        seekTo(percentage * duration);
+                      }}
+                    >
+                      <div
+                        className="absolute h-full bg-purple-500 transition-all"
+                        style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs text-white/60">
+                      <span>{formatTime(currentTime)}</span>
+                      <span>{formatTime(duration)}</span>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
 
-          {/* Features Info */}
-          <div className="p-6 bg-muted/50 rounded-lg border">
-            <h3 className="font-semibold mb-3 text-foreground">🎯 Audius Features</h3>
-            <div className="grid md:grid-cols-2 gap-3 text-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                <span>Decentralized music streaming</span>
+                  {/* Playback Controls */}
+                  <div className="flex items-center justify-center gap-4">
+                    <button
+                      onClick={togglePlayback}
+                      className="w-14 h-14 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white flex items-center justify-center transition-all shadow-lg"
+                    >
+                      {isPlaying ? (
+                        <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                        </svg>
+                      ) : (
+                        <svg className="w-6 h-6 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z"/>
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Hidden audio element */}
+                  <audio ref={audioRef} className="hidden" />
+                </div>
+              </motion.div>
+            )}
+
+            {/* Queue Card */}
+            <motion.div
+              className="card card--border-glow queue"
+              style={{ maxHeight: '600px', display: 'flex', flexDirection: 'column' }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.3 }}
+            >
+              <div className="card__header" style={{ flexShrink: 0 }}>
+                <div className="flex items-center justify-between w-full">
+                  <h2 className="text-lg font-bold text-white">Track Queue</h2>
+                  {queuedTracks.length > 0 && (
+                    <button
+                      onClick={clearQueue}
+                      className="text-sm text-red-400 hover:text-red-300 font-medium"
+                    >
+                      Clear All
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                <span>Direct artist support</span>
+
+              <div className="card__content" style={{ overflowY: 'auto', flex: 1 }}>
+                {queuedTracks.length === 0 ? (
+                  <div className="text-center py-8 text-white/60">
+                    <div className="text-2xl mb-2">🎵</div>
+                    <p>No tracks in queue</p>
+                    <p className="text-sm">Add tracks using Audius links above</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {queuedTracks.map((track, index) => (
+                      <div
+                        key={`${track.id}-${track.addedAt}`}
+                        className={`p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors ${
+                          currentTrack?.id === track.id && currentTrack?.addedAt === track.addedAt ? 'ring-2 ring-purple-500' : ''
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white font-medium truncate">{track.name}</p>
+                            <p className="text-white/60 text-sm truncate">{track.artist}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            {activeRaid && activeRaid.trackId === track.id && (
+                              <span className="px-2 py-1 bg-purple-500/20 text-purple-300 text-xs font-medium rounded">
+                                Active Raid
+                              </span>
+                            )}
+                            <button
+                              onClick={() => {
+                                setSelectedTrackForRaid(track);
+                                setShowRaidModal(true);
+                              }}
+                              disabled={!!activeRaid}
+                              className="px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium rounded hover:from-purple-600 hover:to-pink-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Create Raid
+                            </button>
+                            <button
+                              onClick={() => playFromQueue(track)}
+                              className="px-3 py-1 bg-white/10 hover:bg-white/20 text-white text-sm font-medium rounded transition-colors"
+                            >
+                              ▶️
+                            </button>
+                            <button
+                              onClick={() => removeFromQueue(track.id)}
+                              className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-300 text-sm font-medium rounded transition-colors"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                <span>Web3-native platform</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                <span>Raid coordination enabled</span>
-              </div>
-            </div>
-          </div>
+            </motion.div>
+          </MagicBento>
         </div>
       </div>
 
