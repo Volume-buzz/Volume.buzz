@@ -198,8 +198,8 @@ const RaidDynamicIslandComponent = ({
         </div>
       </div>
 
-      {/* Listening Progress */}
-      {listeningTime > 0 && (
+      {/* Listening Progress - Only show if listeningTime is provided */}
+      {listeningTime !== undefined && listeningTime > 0 && (
         <div className="mb-4">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs text-white/60">Listening Progress</span>
@@ -306,9 +306,9 @@ const RaidDynamicIslandComponent = ({
 };
 
 // Memoize component to prevent re-renders when props haven't changed
+// NOTE: listeningTime is intentionally excluded - it changes every second but only affects progress bar when expanded
 export const RaidDynamicIsland = memo(RaidDynamicIslandComponent, (prevProps, nextProps) => {
   return (
-    prevProps.listeningTime === nextProps.listeningTime &&
     prevProps.canClaim === nextProps.canClaim &&
     prevProps.claiming === nextProps.claiming &&
     prevProps.onJoinRaid === nextProps.onJoinRaid &&

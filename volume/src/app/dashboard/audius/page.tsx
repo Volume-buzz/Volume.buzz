@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import MagicBento from '@/components/MagicBento';
 import { RaidCreationModal } from '@/components/raids/RaidCreationModal';
@@ -515,37 +515,35 @@ function AudiusPageContent() {
     setQueuedTracks([]);
   };
 
-  // Track listening time for raid participation (similar to Spotify implementation)
+  // Track listening time for raid participation (matching Spotify implementation)
   useEffect(() => {
     if (!activeRaid || !privyUser?.wallet?.address) return;
 
     // Reset timer when raid changes
-    console.log('🔄 Starting listening timer for raid:', activeRaid.raidId, 'track:', activeRaid.trackId);
+    console.log('🔄 Starting listening timer for raid:', activeRaid.raidId);
     setListeningTime(0);
     setCanClaim(false);
     lastListeningTimeRef.current = -1; // Reset tracking ref
 
     const interval = setInterval(() => {
-      // Check if audio is playing AND we're playing the raid track
-      if (audioRef.current && !audioRef.current.paused && currentTrack?.id === activeRaid.trackId) {
+      // Check if audio is playing
+      if (audioRef.current && !audioRef.current.paused) {
         const position = Math.floor(audioRef.current.currentTime);
 
         // Only update state if value has actually changed
         if (position !== lastListeningTimeRef.current) {
           setListeningTime(position);
           lastListeningTimeRef.current = position;
-          console.log('⏱️ Listening time:', position, 'seconds (raid track:', activeRaid.trackId, ')');
+          console.log('⏱️ Listening time:', position, 'seconds');
 
           // Enable claim button after 5 seconds (matching Spotify)
-          if (position >= 5 && !canClaim) {
+          if (position >= 5) {
             setCanClaim(true);
             console.log('🎉 5 seconds reached! You can claim your tokens now!');
           }
         }
       } else if (audioRef.current?.paused) {
         console.log('⏸️ Player is paused, timer not incrementing');
-      } else if (currentTrack?.id !== activeRaid.trackId) {
-        console.log('⚠️ Not playing raid track. Current:', currentTrack?.id, 'Raid:', activeRaid.trackId);
       }
     }, 1000); // Update every second
 
@@ -553,10 +551,10 @@ function AudiusPageContent() {
       console.log('🛑 Stopping listening timer for raid:', activeRaid.raidId);
       clearInterval(interval);
     };
-  }, [activeRaid?.raidId, activeRaid?.trackId, privyUser?.wallet?.address, currentTrack?.id, canClaim]);
+  }, [activeRaid?.raidId, privyUser?.wallet?.address]);
 
   // Handle joining a raid
-  const handleJoinRaid = async () => {
+  const handleJoinRaid = useCallback(async () => {
     console.log('🎯 Join raid clicked!', {
       hasRaid: !!activeRaid,
       hasWallet: !!privyUser?.wallet?.address,
@@ -614,10 +612,10 @@ function AudiusPageContent() {
     // Use playFromQueue to start playing
     await playFromQueue(raidTrack);
     console.log('🎵 Started playing raid track:', activeRaid.trackName);
-  };
+  }, [activeRaid, authenticated, privyUser, solanaWallets, login, connectWallet]);
 
   // Handle claiming tokens
-  const handleClaimTokens = async () => {
+  const handleClaimTokens = useCallback(async () => {
     if (!activeRaid) {
       console.log('Cannot claim tokens: No active raid');
       return;
@@ -649,6 +647,7 @@ function AudiusPageContent() {
       // Dynamic imports
       const { Program, AnchorProvider } = await import('@coral-xyz/anchor');
       const { RAID_PROGRAM_ID, SOLANA_RPC_URL } = await import('@/lib/raid-program');
+      const { createAssociatedTokenAccountInstruction } = await import('@solana/spl-token');
       const idl = await import('@/lib/idl/raid_escrow.json');
 
       // Get wallet adapter
@@ -695,6 +694,30 @@ function AudiusPageContent() {
         participantPubkey
       );
 
+      // Check if participant token account exists, create if not
+      const participantAccountInfo = await connection.getAccountInfo(participantTokenAccount);
+      if (!participantAccountInfo) {
+        console.log('📦 Creating participant token account...');
+        const createAtaIx = createAssociatedTokenAccountInstruction(
+          participantPubkey,
+          participantTokenAccount,
+          participantPubkey,
+          tokenMintPubkey,
+          TOKEN_PROGRAM_ID,
+          ASSOCIATED_TOKEN_PROGRAM_ID
+        );
+
+        const createTx = new Transaction().add(createAtaIx);
+        const { blockhash } = await connection.getLatestBlockhash();
+        createTx.recentBlockhash = blockhash;
+        createTx.feePayer = participantPubkey;
+
+        const signedCreateTx = await walletAdapter.signTransaction(createTx);
+        const createSig = await connection.sendRawTransaction(signedCreateTx.serialize());
+        await connection.confirmTransaction(createSig, 'confirmed');
+        console.log('✅ Created participant token account:', createSig);
+      }
+
       console.log('📡 Calling claim_tokens on devnet program...');
 
       // Check if raid exists on-chain
@@ -735,16 +758,24 @@ function AudiusPageContent() {
       setClaiming(false);
       alert(`Failed to claim tokens: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  };
+  }, [activeRaid, authenticated, privyUser, solanaWallets, login, connectWallet]);
 
   // Handle ending raid - calls on-chain close_raid to return unclaimed tokens
-  const handleEndRaid = async () => {
+  const handleEndRaid = useCallback(async () => {
     if (!activeRaid) return;
 
     // Check if user is the creator
     const userWallet = privyUser?.wallet?.address;
     if (!userWallet || userWallet !== activeRaid.creatorWallet) {
       // Not the creator, just clear locally
+      console.log('🧹 Clearing raid state locally (not creator)');
+
+      // Clear listening state
+      setListeningTime(0);
+      setCanClaim(false);
+      lastListeningTimeRef.current = -1;
+
+      // Clear from context (which updates localStorage)
       endRaid();
       return;
     }
@@ -789,6 +820,12 @@ function AudiusPageContent() {
       } catch (err) {
         // Raid doesn't exist, just clear UI
         console.log('⚠️ Raid already closed or expired, clearing UI only');
+
+        // Clear listening state
+        setListeningTime(0);
+        setCanClaim(false);
+        lastListeningTimeRef.current = -1;
+
         endRaid();
         return;
       }
@@ -814,6 +851,11 @@ function AudiusPageContent() {
       console.log('✅ Raid closed! Transaction:', tx);
 
       alert(`✅ Raid closed! Unclaimed tokens returned to your wallet.\n\nTransaction:\nhttps://explorer.solana.com/tx/${tx}?cluster=devnet`);
+
+      // Clear listening state
+      setListeningTime(0);
+      setCanClaim(false);
+      lastListeningTimeRef.current = -1;
 
       // Clear local state
       endRaid();
@@ -853,6 +895,12 @@ function AudiusPageContent() {
               // Raid doesn't exist anymore - transaction succeeded!
               console.log('✅ Raid successfully closed (verified on-chain)');
               alert(`✅ Raid closed successfully! Unclaimed tokens have been returned to your wallet.`);
+
+              // Clear listening state
+              setListeningTime(0);
+              setCanClaim(false);
+              lastListeningTimeRef.current = -1;
+
               endRaid();
             }
           }
@@ -865,7 +913,7 @@ function AudiusPageContent() {
         alert(`Failed to close raid: ${errorMsg}`);
       }
     }
-  };
+  }, [activeRaid, privyUser, endRaid]);
 
   // Get wallet adapter
   const getWalletAdapter = () => {
