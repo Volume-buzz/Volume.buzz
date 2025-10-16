@@ -431,16 +431,25 @@ function AudiusPageContent() {
 
   // Playback control functions
   const togglePlayback = async () => {
-    if (!audioRef.current) return;
+    if (!audioRef.current) {
+      console.error('❌ Audio ref not available');
+      return;
+    }
 
     try {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
+      // Get the actual paused state from the audio element itself
+      const isPaused = audioRef.current.paused;
+      console.log('🎵 Toggle playback - current paused state:', isPaused, 'isPlaying state:', isPlaying);
+
+      if (isPaused) {
+        console.log('▶️ Attempting to play...');
         await audioRef.current.play();
+      } else {
+        console.log('⏸️ Attempting to pause...');
+        audioRef.current.pause();
       }
     } catch (error) {
-      console.error("Error toggling playback:", error);
+      console.error("❌ Error toggling playback:", error);
       setPlayerError("Playback control failed");
     }
   };
