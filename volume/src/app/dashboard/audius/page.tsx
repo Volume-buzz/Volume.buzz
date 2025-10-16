@@ -393,47 +393,71 @@ function AudiusPageContent() {
     }
   };
 
-  // Get stream URL from Audius API
-  const getStreamUrl = (trackId: string): string => {
-    const apiHost = 'https://api.audius.co';
-    const apiKey = process.env.NEXT_PUBLIC_AUDIUS_API_KEY || '06ac216cd5916caeba332a0223469e28782a612eebc972a5c432efdc86aa78b9';
+  // Get stream URL from Audius SDK
+  const getStreamUrl = async (trackId: string): Promise<string> => {
+    try {
+      // Use the SDK method to get stream URL - this handles authentication and redirects properly
+      if (sdkRef.current) {
+        console.log('🎵 Getting stream URL from SDK for track:', trackId);
+        const url = await sdkRef.current.tracks.getTrackStreamUrl({ trackId });
+        console.log('✅ Got stream URL from SDK');
+        return url;
+      }
 
-    // Return the stream URL directly - the audio element will handle the redirect to the content node
-    // This avoids CSP issues with fetch() since the browser's native audio loading uses media-src
-    return `${apiHost}/v1/tracks/${trackId}/stream?app_name=VOLUME&api_key=${apiKey}`;
+      // Fallback to direct API if SDK not available
+      console.warn('⚠️ SDK not available, using fallback API endpoint');
+      const apiHost = 'https://api.audius.co';
+      const apiKey = process.env.NEXT_PUBLIC_AUDIUS_API_KEY || '06ac216cd5916caeba332a0223469e28782a612eebc972a5c432efdc86aa78b9';
+      return `${apiHost}/v1/tracks/${trackId}/stream?app_name=VOLUME&api_key=${apiKey}`;
+    } catch (error) {
+      console.error('❌ Error getting stream URL:', error);
+      // Fallback to direct API on error
+      const apiHost = 'https://api.audius.co';
+      const apiKey = process.env.NEXT_PUBLIC_AUDIUS_API_KEY || '06ac216cd5916caeba332a0223469e28782a612eebc972a5c432efdc86aa78b9';
+      return `${apiHost}/v1/tracks/${trackId}/stream?app_name=VOLUME&api_key=${apiKey}`;
+    }
   };
 
   // Play track from queue
   const playFromQueue = async (track: QueuedTrack) => {
     if (!audioRef.current) {
+      console.error("❌ Audio ref not available");
       setPlayerError("Audio player not ready");
       return;
     }
 
     try {
       setPlayerError("");
-      console.log("🎵 Loading track:", track.name);
+      console.log("🎵 Loading track:", track.name, "Track ID:", track.id);
 
-      // Get stream URL - the browser will handle redirects to content nodes
-      const streamUrl = getStreamUrl(track.id);
-
-      // Set current track and load audio
+      // Set current track FIRST so UI updates immediately
       setCurrentTrack(track);
+
+      // Get stream URL using SDK - this is now async
+      const streamUrl = await getStreamUrl(track.id);
+      console.log("📡 Stream URL obtained:", streamUrl.substring(0, 50) + "...");
+
+      // Load and play audio
       audioRef.current.src = streamUrl;
+      console.log("▶️ Attempting to play audio...");
       await audioRef.current.play();
 
       console.log("✅ Now playing:", track.name);
     } catch (error) {
-      console.error("Error playing track:", error);
-      setPlayerError("Failed to play track");
+      console.error("❌ Error playing track:", error);
+      setPlayerError(`Failed to play track: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Don't clear currentTrack - let user see what failed to play
     }
   };
 
   // Playback control functions
   const togglePlaybackRef = useRef<boolean>(false);
   const togglePlayback = async () => {
+    console.log('🎵 togglePlayback called');
+
     if (!audioRef.current) {
       console.error('❌ Audio ref not available');
+      setPlayerError("Audio player not initialized");
       return;
     }
 
@@ -448,18 +472,36 @@ function AudiusPageContent() {
     try {
       // Get the actual paused state from the audio element itself
       const isPaused = audioRef.current.paused;
-      console.log('🎵 Toggle playback - current paused state:', isPaused, 'isPlaying state:', isPlaying);
+      const hasSource = !!audioRef.current.src;
+      const currentSrc = audioRef.current.src;
+
+      console.log('🎵 Toggle playback state:', {
+        isPaused,
+        isPlaying,
+        hasSource,
+        currentSrc: currentSrc ? currentSrc.substring(0, 50) + '...' : 'NO SOURCE',
+        readyState: audioRef.current.readyState,
+        networkState: audioRef.current.networkState
+      });
+
+      if (!hasSource) {
+        console.error('❌ No audio source loaded');
+        setPlayerError("No track loaded");
+        return;
+      }
 
       if (isPaused) {
         console.log('▶️ Attempting to play...');
         await audioRef.current.play();
+        console.log('✅ Play successful');
       } else {
         console.log('⏸️ Attempting to pause...');
         audioRef.current.pause();
+        console.log('✅ Pause successful');
       }
     } catch (error) {
       console.error("❌ Error toggling playback:", error);
-      setPlayerError("Playback control failed");
+      setPlayerError(`Playback control failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       // Reset lock after a short delay
       setTimeout(() => {
@@ -528,16 +570,17 @@ function AudiusPageContent() {
     const interval = setInterval(() => {
       // Check if audio is playing
       if (audioRef.current && !audioRef.current.paused) {
-        const position = Math.floor(audioRef.current.currentTime);
+        // Convert currentTime (seconds) to milliseconds to match Spotify format
+        const position = Math.floor(audioRef.current.currentTime * 1000);
 
         // Only update state if value has actually changed
         if (position !== lastListeningTimeRef.current) {
           setListeningTime(position);
           lastListeningTimeRef.current = position;
-          console.log('⏱️ Listening time:', position, 'seconds');
+          console.log('⏱️ Listening time:', position, 'ms');
 
-          // Enable claim button after 5 seconds (matching Spotify exactly)
-          if (position >= 5 && !canClaim) {
+          // Enable claim button after 5 seconds (5000ms) - matching Spotify exactly
+          if (position >= 5000 && !canClaim) {
             setCanClaim(true);
             console.log('🎉 5 seconds reached! You can claim your tokens now!');
           }
