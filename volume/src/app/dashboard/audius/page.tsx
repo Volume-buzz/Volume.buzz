@@ -19,6 +19,7 @@ interface QueuedTrack {
   artist: string;
   addedAt: number;
   permalink?: string;
+  artwork?: string;
 }
 
 // Audius API types
@@ -378,7 +379,8 @@ function AudiusPageContent() {
         name: trackInfo.title,
         artist: trackInfo.user.name,
         addedAt: Date.now(),
-        permalink: trackInfo.permalink
+        permalink: trackInfo.permalink,
+        artwork: trackInfo.artwork?.['150x150'] || ''
       };
 
       console.log("➕ Adding track to queue:", newTrack);
@@ -962,10 +964,23 @@ function AudiusPageContent() {
                       A
                     </div>
                   )}
-                  <h2 className="text-lg font-bold text-white truncate">
-                    {audiusUser ? `@${audiusUser.handle}` : 'Audius'}
-                  </h2>
+                  <div className="min-w-0">
+                    <div className="font-semibold truncate text-sm">
+                      {audiusUser ? `@${audiusUser.handle}` : 'Audius'}
+                    </div>
+                    {audiusUser?.verified && (
+                      <span className="text-[10px] text-blue-400 font-medium">Verified</span>
+                    )}
+                  </div>
                 </div>
+                {audiusUser && (
+                  <button
+                    onClick={handleAudiusLogout}
+                    className="px-3 py-1.5 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors font-medium"
+                  >
+                    Logout
+                  </button>
+                )}
               </div>
 
               <div className="card__content mt-4">
@@ -1011,12 +1026,6 @@ function AudiusPageContent() {
                             Logged in as @{audiusUser.handle}
                             {audiusUser.verified && <span className="text-blue-400 ml-1">✓</span>}
                           </p>
-                          <button
-                            onClick={handleAudiusLogout}
-                            className="text-xs text-red-400 hover:text-red-300"
-                          >
-                            Logout
-                          </button>
                         </div>
                       )}
                     </div>
@@ -1035,14 +1044,23 @@ function AudiusPageContent() {
                 transition={{ duration: 0.4, delay: 0.2 }}
               >
                 <div className="card__content">
-                  {/* Track info */}
-                  <div className="mb-4">
-                    <h3 className="text-xl font-bold text-white mb-1 truncate">
-                      {currentTrack.name}
-                    </h3>
-                    <p className="text-white/60 truncate">
-                      {currentTrack.artist}
-                    </p>
+                  {/* Track artwork and info */}
+                  <div className="mb-4 flex items-center gap-4">
+                    {currentTrack.artwork && (
+                      <img
+                        src={currentTrack.artwork}
+                        alt={currentTrack.name}
+                        className="w-20 h-20 rounded-lg shadow-lg"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-xl font-bold text-white mb-1 truncate">
+                        {currentTrack.name}
+                      </h3>
+                      <p className="text-white/60 truncate">
+                        {currentTrack.artist}
+                      </p>
+                    </div>
                   </div>
 
                   {/* Player error */}
@@ -1137,6 +1155,14 @@ function AudiusPageContent() {
                         }`}
                       >
                         <div className="flex items-center gap-3">
+                          {/* Track artwork */}
+                          {track.artwork && (
+                            <img
+                              src={track.artwork}
+                              alt={track.name}
+                              className="w-12 h-12 rounded-md flex-shrink-0"
+                            />
+                          )}
                           <div className="flex-1 min-w-0">
                             <p className="text-white font-medium truncate">{track.name}</p>
                             <p className="text-white/60 text-sm truncate">{track.artist}</p>
