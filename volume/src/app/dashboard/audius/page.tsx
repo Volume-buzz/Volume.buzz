@@ -99,6 +99,7 @@ function AudiusPageContent() {
   const [listeningTime, setListeningTime] = useState<number>(0);
   const [canClaim, setCanClaim] = useState<boolean>(false);
   const [claiming, setClaiming] = useState<boolean>(false);
+  const [isListeningToRaid, setIsListeningToRaid] = useState<boolean>(false); // Track if user is actively listening
   const lastListeningTimeRef = useRef<number>(-1); // Track previous value to prevent unnecessary re-renders
   const canClaimRef = useRef<boolean>(false); // Track canClaim state to avoid stale closures
 
@@ -431,6 +432,13 @@ function AudiusPageContent() {
       setPlayerError("");
       console.log("🎵 Loading track:", track.name, "Track ID:", track.id);
 
+      // Stop and clear any existing playback first to prevent double-playing
+      if (!audioRef.current.paused) {
+        console.log("⏹️ Stopping current playback before loading new track");
+        audioRef.current.pause();
+      }
+      audioRef.current.currentTime = 0;
+
       // Set current track FIRST so UI updates immediately
       setCurrentTrack(track);
 
@@ -563,12 +571,13 @@ function AudiusPageContent() {
     console.log('🔄 useEffect TRIGGERED - checking conditions:', {
       hasActiveRaid: !!activeRaid,
       hasWallet: !!privyUser?.wallet?.address,
+      isListeningToRaid,
       raidId: activeRaid?.raidId,
       wallet: privyUser?.wallet?.address?.slice(0, 8)
     });
 
-    if (!activeRaid || !privyUser?.wallet?.address) {
-      console.log('❌ useEffect EXITING EARLY - missing raid or wallet');
+    if (!activeRaid || !privyUser?.wallet?.address || !isListeningToRaid) {
+      console.log('❌ useEffect EXITING EARLY - missing raid, wallet, or not listening');
       return;
     }
 
@@ -623,7 +632,7 @@ function AudiusPageContent() {
       console.log('🛑 Stopping listening timer for raid:', activeRaid.raidId);
       clearInterval(interval);
     };
-  }, [activeRaid?.raidId, privyUser?.wallet?.address]);
+  }, [activeRaid?.raidId, privyUser?.wallet?.address, isListeningToRaid]);
 
   // Handle joining a raid
   const handleJoinRaid = useCallback(async () => {
@@ -665,6 +674,7 @@ function AudiusPageContent() {
     setCanClaim(false);
     canClaimRef.current = false;
     lastListeningTimeRef.current = -1;
+    setIsListeningToRaid(true); // This will trigger the timer useEffect
 
     // Fetch full track info to get artwork
     let raidTrack: QueuedTrack = {
