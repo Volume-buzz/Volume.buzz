@@ -571,25 +571,41 @@ function AudiusPageContent() {
 
     const interval = setInterval(() => {
       // Check if audio is playing
-      if (audioRef.current && !audioRef.current.paused) {
-        // Use seconds directly to match Spotify format exactly
-        const position = Math.floor(audioRef.current.currentTime);
+      if (audioRef.current) {
+        const isPaused = audioRef.current.paused;
+        const currentTime = audioRef.current.currentTime;
+        const hasSrc = !!audioRef.current.src;
 
-        // Only update state if value has actually changed
-        if (position !== lastListeningTimeRef.current) {
-          setListeningTime(position);
-          lastListeningTimeRef.current = position;
-          console.log('⏱️ Listening time:', position, 'seconds');
+        console.log('🔍 Timer check:', {
+          isPaused,
+          currentTime,
+          hasSrc,
+          lastTime: lastListeningTimeRef.current,
+          canClaimRefValue: canClaimRef.current
+        });
 
-          // Enable claim button after 5 seconds - matching Spotify exactly
-          if (position >= 5 && !canClaimRef.current) {
-            canClaimRef.current = true;
-            setCanClaim(true);
-            console.log('🎉 5 seconds reached! You can claim your tokens now!');
+        if (!isPaused && hasSrc) {
+          // Use seconds directly to match Spotify format exactly
+          const position = Math.floor(currentTime);
+
+          // Only update state if value has actually changed
+          if (position !== lastListeningTimeRef.current) {
+            setListeningTime(position);
+            lastListeningTimeRef.current = position;
+            console.log('⏱️ Listening time:', position, 'seconds');
+
+            // Enable claim button after 5 seconds - matching Spotify exactly
+            if (position >= 5 && !canClaimRef.current) {
+              canClaimRef.current = true;
+              setCanClaim(true);
+              console.log('🎉 5 seconds reached! You can claim your tokens now!');
+            }
           }
+        } else {
+          console.log('⏸️ Player is paused or no source, timer not incrementing');
         }
-      } else if (audioRef.current?.paused) {
-        console.log('⏸️ Player is paused, timer not incrementing');
+      } else {
+        console.log('❌ audioRef.current is null!');
       }
     }, 1000); // Update every second
 
@@ -633,6 +649,12 @@ function AudiusPageContent() {
     }
 
     console.log('✅ All checks passed, starting raid listening...');
+
+    // Reset listening state when joining raid (matching Spotify pattern)
+    setListeningTime(0);
+    setCanClaim(false);
+    canClaimRef.current = false;
+    lastListeningTimeRef.current = -1;
 
     // Fetch full track info to get artwork
     let raidTrack: QueuedTrack = {
