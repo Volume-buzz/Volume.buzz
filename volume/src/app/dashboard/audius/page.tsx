@@ -100,6 +100,7 @@ function AudiusPageContent() {
   const [canClaim, setCanClaim] = useState<boolean>(false);
   const [claiming, setClaiming] = useState<boolean>(false);
   const lastListeningTimeRef = useRef<number>(-1); // Track previous value to prevent unnecessary re-renders
+  const canClaimRef = useRef<boolean>(false); // Track canClaim state to avoid stale closures
 
   // Initialize Audius SDK with OAuth (using browser CDN)
   useEffect(() => {
@@ -565,22 +566,24 @@ function AudiusPageContent() {
     console.log('🔄 Starting listening timer for raid:', activeRaid.raidId);
     setListeningTime(0);
     setCanClaim(false);
+    canClaimRef.current = false; // Reset ref
     lastListeningTimeRef.current = -1; // Reset tracking ref
 
     const interval = setInterval(() => {
       // Check if audio is playing
       if (audioRef.current && !audioRef.current.paused) {
-        // Convert currentTime (seconds) to milliseconds to match Spotify format
-        const position = Math.floor(audioRef.current.currentTime * 1000);
+        // Use seconds directly to match Spotify format exactly
+        const position = Math.floor(audioRef.current.currentTime);
 
         // Only update state if value has actually changed
         if (position !== lastListeningTimeRef.current) {
           setListeningTime(position);
           lastListeningTimeRef.current = position;
-          console.log('⏱️ Listening time:', position, 'ms');
+          console.log('⏱️ Listening time:', position, 'seconds');
 
-          // Enable claim button after 5 seconds (5000ms) - matching Spotify exactly
-          if (position >= 5000 && !canClaim) {
+          // Enable claim button after 5 seconds - matching Spotify exactly
+          if (position >= 5 && !canClaimRef.current) {
+            canClaimRef.current = true;
             setCanClaim(true);
             console.log('🎉 5 seconds reached! You can claim your tokens now!');
           }

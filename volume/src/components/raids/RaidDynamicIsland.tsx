@@ -80,8 +80,7 @@ const RaidDynamicIslandComponent = ({
   const { wallets } = useWallets();
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const formatListeningTime = (ms: number) => {
-    const seconds = Math.floor(ms / 1000);
+  const formatListeningTime = (seconds: number) => {
     return `${seconds}s`;
   };
 
@@ -209,7 +208,7 @@ const RaidDynamicIslandComponent = ({
             <motion.div
               className="h-full bg-gradient-to-r from-green-400 to-blue-500"
               initial={{ width: "0%" }}
-              animate={{ width: `${Math.min((listeningTime / 30000) * 100, 100)}%` }}
+              animate={{ width: `${Math.min((listeningTime / 30) * 100, 100)}%` }}
               transition={{ duration: 0.5 }}
             />
           </div>
@@ -306,11 +305,12 @@ const RaidDynamicIslandComponent = ({
 };
 
 // Memoize component to prevent re-renders when props haven't changed
-// NOTE: listeningTime is intentionally excluded - it changes every second but only affects progress bar when expanded
+// IMPORTANT: listeningTime must be compared to update progress bar and enable claim button
 export const RaidDynamicIsland = memo(RaidDynamicIslandComponent, (prevProps, nextProps) => {
   return (
     prevProps.canClaim === nextProps.canClaim &&
     prevProps.claiming === nextProps.claiming &&
+    prevProps.listeningTime === nextProps.listeningTime &&
     prevProps.onJoinRaid === nextProps.onJoinRaid &&
     prevProps.onClaimTokens === nextProps.onClaimTokens &&
     prevProps.onEndRaid === nextProps.onEndRaid
