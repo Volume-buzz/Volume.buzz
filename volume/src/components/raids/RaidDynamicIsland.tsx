@@ -102,6 +102,22 @@ const RaidDynamicIslandComponent = ({
 
   if (!activeRaid) return null;
 
+  // DEBUG: Log button rendering state
+  console.log('🎯 RaidDynamicIsland render state:', {
+    authenticated,
+    userWallet: userWallet ? userWallet.slice(0, 8) + '...' : 'none',
+    hasUserClaimed,
+    canClaim,
+    claiming,
+    isFull,
+    listeningTime,
+    claimedByArray: activeRaid?.claimedBy?.length,
+    buttonToShow: !authenticated ? 'CONNECT' :
+                  hasUserClaimed ? 'ALREADY_CLAIMED' :
+                  canClaim ? 'CLAIM_BUTTON' :
+                  !isFull ? 'START_LISTENING' : 'RAID_FULL'
+  });
+
   // Handle wallet connection
   const handleWalletConnect = async () => {
     if (!authenticated) {
