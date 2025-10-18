@@ -560,7 +560,17 @@ function AudiusPageContent() {
 
   // Track listening time for raid participation (matching Spotify implementation)
   useEffect(() => {
-    if (!activeRaid || !privyUser?.wallet?.address) return;
+    console.log('🔄 useEffect TRIGGERED - checking conditions:', {
+      hasActiveRaid: !!activeRaid,
+      hasWallet: !!privyUser?.wallet?.address,
+      raidId: activeRaid?.raidId,
+      wallet: privyUser?.wallet?.address?.slice(0, 8)
+    });
+
+    if (!activeRaid || !privyUser?.wallet?.address) {
+      console.log('❌ useEffect EXITING EARLY - missing raid or wallet');
+      return;
+    }
 
     // Reset timer when raid changes
     console.log('🔄 Starting listening timer for raid:', activeRaid.raidId);
