@@ -1,55 +1,3 @@
-/**
- * ⚠️ DEPRECATED: Audius page is deprecated and replaced by Discord-based participation
- *
- * For historical reference, see: AUDIUS_SPOTIFY_INTEGRATION_ANALYSIS.md
- *
- * This page previously handled:
- * - Direct Audius listening via web player
- * - Smart contract token claims
- * - Real-time listening verification
- *
- * Now replaced by:
- * - Discord bot for raid participation
- * - Web dashboard for raid creation & analytics
- * - Heartbeat verification via API
- *
- * Full page code commented out below for reference during migration.
- */
-
-export default function ComingSoonPage() {
-  return (
-    <div style={{ textAlign: 'center', padding: '40px' }}>
-      <h1>🚀 Audius Support Coming Soon</h1>
-      <p>This feature is being redesigned for Discord bot integration.</p>
-      <p>For now, please use the Artist Control Station to create listening parties.</p>
-    </div>
-  );
-}
-
-/*
-"use client";
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import MagicBento from '@/components/MagicBento';
-import { RaidCreationModal } from '@/components/raids/RaidCreationModal';
-import { RaidDynamicIsland } from '@/components/raids/RaidDynamicIsland';
-import { PrivyWalletProvider } from '@/components/wallet/privy-provider';
-import { useRaid } from '@/contexts/RaidContext';
-import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { useWallets as useSolanaWallets, useSignTransaction } from '@privy-io/react-auth/solana';
-import { PublicKey, Transaction, Connection } from '@solana/web3.js';
-import { getAssociatedTokenAddress, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
-import Script from 'next/script';
-
-interface QueuedTrack {
-  id: string;
-  uri: string;
-  name: string;
-  artist: string;
-  addedAt: number;
-  permalink?: string;
-  artwork?: string;
-}
 "use client";
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
@@ -1080,23 +1028,27 @@ function AudiusPageContent() {
   if (!audiusConnected) {
     return (
       <div>
+        {/* Load Audius SDK from CDN */}
         <Script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js" strategy="beforeInteractive" />
         <Script src="https://cdn.jsdelivr.net/npm/@audius/sdk@latest/dist/sdk.min.js" strategy="beforeInteractive" />
 
         <div className="h-full w-full flex items-center justify-center p-8">
           <div className="max-w-md w-full bg-card border-2 rounded-3xl p-12 shadow-2xl">
             <div className="flex flex-col items-center text-center space-y-8">
+              {/* Audius Logo/Icon */}
               <div className="w-24 h-24 bg-gradient-to-br from-purple-600 to-pink-600 rounded-3xl flex items-center justify-center shadow-lg">
                 <svg className="w-14 h-14 text-white" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
                 </svg>
               </div>
 
+              {/* Text */}
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold text-foreground">Connect to Audius</h2>
                 <p className="text-muted-foreground text-sm">Required for music streaming</p>
               </div>
 
+              {/* Connect Button */}
               <button
                 onClick={handleAudiusLogin}
                 disabled={!sdkReady}
@@ -1120,6 +1072,7 @@ function AudiusPageContent() {
                 )}
               </button>
 
+              {/* Info */}
               <div className="text-xs text-muted-foreground">
                 <p>By connecting, you'll be able to:</p>
                 <ul className="mt-2 space-y-1 text-left">
@@ -1138,9 +1091,11 @@ function AudiusPageContent() {
 
   return (
     <div className="h-full w-full overflow-auto md:overflow-hidden" data-audius-page>
+      {/* Load Audius SDK from CDN */}
       <Script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js" strategy="beforeInteractive" />
       <Script src="https://cdn.jsdelivr.net/npm/@audius/sdk@latest/dist/sdk.min.js" strategy="beforeInteractive" />
 
+      {/* Raid Dynamic Island */}
       <RaidDynamicIsland
         onJoinRaid={handleJoinRaid}
         listeningTime={listeningTime}
@@ -1165,6 +1120,7 @@ function AudiusPageContent() {
             simpleLayout
             className="audius-layout"
           >
+            {/* Control Center Card - Profile + URL Input + OAuth Status */}
             <motion.div
               className="card card--border-glow control-center"
               initial={{ opacity: 0, y: 20 }}
@@ -1205,6 +1161,7 @@ function AudiusPageContent() {
 
               <div className="card__content mt-4">
                 <div className="space-y-4">
+                  {/* Audius URL Input */}
                   <div>
                     <label htmlFor="audius-url" className="block text-sm font-medium text-white/80 mb-2">
                       Audius Track URL
@@ -1232,6 +1189,7 @@ function AudiusPageContent() {
                     )}
                   </div>
 
+                  {/* Connection Status */}
                   {sdkReady && (
                     <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
                       <div className="flex items-center gap-2 text-green-400">
@@ -1252,6 +1210,7 @@ function AudiusPageContent() {
               </div>
             </motion.div>
 
+            {/* Player Card - Only show when we have a current track */}
             {currentTrack && (
               <motion.div
                 className="card card--border-glow player"
@@ -1261,6 +1220,7 @@ function AudiusPageContent() {
                 transition={{ duration: 0.4, delay: 0.2 }}
               >
                 <div className="card__content">
+                  {/* Track artwork and info */}
                   <div className="mb-4 flex items-center gap-4">
                     {currentTrack.artwork && (
                       <img
@@ -1279,12 +1239,14 @@ function AudiusPageContent() {
                     </div>
                   </div>
 
+                  {/* Player error */}
                   {playerError && (
                     <div className="mb-3 p-2 bg-red-500/20 border border-red-500/30 rounded-md">
                       <div className="text-red-300 text-sm">{playerError}</div>
                     </div>
                   )}
 
+                  {/* Progress Bar */}
                   <div className="space-y-2 mb-4">
                     <div
                       className="relative h-2 bg-white/10 rounded-full overflow-hidden cursor-pointer"
@@ -1306,6 +1268,7 @@ function AudiusPageContent() {
                     </div>
                   </div>
 
+                  {/* Playback Controls */}
                   <div className="flex items-center justify-center gap-4">
                     <button
                       onClick={togglePlayback}
@@ -1323,11 +1286,13 @@ function AudiusPageContent() {
                     </button>
                   </div>
 
+                  {/* Hidden audio element */}
                   <audio ref={audioRef} className="hidden" />
                 </div>
               </motion.div>
             )}
 
+            {/* Queue Card */}
             <motion.div
               className="card card--border-glow queue"
               style={{ maxHeight: '600px', display: 'flex', flexDirection: 'column' }}
@@ -1366,6 +1331,7 @@ function AudiusPageContent() {
                         }`}
                       >
                         <div className="flex items-center gap-3">
+                          {/* Track artwork */}
                           {track.artwork && (
                             <img
                               src={track.artwork}
@@ -1417,6 +1383,7 @@ function AudiusPageContent() {
         </div>
       </div>
 
+      {/* Raid Creation Modal */}
       {showRaidModal && selectedTrackForRaid && (
         <RaidCreationModal
           track={selectedTrackForRaid}
@@ -1431,28 +1398,10 @@ function AudiusPageContent() {
   );
 }
 
-// export default function AudiusPage() {
-//   return (
-//     <PrivyWalletProvider>
-//       <AudiusPageContent />
-//     </PrivyWalletProvider>
-//   );
-// }
-*/
-// ============ END COMMENTED CODE ============
-
 export default function AudiusPage() {
   return (
-    <div className="flex items-center justify-center h-screen w-screen bg-background">
-      <div className="text-center space-y-4">
-        <h1 className="text-3xl font-bold text-foreground">🚀 Audius Support Coming Soon</h1>
-        <p className="text-muted-foreground max-w-md">
-          We're redesigning how you participate in listening parties. Check back soon!
-        </p>
-        <p className="text-sm text-muted-foreground">
-          In the meantime, join raids via Discord.
-        </p>
-      </div>
-    </div>
+    <PrivyWalletProvider>
+      <AudiusPageContent />
+    </PrivyWalletProvider>
   );
 }

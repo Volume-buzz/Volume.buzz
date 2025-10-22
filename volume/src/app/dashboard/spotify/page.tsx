@@ -1,32 +1,3 @@
-/**
- * ⚠️ DEPRECATED: Spotify page is deprecated and replaced by Discord-based participation
- *
- * For historical reference, see: AUDIUS_SPOTIFY_INTEGRATION_ANALYSIS.md
- *
- * This page previously handled:
- * - Direct Spotify listening via Web Playback SDK
- * - Smart contract token claims
- * - Real-time listening verification
- *
- * Now replaced by:
- * - Discord bot for raid participation
- * - Web dashboard for raid creation & analytics
- * - Heartbeat verification via API
- *
- * Full page code commented out below for reference during migration.
- */
-
-export default function ComingSoonPage() {
-  return (
-    <div style={{ textAlign: 'center', padding: '40px' }}>
-      <h1>🎵 Spotify Support Coming Soon</h1>
-      <p>This feature is being redesigned for Discord bot integration.</p>
-      <p>For now, please use the Artist Control Station to create listening parties.</p>
-    </div>
-  );
-}
-
-/*
 "use client";
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -1579,6 +1550,7 @@ function SpotifyPageContent() {
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
           <div className="flex flex-col items-center text-center space-y-8">
+            {/* Spotify Logo */}
             <motion.div
               className="w-24 h-24 bg-gradient-to-br from-[#1DB954] to-[#1ed760] rounded-3xl flex items-center justify-center shadow-[0_0_40px_rgba(29,185,84,0.3)]"
               initial={{ scale: 0 }}
@@ -1590,11 +1562,13 @@ function SpotifyPageContent() {
               </svg>
             </motion.div>
 
+            {/* Text */}
             <div className="space-y-2">
               <h2 className="text-2xl font-bold text-white">Checking Connection</h2>
               <p className="text-white/60 text-sm">Verifying your Spotify account</p>
             </div>
 
+            {/* Loading Spinner */}
             <div className="flex items-center justify-center gap-3">
               <motion.div
                 className="w-6 h-6 border-3 border-[#1DB954]/30 border-t-[#1DB954] rounded-full"
@@ -1625,6 +1599,7 @@ function SpotifyPageContent() {
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
           <div className="flex flex-col items-center text-center space-y-8">
+            {/* Spotify Logo */}
             <motion.div
               className="w-24 h-24 bg-gradient-to-br from-[#1DB954] to-[#1ed760] rounded-3xl flex items-center justify-center shadow-[0_0_40px_rgba(29,185,84,0.3)]"
               initial={{ scale: 0 }}
@@ -1636,11 +1611,13 @@ function SpotifyPageContent() {
               </svg>
             </motion.div>
 
+            {/* Text */}
             <div className="space-y-2">
               <h2 className="text-2xl font-bold text-white">Connect to Spotify</h2>
               <p className="text-white/60 text-sm">Required for music control</p>
             </div>
 
+            {/* Connect Button */}
             <TextureButton
               onClick={connectSpotify}
               variant="accent"
@@ -1662,6 +1639,7 @@ function SpotifyPageContent() {
     <div className="h-full w-full overflow-auto md:overflow-hidden" data-spotify-page>
       <Script src="https://sdk.scdn.co/spotify-player.js" strategy="afterInteractive" />
       
+      {/* Raid Dynamic Island */}
       <RaidDynamicIsland
         onJoinRaid={handleJoinRaid}
         listeningTime={listeningTime}
@@ -1692,6 +1670,7 @@ function SpotifyPageContent() {
             simpleLayout
             className="spotify-layout"
           >
+          {/* Control Center Card - Merged Profile + Play by Link */}
           <motion.div
             className="card card--border-glow control-center"
             initial={{ opacity: 0, y: 20 }}
@@ -1772,6 +1751,7 @@ function SpotifyPageContent() {
             </div>
           </motion.div>
 
+          {/* Player Card */}
           <motion.div
             className="card card--border-glow player"
             style={{ height: 'auto', minHeight: 420 }}
@@ -1808,6 +1788,7 @@ function SpotifyPageContent() {
             </div>
           </motion.div>
 
+          {/* Queue Card */}
           <motion.div
             className="card card--border-glow queue"
             style={{ maxHeight: '600px', display: 'flex', flexDirection: 'column' }}
@@ -1895,6 +1876,7 @@ function SpotifyPageContent() {
         </div>
       </div>
 
+      {/* Raid Creation Drawer */}
       <Drawer open={showRaidDrawer} onOpenChange={setShowRaidDrawer}>
         <DrawerContent className="bg-white/5 backdrop-blur-2xl border-2 border-[#000000]/40 shadow-[0_20px_60px_rgba(0,0,0,0.6)] max-h-[85vh]">
           <div className="mx-auto w-full max-w-lg p-6">
@@ -1911,6 +1893,7 @@ function SpotifyPageContent() {
             </DrawerHeader>
 
             <div className="space-y-4 mt-4">
+              {/* Token Selection */}
               <div>
                 <label className="block text-sm font-medium text-white mb-2">
                   Select Token
@@ -1929,6 +1912,7 @@ function SpotifyPageContent() {
                 />
               </div>
 
+              {/* Tokens Per Participant */}
               <div>
                 <label htmlFor="tokens-per-user" className="block text-sm font-medium text-white mb-2">
                   Tokens Per Participant
@@ -1943,6 +1927,7 @@ function SpotifyPageContent() {
                 />
               </div>
 
+              {/* Max Participants */}
               <div>
                 <label htmlFor="max-seats" className="block text-sm font-medium text-white mb-2">
                   Max Participants
@@ -1957,6 +1942,7 @@ function SpotifyPageContent() {
                 />
               </div>
 
+              {/* Summary */}
               {selectedToken && (
                 <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-sm">
                   <div className="text-blue-300">
@@ -1998,23 +1984,5 @@ export default function SpotifyPage() {
     <PrivyWalletProvider>
       <SpotifyPageContent />
     </PrivyWalletProvider>
-  );
-}
-*/
-// ============ END COMMENTED CODE ============
-
-export default function SpotifyPage() {
-  return (
-    <div className="flex items-center justify-center h-screen w-screen bg-background">
-      <div className="text-center space-y-4">
-        <h1 className="text-3xl font-bold text-foreground">🚀 Spotify Support Coming Soon</h1>
-        <p className="text-muted-foreground max-w-md">
-          We're redesigning how you participate in listening parties. Check back soon!
-        </p>
-        <p className="text-sm text-muted-foreground">
-          In the meantime, join raids via Discord.
-        </p>
-      </div>
-    </div>
   );
 }
