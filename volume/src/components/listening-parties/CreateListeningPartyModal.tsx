@@ -20,11 +20,7 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
   const [formData, setFormData] = useState({
     server_id: '',
     track_id: '',
-    track_title: '',
-    track_artist: '',
-    track_artwork_url: '',
     platform: 'audius' as 'audius' | 'spotify',
-    token_mint: '',
     tokens_per_participant: '1000000',
     max_participants: '10',
     duration_minutes: '30',
@@ -70,12 +66,8 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
         throw new Error('Discord authentication required');
       }
 
-      if (!formData.track_id || !formData.track_title) {
-        throw new Error('Track ID and title are required');
-      }
-
-      if (!formData.token_mint) {
-        throw new Error('Token mint is required');
+      if (!formData.track_id) {
+        throw new Error('Track ID is required');
       }
 
       if (!formData.server_id) {
@@ -93,11 +85,7 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
           artist_discord_id: privyUser.discordId,
           server_id: formData.server_id,
           track_id: formData.track_id,
-          track_title: formData.track_title,
-          track_artist: formData.track_artist,
-          track_artwork_url: formData.track_artwork_url || `https://via.placeholder.com/300?text=${encodeURIComponent(formData.track_title)}`,
           platform: formData.platform,
-          token_mint: formData.token_mint,
           tokens_per_participant: BigInt(formData.tokens_per_participant).toString(),
           max_participants: parseInt(formData.max_participants),
           duration_minutes: parseInt(formData.duration_minutes),
@@ -113,11 +101,7 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
       setFormData({
         server_id: '',
         track_id: '',
-        track_title: '',
-        track_artist: '',
-        track_artwork_url: '',
         platform: 'audius',
-        token_mint: '',
         tokens_per_participant: '1000000',
         max_participants: '10',
         duration_minutes: '30',
@@ -199,61 +183,17 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
                     name="track_id"
                     value={formData.track_id}
                     onChange={handleInputChange}
-                    placeholder="e.g., audius_track_123"
+                    placeholder="e.g., audius_track_123 or spotify track URI"
                     className="bg-white/5 border-white/20 text-white placeholder:text-white/40 text-sm"
                     required
                   />
                 </div>
               </div>
-
-              <div>
-                <label htmlFor="track_title" className="text-white/80 text-sm mb-1.5 block">
-                  Track Title
-                </label>
-                <Input
-                  id="track_title"
-                  name="track_title"
-                  value={formData.track_title}
-                  onChange={handleInputChange}
-                  placeholder="Song Name"
-                  className="bg-white/5 border-white/20 text-white placeholder:text-white/40 text-sm"
-                  required
-                />
-              </div>
-
-              <div>
-                <label htmlFor="track_artist" className="text-white/80 text-sm mb-1.5 block">
-                  Artist Name
-                </label>
-                <Input
-                  id="track_artist"
-                  name="track_artist"
-                  value={formData.track_artist}
-                  onChange={handleInputChange}
-                  placeholder="Artist Name"
-                  className="bg-white/5 border-white/20 text-white placeholder:text-white/40 text-sm"
-                />
-              </div>
             </div>
 
-            {/* Token Rewards */}
+            {/* Reward Settings */}
             <div className="space-y-4 pb-4 border-b border-white/10">
-              <h3 className="font-semibold text-white text-sm">Token Rewards</h3>
-
-              <div>
-                <label htmlFor="token_mint" className="text-white/80 text-sm mb-1.5 block">
-                  Token Mint Address
-                </label>
-                <Input
-                  id="token_mint"
-                  name="token_mint"
-                  value={formData.token_mint}
-                  onChange={handleInputChange}
-                  placeholder="Token mint (SOL or custom SPL token)"
-                  className="bg-white/5 border-white/20 text-white placeholder:text-white/40 text-sm"
-                  required
-                />
-              </div>
+              <h3 className="font-semibold text-white text-sm">Reward Settings</h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
