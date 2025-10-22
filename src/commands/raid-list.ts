@@ -2,10 +2,9 @@ import {
   ChatInputCommandInteraction,
   SlashCommandBuilder,
   EmbedBuilder,
-  ChannelType
 } from 'discord.js';
 import { Command } from '../types';
-import PrismaDatabase from '../database/prisma';
+import { prisma } from '../database/prisma';
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -22,15 +21,14 @@ export const command: Command = {
         )
     ),
 
-  async execute(interaction: ChatInputCommandInteraction) {
+  async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     await interaction.deferReply();
 
     try {
-      const serverId = interaction.guildId;
       const platform = interaction.options.getString('platform') || 'all';
 
       // Get active listening parties for this server
-      let parties = await PrismaDatabase.prisma.listeningParty.findMany({
+      let parties = await prisma.listeningParty.findMany({
         where: {
           status: 'ACTIVE',
           expires_at: {
@@ -52,7 +50,7 @@ export const command: Command = {
 
       // Filter by platform if specified
       if (platform !== 'all') {
-        parties = parties.filter(p => p.platform === platform);
+        parties = parties.filter((p: any) => p.platform === platform);
       }
 
       if (parties.length === 0) {
@@ -61,11 +59,12 @@ export const command: Command = {
           .setTitle('🎵 No Active Parties')
           .setDescription('There are no active listening parties right now. Come back later!');
 
-        return await interaction.editReply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
+        return;
       }
 
       // Create embeds for each party
-      const embeds = parties.slice(0, 5).map(party => {
+      const embeds = parties.slice(0, 5).map((party: any) => {
         const available = party.max_participants - party.claimed_count;
         const full = available === 0;
         const timeRemaining = calculateTimeRemaining(party.expires_at);

@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { usePrivy } from '@privy-io/react-auth';
 
 interface CreateListeningPartyModalProps {
@@ -127,9 +126,9 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="platform" className="text-white/80 text-sm mb-1.5 block">
+                  <label htmlFor="platform" className="text-white/80 text-sm mb-1.5 block">
                     Platform
-                  </Label>
+                  </label>
                   <select
                     id="platform"
                     name="platform"
@@ -143,9 +142,9 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
                 </div>
 
                 <div>
-                  <Label htmlFor="track_id" className="text-white/80 text-sm mb-1.5 block">
+                  <label htmlFor="track_id" className="text-white/80 text-sm mb-1.5 block">
                     Track ID
-                  </Label>
+                  </label>
                   <Input
                     id="track_id"
                     name="track_id"
@@ -159,9 +158,9 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
               </div>
 
               <div>
-                <Label htmlFor="track_title" className="text-white/80 text-sm mb-1.5 block">
+                <label htmlFor="track_title" className="text-white/80 text-sm mb-1.5 block">
                   Track Title
-                </Label>
+                </label>
                 <Input
                   id="track_title"
                   name="track_title"
@@ -175,9 +174,9 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="track_artist" className="text-white/80 text-sm mb-1.5 block">
+                  <label htmlFor="track_artist" className="text-white/80 text-sm mb-1.5 block">
                     Artist Name
-                  </Label>
+                  </label>
                   <Input
                     id="track_artist"
                     name="track_artist"
@@ -189,9 +188,9 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
                 </div>
 
                 <div>
-                  <Label htmlFor="track_artwork_url" className="text-white/80 text-sm mb-1.5 block">
+                  <label htmlFor="track_artwork_url" className="text-white/80 text-sm mb-1.5 block">
                     Artwork URL
-                  </Label>
+                  </label>
                   <Input
                     id="track_artwork_url"
                     name="track_artwork_url"
@@ -209,9 +208,9 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
               <h3 className="font-semibold text-white text-sm">Token Rewards</h3>
 
               <div>
-                <Label htmlFor="token_mint" className="text-white/80 text-sm mb-1.5 block">
+                <label htmlFor="token_mint" className="text-white/80 text-sm mb-1.5 block">
                   Token Mint Address
-                </Label>
+                </label>
                 <Input
                   id="token_mint"
                   name="token_mint"
@@ -225,9 +224,9 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="tokens_per_participant" className="text-white/80 text-sm mb-1.5 block">
+                  <label htmlFor="tokens_per_participant" className="text-white/80 text-sm mb-1.5 block">
                     Tokens Per Participant
-                  </Label>
+                  </label>
                   <Input
                     id="tokens_per_participant"
                     name="tokens_per_participant"
@@ -242,9 +241,9 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
                 </div>
 
                 <div>
-                  <Label htmlFor="max_participants" className="text-white/80 text-sm mb-1.5 block">
+                  <label htmlFor="max_participants" className="text-white/80 text-sm mb-1.5 block">
                     Max Participants (1-10)
-                  </Label>
+                  </label>
                   <Input
                     id="max_participants"
                     name="max_participants"
@@ -266,9 +265,9 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
               <h3 className="font-semibold text-white text-sm">Party Settings</h3>
 
               <div>
-                <Label htmlFor="duration_minutes" className="text-white/80 text-sm mb-1.5 block">
+                <label htmlFor="duration_minutes" className="text-white/80 text-sm mb-1.5 block">
                   Duration (minutes)
-                </Label>
+                </label>
                 <Input
                   id="duration_minutes"
                   name="duration_minutes"

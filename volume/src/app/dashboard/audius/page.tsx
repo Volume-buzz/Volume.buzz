@@ -1,23 +1,55 @@
+/**
+ * ⚠️ DEPRECATED: Audius page is deprecated and replaced by Discord-based participation
+ *
+ * For historical reference, see: AUDIUS_SPOTIFY_INTEGRATION_ANALYSIS.md
+ *
+ * This page previously handled:
+ * - Direct Audius listening via web player
+ * - Smart contract token claims
+ * - Real-time listening verification
+ *
+ * Now replaced by:
+ * - Discord bot for raid participation
+ * - Web dashboard for raid creation & analytics
+ * - Heartbeat verification via API
+ *
+ * Full page code commented out below for reference during migration.
+ */
+
+export default function ComingSoonPage() {
+  return (
+    <div style={{ textAlign: 'center', padding: '40px' }}>
+      <h1>🚀 Audius Support Coming Soon</h1>
+      <p>This feature is being redesigned for Discord bot integration.</p>
+      <p>For now, please use the Artist Control Station to create listening parties.</p>
+    </div>
+  );
+}
+
 /*
-  ⚠️ DEPRECATED: Audius page is deprecated and replaced by Discord-based participation
+"use client";
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { motion } from 'framer-motion';
+import MagicBento from '@/components/MagicBento';
+import { RaidCreationModal } from '@/components/raids/RaidCreationModal';
+import { RaidDynamicIsland } from '@/components/raids/RaidDynamicIsland';
+import { PrivyWalletProvider } from '@/components/wallet/privy-provider';
+import { useRaid } from '@/contexts/RaidContext';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
+import { useWallets as useSolanaWallets, useSignTransaction } from '@privy-io/react-auth/solana';
+import { PublicKey, Transaction, Connection } from '@solana/web3.js';
+import { getAssociatedTokenAddress, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import Script from 'next/script';
 
-  For historical reference, see: AUDIUS_SPOTIFY_INTEGRATION_ANALYSIS.md
-
-  This page previously handled:
-  - Direct Audius listening via web player
-  - Smart contract token claims
-  - Real-time listening verification
-
-  Now replaced by:
-  - Discord bot for raid participation
-  - Web dashboard for raid creation & analytics
-  - Heartbeat verification via API
-
-  Full page code commented out below for reference during migration.
-*/
-
-// ============ ORIGINAL CODE COMMENTED OUT ============
-/*
+interface QueuedTrack {
+  id: string;
+  uri: string;
+  name: string;
+  artist: string;
+  addedAt: number;
+  permalink?: string;
+  artwork?: string;
+}
 "use client";
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';

@@ -4,21 +4,21 @@ import {
   EmbedBuilder,
 } from 'discord.js';
 import { Command } from '../types';
-import PrismaDatabase from '../database/prisma';
+import { prisma } from '../database/prisma';
 
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName('raid-status')
     .setDescription('Check your participation status in active parties'),
 
-  async execute(interaction: ChatInputCommandInteraction) {
+  async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     await interaction.deferReply({ ephemeral: true });
 
     try {
       const userId = interaction.user.id;
 
       // Get all active parties with user's participation
-      const parties = await PrismaDatabase.prisma.listeningParty.findMany({
+      const parties = await prisma.listeningParty.findMany({
         where: {
           status: 'ACTIVE',
           expires_at: {
@@ -35,7 +35,7 @@ export const command: Command = {
       });
 
       // Filter to only parties user is in
-      const participations = parties.filter(p => p.participants.length > 0);
+      const participations = parties.filter((p: any) => p.participants.length > 0);
 
       if (participations.length === 0) {
         const embed = new EmbedBuilder()
@@ -43,10 +43,11 @@ export const command: Command = {
           .setTitle('📊 No Active Participations')
           .setDescription('You haven\'t joined any active parties yet. Use `/raid-list` to find one!');
 
-        return await interaction.editReply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
+        return;
       }
 
-      const embeds = participations.map(party => {
+      const embeds = participations.map((party: any) => {
         const participant = party.participants[0];
         const duration = participant?.total_listening_duration || 0;
         const qualified = participant?.qualified_at ? true : false;
@@ -59,7 +60,7 @@ export const command: Command = {
 
         const progressBar = createProgressBar(progress);
 
-        return new EmbedBuilder()
+        const embed = new EmbedBuilder()
           .setColor(qualified ? '#10B981' : '#3B82F6')
           .setTitle(`${party.track_title} by ${party.track_artist || 'Unknown'}`)
           .addFields(

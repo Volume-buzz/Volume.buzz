@@ -4,7 +4,7 @@ import {
   EmbedBuilder,
 } from 'discord.js';
 import { Command } from '../types';
-import PrismaDatabase from '../database/prisma';
+import { prisma } from '../database/prisma';
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -17,7 +17,7 @@ export const command: Command = {
         .setRequired(true)
     ),
 
-  async execute(interaction: ChatInputCommandInteraction) {
+  async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     await interaction.deferReply({ ephemeral: true });
 
     try {
@@ -25,7 +25,7 @@ export const command: Command = {
       const userId = interaction.user.id;
 
       // Get party and participant
-      const party = await PrismaDatabase.prisma.listeningParty.findUnique({
+      const party = await prisma.listeningParty.findUnique({
         where: { id: partyId },
       });
 
@@ -34,10 +34,11 @@ export const command: Command = {
           .setColor('#FF6B6B')
           .setTitle('❌ Party Not Found')
           .setDescription('This listening party doesn\'t exist');
-        return await interaction.editReply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
+        return;
       }
 
-      const participant = await PrismaDatabase.prisma.listeningPartyParticipant.findUnique({
+      const participant = await prisma.listeningPartyParticipant.findUnique({
         where: {
           party_id_discord_id: {
             party_id: partyId,
@@ -51,7 +52,8 @@ export const command: Command = {
           .setColor('#FF6B6B')
           .setTitle('❌ Not Joined')
           .setDescription('You haven\'t joined this party');
-        return await interaction.editReply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
+        return;
       }
 
       // Check if qualified
@@ -60,7 +62,8 @@ export const command: Command = {
           .setColor('#FF6B6B')
           .setTitle('❌ Not Qualified')
           .setDescription(`You need to listen for 30 seconds to qualify. Current: ${participant.total_listening_duration}s`);
-        return await interaction.editReply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
+        return;
       }
 
       // Check if already claimed
@@ -69,21 +72,22 @@ export const command: Command = {
           .setColor('#FF6B6B')
           .setTitle('❌ Already Claimed')
           .setDescription('You\'ve already claimed tokens from this party');
-        return await interaction.editReply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
+        return;
       }
 
       // Update participant and party
       const mockTxSignature = 'tx_' + Math.random().toString(36).substr(2, 16);
 
       await Promise.all([
-        PrismaDatabase.prisma.listeningPartyParticipant.update({
+        prisma.listeningPartyParticipant.update({
           where: { id: participant.id },
           data: {
             claimed_at: new Date(),
             claim_tx_signature: mockTxSignature,
           },
         }),
-        PrismaDatabase.prisma.listeningParty.update({
+        prisma.listeningParty.update({
           where: { id: partyId },
           data: {
             claimed_count: {

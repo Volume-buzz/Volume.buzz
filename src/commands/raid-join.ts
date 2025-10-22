@@ -4,7 +4,7 @@ import {
   EmbedBuilder,
 } from 'discord.js';
 import { Command } from '../types';
-import PrismaDatabase from '../database/prisma';
+import { prisma } from '../database/prisma';
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -17,16 +17,15 @@ export const command: Command = {
         .setRequired(true)
     ),
 
-  async execute(interaction: ChatInputCommandInteraction) {
+  async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     await interaction.deferReply({ ephemeral: true });
 
     try {
       const partyId = interaction.options.getString('party-id')!;
       const userId = interaction.user.id;
-      const serverId = interaction.guildId!;
 
       // Check if party exists and is active
-      const party = await PrismaDatabase.prisma.listeningParty.findUnique({
+      const party = await prisma.listeningParty.findUnique({
         where: { id: partyId },
         include: {
           participants: true,
@@ -58,7 +57,7 @@ export const command: Command = {
       }
 
       // Check if already joined
-      const existing = await PrismaDatabase.prisma.listeningPartyParticipant.findUnique({
+      const existing = await prisma.listeningPartyParticipant.findUnique({
         where: {
           party_id_discord_id: {
             party_id: partyId,
@@ -72,11 +71,12 @@ export const command: Command = {
           .setColor('#FF6B6B')
           .setTitle('❌ Already Joined')
           .setDescription('You\'ve already joined this party');
-        return await interaction.editReply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
+        return;
       }
 
       // Create participant
-      const participant = await PrismaDatabase.prisma.listeningPartyParticipant.create({
+      const participant = await prisma.listeningPartyParticipant.create({
         data: {
           party_id: partyId,
           discord_id: userId,

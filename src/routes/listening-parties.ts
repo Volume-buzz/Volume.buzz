@@ -7,11 +7,11 @@
 
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
-import PrismaDatabase from '../database/prisma';
+import { prisma } from '../database/prisma';
 import Joi from 'joi';
 import { validate, commonSchemas } from '../middleware/validation';
 
-const router = Router();
+const router: Router = Router();
 
 // ============================================================================
 // PUBLIC ENDPOINTS (for Discord Bot)
@@ -23,7 +23,7 @@ const router = Router();
  */
 router.get('/active', async (req: Request, res: Response) => {
   try {
-    const parties = await PrismaDatabase.prisma.listeningParty.findMany({
+    const parties = await prisma.listeningParty.findMany({
       where: {
         status: 'ACTIVE',
         expires_at: {
@@ -104,7 +104,7 @@ router.get(
     try {
       const { server_id } = req.query as { server_id: string };
 
-      const parties = await PrismaDatabase.prisma.listeningParty.findMany({
+      const parties = await prisma.listeningParty.findMany({
         where: {
           status: 'ACTIVE',
           expires_at: {
@@ -169,7 +169,7 @@ router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const party = await PrismaDatabase.prisma.listeningParty.findUnique({
+    const party = await prisma.listeningParty.findUnique({
       where: { id },
       include: {
         participants: {
@@ -263,7 +263,7 @@ router.post(
       const { discord_id, discord_handle, server_id } = req.body;
 
       // Verify party exists and is active
-      const party = await PrismaDatabase.prisma.listeningParty.findUnique({
+      const party = await prisma.listeningParty.findUnique({
         where: { id },
       });
 
@@ -276,7 +276,7 @@ router.post(
       }
 
       // Check if already joined
-      const existing = await PrismaDatabase.prisma.listeningPartyParticipant.findUnique({
+      const existing = await prisma.listeningPartyParticipant.findUnique({
         where: {
           party_id_discord_id: {
             party_id: id,
@@ -290,7 +290,7 @@ router.post(
       }
 
       // Create participant
-      const participant = await PrismaDatabase.prisma.listeningPartyParticipant.create({
+      const participant = await prisma.listeningPartyParticipant.create({
         data: {
           party_id: id,
           discord_id,
@@ -336,7 +336,7 @@ router.post(
       const { discord_id, is_playing, current_position_seconds } = req.body;
 
       // Get participant
-      const participant = await PrismaDatabase.prisma.listeningPartyParticipant.findUnique({
+      const participant = await prisma.listeningPartyParticipant.findUnique({
         where: {
           party_id_discord_id: {
             party_id: id,
@@ -350,7 +350,7 @@ router.post(
       }
 
       // Update participant listening status
-      const updated = await PrismaDatabase.prisma.listeningPartyParticipant.update({
+      const updated = await prisma.listeningPartyParticipant.update({
         where: { id: participant.id },
         data: {
           is_listening: is_playing,
@@ -368,7 +368,7 @@ router.post(
 
       // Update qualified status
       if (qualified && !participant.qualified_at) {
-        await PrismaDatabase.prisma.listeningPartyParticipant.update({
+        await prisma.listeningPartyParticipant.update({
           where: { id: participant.id },
           data: {
             qualified_at: new Date(),
@@ -413,7 +413,7 @@ router.post(
       const { discord_id, tx_signature } = req.body;
 
       // Update participant with claim confirmation
-      const participant = await PrismaDatabase.prisma.listeningPartyParticipant.update({
+      const participant = await prisma.listeningPartyParticipant.update({
         where: {
           party_id_discord_id: {
             party_id: id,
@@ -427,7 +427,7 @@ router.post(
       });
 
       // Increment party's claimed count
-      await PrismaDatabase.prisma.listeningParty.update({
+      await prisma.listeningParty.update({
         where: { id },
         data: {
           claimed_count: {
@@ -460,7 +460,7 @@ router.get('/artist/my-parties', requireAuth, async (req: Request, res: Response
   try {
     const discordId = (req as any).sessionUser.discordId;
 
-    const parties = await PrismaDatabase.prisma.listeningParty.findMany({
+    const parties = await prisma.listeningParty.findMany({
       where: {
         artist_discord_id: discordId,
       },
@@ -560,7 +560,7 @@ router.post(
       const expiresAt = new Date(now.getTime() + duration_minutes * 60 * 1000);
 
       // Create listening party
-      const party = await PrismaDatabase.prisma.listeningParty.create({
+      const party = await prisma.listeningParty.create({
         data: {
           id: partyId,
           artist_discord_id: discordId,
