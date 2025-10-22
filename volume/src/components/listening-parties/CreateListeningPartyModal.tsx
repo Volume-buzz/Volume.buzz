@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,8 +15,10 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [servers, setServers] = useState<Array<{ id: string; name: string }>>([]);
 
   const [formData, setFormData] = useState({
+    server_id: '',
     track_id: '',
     track_title: '',
     track_artist: '',
@@ -27,6 +29,28 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
     max_participants: '10',
     duration_minutes: '30',
   });
+
+  useEffect(() => {
+    if (open && privyUser?.discordId) {
+      fetchDiscordServers();
+    }
+  }, [open, privyUser?.discordId]);
+
+  const fetchDiscordServers = async () => {
+    try {
+      const response = await fetch('/api/discord/servers', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setServers(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch servers:', err);
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -54,6 +78,10 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
         throw new Error('Token mint is required');
       }
 
+      if (!formData.server_id) {
+        throw new Error('Discord server selection is required');
+      }
+
       // Create listening party via API
       const response = await fetch('/api/listening-parties', {
         method: 'POST',
@@ -63,10 +91,11 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
         },
         body: JSON.stringify({
           artist_discord_id: privyUser.discordId,
+          server_id: formData.server_id,
           track_id: formData.track_id,
           track_title: formData.track_title,
           track_artist: formData.track_artist,
-          track_artwork_url: formData.track_artwork_url,
+          track_artwork_url: formData.track_artwork_url || `https://via.placeholder.com/300?text=${encodeURIComponent(formData.track_title)}`,
           platform: formData.platform,
           token_mint: formData.token_mint,
           tokens_per_participant: BigInt(formData.tokens_per_participant).toString(),
@@ -82,6 +111,7 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
 
       // Reset form and close
       setFormData({
+        server_id: '',
         track_id: '',
         track_title: '',
         track_artist: '',
@@ -120,6 +150,25 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
 
         <div className="overflow-y-auto flex-1 px-4 md:px-6 py-4">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Discord Server Selection */}
+            <div className="space-y-4 pb-4 border-b border-white/10">
+              <h3 className="font-semibold text-white text-sm">Discord Server</h3>
+              <select
+                name="server_id"
+                value={formData.server_id}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 bg-white/5 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                required
+              >
+                <option value="" className="bg-slate-900">Select a Discord server...</option>
+                {servers.map((server) => (
+                  <option key={server.id} value={server.id} className="bg-slate-900">
+                    {server.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Track Information */}
             <div className="space-y-4 pb-4 border-b border-white/10">
               <h3 className="font-semibold text-white text-sm">Track Information</h3>
@@ -172,34 +221,18 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="track_artist" className="text-white/80 text-sm mb-1.5 block">
-                    Artist Name
-                  </label>
-                  <Input
-                    id="track_artist"
-                    name="track_artist"
-                    value={formData.track_artist}
-                    onChange={handleInputChange}
-                    placeholder="Artist Name"
-                    className="bg-white/5 border-white/20 text-white placeholder:text-white/40 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="track_artwork_url" className="text-white/80 text-sm mb-1.5 block">
-                    Artwork URL
-                  </label>
-                  <Input
-                    id="track_artwork_url"
-                    name="track_artwork_url"
-                    value={formData.track_artwork_url}
-                    onChange={handleInputChange}
-                    placeholder="https://..."
-                    className="bg-white/5 border-white/20 text-white placeholder:text-white/40 text-sm"
-                  />
-                </div>
+              <div>
+                <label htmlFor="track_artist" className="text-white/80 text-sm mb-1.5 block">
+                  Artist Name
+                </label>
+                <Input
+                  id="track_artist"
+                  name="track_artist"
+                  value={formData.track_artist}
+                  onChange={handleInputChange}
+                  placeholder="Artist Name"
+                  className="bg-white/5 border-white/20 text-white placeholder:text-white/40 text-sm"
+                />
               </div>
             </div>
 
