@@ -8,12 +8,13 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ userRole }: AppSidebarProps) {
+  const isArtist = userRole === "ARTIST";
   const isAdmin = userRole === "SUPER_ADMIN" || userRole === "ARTIST";
 
   const links = [
     {
       label: "Overview",
-      href: "/dashboard",
+      href: isArtist ? "/dashboard/artist" : "/dashboard",
       icon: <i className="hgi-stroke hgi-dashboard-speed-01 text-neutral-700 dark:text-neutral-200 text-xl" />,
     },
     {
