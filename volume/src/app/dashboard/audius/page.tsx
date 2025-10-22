@@ -1,3 +1,23 @@
+/*
+  ⚠️ DEPRECATED: Audius page is deprecated and replaced by Discord-based participation
+
+  For historical reference, see: AUDIUS_SPOTIFY_INTEGRATION_ANALYSIS.md
+
+  This page previously handled:
+  - Direct Audius listening via web player
+  - Smart contract token claims
+  - Real-time listening verification
+
+  Now replaced by:
+  - Discord bot for raid participation
+  - Web dashboard for raid creation & analytics
+  - Heartbeat verification via API
+
+  Full page code commented out below for reference during migration.
+*/
+
+// ============ ORIGINAL CODE COMMENTED OUT ============
+/*
 "use client";
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
@@ -1398,10 +1418,28 @@ function AudiusPageContent() {
   );
 }
 
+// export default function AudiusPage() {
+//   return (
+//     <PrivyWalletProvider>
+//       <AudiusPageContent />
+//     </PrivyWalletProvider>
+//   );
+// }
+*/
+// ============ END COMMENTED CODE ============
+
 export default function AudiusPage() {
   return (
-    <PrivyWalletProvider>
-      <AudiusPageContent />
-    </PrivyWalletProvider>
+    <div className="flex items-center justify-center h-screen w-screen bg-background">
+      <div className="text-center space-y-4">
+        <h1 className="text-3xl font-bold text-foreground">🚀 Audius Support Coming Soon</h1>
+        <p className="text-muted-foreground max-w-md">
+          We're redesigning how you participate in listening parties. Check back soon!
+        </p>
+        <p className="text-sm text-muted-foreground">
+          In the meantime, join raids via Discord.
+        </p>
+      </div>
+    </div>
   );
 }

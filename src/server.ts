@@ -18,6 +18,7 @@ import rewardsRoutes from './routes/rewards';
 // REMOVED: import withdrawalRoutes from './routes/withdrawals'; // Unsafe - to be implemented later
 import webhookRoutes from './routes/webhooks';
 import spotifyRoutes from './routes/spotify';
+import listeningPartiesRoutes from './routes/listening-parties';
 
 // Import OAuth server
 import OAuthServer from './services/oauthServer';
@@ -147,6 +148,7 @@ class ApiServer {
     // REMOVED: this.app.use('/api/withdrawals', withdrawalRoutes); // Unsafe - to be implemented later
     this.app.use('/api/spotify', spotifyRoutes);
     this.app.use('/api/webhooks', webhookRoutes);
+    this.app.use('/api/listening-parties', listeningPartiesRoutes);
 
     // 404 handler
     this.app.use('*', (req: Request, res: Response) => {

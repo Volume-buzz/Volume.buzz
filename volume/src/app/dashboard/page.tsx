@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { apiGet } from "@/lib/api-client";
 
 interface MeResponse {
@@ -39,16 +40,42 @@ export default async function DashboardPage() {
   ]);
   const qualifiedCount = mine.filter((p) => p.qualified).length;
 
+  // Check if user is an artist (has artist role)
+  const isArtist = me?.role === 'artist' || me?.role === 'admin';
+
   return (
     <div className="w-full max-w-full overflow-hidden">
-      <div className="space-y-2">
+      <div className="space-y-2 mb-6">
         <h1 className="text-2xl md:text-3xl font-bold text-foreground">
           Welcome to Volume Dashboard
         </h1>
         <p className="text-muted-foreground text-base md:text-lg">
-          Hey {me?.name}! Your Discord bot dashboard.
+          Hey {me?.name}! {isArtist ? "Manage your listening parties and grow your audience." : "Join raids to listen and earn rewards."}
         </p>
       </div>
+
+      {/* Artist Control Station CTA */}
+      {isArtist && (
+        <div className="mb-6 bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/50 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-foreground flex items-center gap-2 mb-1">
+                <i className="hgi-stroke hgi-target text-purple-400" />
+                Artist Control Station
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Create listening parties and earn tokens from your engaged audience
+              </p>
+            </div>
+            <Link
+              href="/dashboard/artist"
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium text-sm whitespace-nowrap ml-4 hover:bg-primary/90 transition-colors"
+            >
+              Go to Control Station
+            </Link>
+          </div>
+        </div>
+      )}
             
       <div className="flex items-center space-x-3 md:space-x-4 p-3 md:p-4 bg-muted rounded-lg">
         {me?.image ? (
@@ -83,88 +110,99 @@ export default async function DashboardPage() {
         <div className="bg-muted rounded-lg p-3 md:p-4">
           <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2 text-sm md:text-base">
             <i className="hgi-stroke hgi-music-note-01 text-primary text-xl" />
-            Active Raids
+            {isArtist ? "Created Raids" : "Active Raids"}
           </h3>
           <p className="text-xl md:text-2xl text-foreground">{activeRaids?.length ?? 0}</p>
-          <p className="text-xs text-muted-foreground mt-1">Join from the list below</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {isArtist ? "Manage in Control Station" : "Join from the list below"}
+          </p>
         </div>
-        <div className="bg-muted rounded-lg p-3 md:p-4">
-          <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2 text-sm md:text-base">
-            <i className="hgi-stroke hgi-checkmark-circle-01 text-primary text-xl" />
-            Qualified Raids
-          </h3>
-          <p className="text-xl md:text-2xl text-foreground">{qualifiedCount}</p>
-          <p className="text-xs text-muted-foreground mt-1">Ready to claim rewards</p>
-        </div>
+        {!isArtist && (
+          <div className="bg-muted rounded-lg p-3 md:p-4">
+            <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2 text-sm md:text-base">
+              <i className="hgi-stroke hgi-checkmark-circle-01 text-primary text-xl" />
+              Qualified Raids
+            </h3>
+            <p className="text-xl md:text-2xl text-foreground">{qualifiedCount}</p>
+            <p className="text-xs text-muted-foreground mt-1">Ready to claim rewards</p>
+          </div>
+        )}
         <div className="bg-muted rounded-lg p-3 md:p-4">
           <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2 text-sm md:text-base">
             <i className="hgi-stroke hgi-spotify text-primary text-xl" />
-            Spotify
+            {isArtist ? "Status" : "Spotify"}
           </h3>
           <p className="text-sm md:text-base text-foreground">
-            {me?.spotify_is_connected 
+            {isArtist ? "Artist Account" : (me?.spotify_is_connected
               ? (me?.spotify_is_premium ? 'Premium connected' : 'Free account connected')
               : 'Connect for premium perks'
-            }
+            )}
           </p>
         </div>
       </div>
 
-      <div className="text-left pt-4 md:pt-6">
-        <h2 className="text-lg md:text-xl font-semibold text-foreground mb-3">Active Raids</h2>
-        <div className="grid gap-3">
-          {activeRaids?.slice(0,5).map((r) => (
-            <div key={r.id} className="bg-muted rounded-lg p-3 md:p-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  {r.track_artwork_url && (
-                    <Image src={r.track_artwork_url} alt={r.track_title || 'Track'} width={40} height={40} className="rounded flex-shrink-0"/>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-foreground text-sm md:text-base truncate">{r.track_title}</p>
-                    <p className="text-xs text-muted-foreground truncate">{r.track_artist}</p>
+      {!isArtist && (
+        <div className="text-left pt-4 md:pt-6">
+          <h2 className="text-lg md:text-xl font-semibold text-foreground mb-3">Active Raids to Join</h2>
+          <div className="grid gap-3">
+            {activeRaids?.slice(0,5).map((r) => (
+              <div key={r.id} className="bg-muted rounded-lg p-3 md:p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    {r.track_artwork_url && (
+                      <Image src={r.track_artwork_url} alt={r.track_title || 'Track'} width={40} height={40} className="rounded flex-shrink-0"/>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-foreground text-sm md:text-base truncate">{r.track_title}</p>
+                      <p className="text-xs text-muted-foreground truncate">{r.track_artist}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4 flex-shrink-0">
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Reward</p>
-                    <p className="font-medium text-foreground text-sm">{r.reward_amount} {r.token_mint}</p>
+                  <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4 flex-shrink-0">
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Reward</p>
+                      <p className="font-medium text-foreground text-sm">{r.reward_amount} {r.token_mint}</p>
+                    </div>
+                    <form action={`/api/raids/${r.id}/join`} method="post">
+                      <button className="px-3 py-2 text-sm rounded-md bg-primary text-primary-foreground whitespace-nowrap">Join</button>
+                    </form>
                   </div>
-                  <form action={`/api/raids/${r.id}/join`} method="post">
-                    <button className="px-3 py-2 text-sm rounded-md bg-primary text-primary-foreground whitespace-nowrap">Join</button>
-                  </form>
                 </div>
               </div>
-            </div>
-          ))}
-          {!activeRaids?.length && (
-            <p className="text-sm text-muted-foreground">No active raids right now.</p>
-          )}
+            ))}
+            {!activeRaids?.length && (
+              <p className="text-sm text-muted-foreground">No active raids right now.</p>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="text-left pt-4 md:pt-6">
-        <h2 className="text-lg md:text-xl font-semibold text-foreground mb-3">Recent Rewards</h2>
-        <div className="grid gap-2">
-          {rewards.slice(0,5).map((r) => (
-            <div key={r.id} className="bg-muted rounded-lg p-3">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div className="text-sm text-foreground font-medium">Reward</div>
-                <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4">
-                  <div className="text-sm text-foreground font-semibold">{r.amount} {r.token.symbol}</div>
-                  <div className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</div>
+      {!isArtist && (
+        <div className="text-left pt-4 md:pt-6">
+          <h2 className="text-lg md:text-xl font-semibold text-foreground mb-3">Recent Rewards</h2>
+          <div className="grid gap-2">
+            {rewards.slice(0,5).map((r) => (
+              <div key={r.id} className="bg-muted rounded-lg p-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="text-sm text-foreground font-medium">Reward</div>
+                  <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4">
+                    <div className="text-sm text-foreground font-semibold">{r.amount} {r.token.symbol}</div>
+                    <div className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</div>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-          {!rewards.length && (
-            <p className="text-sm text-muted-foreground">No rewards yet.</p>
-          )}
+            ))}
+            {!rewards.length && (
+              <p className="text-sm text-muted-foreground">No rewards yet.</p>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <p className="text-xs text-muted-foreground mt-8">
-        Dashboard features ready. Use the sidebar to navigate between pages.
+        {isArtist
+          ? "Use the Artist Control Station to create and manage your listening parties."
+          : "Join active raids to listen and earn rewards. Use the sidebar to navigate between pages."
+        }
       </p>
     </div>
   );

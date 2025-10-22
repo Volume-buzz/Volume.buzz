@@ -1,3 +1,23 @@
+/*
+  ⚠️ DEPRECATED: Spotify page is deprecated and replaced by Discord-based participation
+
+  For historical reference, see: AUDIUS_SPOTIFY_INTEGRATION_ANALYSIS.md
+
+  This page previously handled:
+  - Direct Spotify listening via Web Playback SDK
+  - Smart contract token claims
+  - Real-time listening verification
+
+  Now replaced by:
+  - Discord bot for raid participation
+  - Web dashboard for raid creation & analytics
+  - Heartbeat verification via API
+
+  Full page code commented out below for reference during migration.
+*/
+
+// ============ ORIGINAL CODE COMMENTED OUT ============
+/*
 "use client";
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -1984,5 +2004,23 @@ export default function SpotifyPage() {
     <PrivyWalletProvider>
       <SpotifyPageContent />
     </PrivyWalletProvider>
+  );
+}
+*/
+// ============ END COMMENTED CODE ============
+
+export default function SpotifyPage() {
+  return (
+    <div className="flex items-center justify-center h-screen w-screen bg-background">
+      <div className="text-center space-y-4">
+        <h1 className="text-3xl font-bold text-foreground">🚀 Spotify Support Coming Soon</h1>
+        <p className="text-muted-foreground max-w-md">
+          We're redesigning how you participate in listening parties. Check back soon!
+        </p>
+        <p className="text-sm text-muted-foreground">
+          In the meantime, join raids via Discord.
+        </p>
+      </div>
+    </div>
   );
 }
