@@ -1080,6 +1080,7 @@ function AudiusPageContent() {
   if (!audiusConnected) {
     return (
       <div>
+        {/* Load Audius SDK from CDN */}
         <Script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js" strategy="beforeInteractive" />
         <Script src="https://cdn.jsdelivr.net/npm/@audius/sdk@latest/dist/sdk.min.js" strategy="beforeInteractive" />
 
@@ -1142,8 +1143,11 @@ function AudiusPageContent() {
 
   return (
     <div className="h-full w-full overflow-auto md:overflow-hidden" data-audius-page>
+      {/* Load Audius SDK from CDN */}
       <Script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js" strategy="beforeInteractive" />
       <Script src="https://cdn.jsdelivr.net/npm/@audius/sdk@latest/dist/sdk.min.js" strategy="beforeInteractive" />
+
+      {/* Raid Dynamic Island */}
       <RaidDynamicIsland
         onJoinRaid={handleJoinRaid}
         listeningTime={listeningTime}
