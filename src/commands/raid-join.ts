@@ -37,7 +37,8 @@ export const command: Command = {
           .setColor('#FF6B6B')
           .setTitle('❌ Party Not Found')
           .setDescription('This listening party doesn\'t exist');
-        return await interaction.editReply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
+        return;
       }
 
       if (party.status !== 'ACTIVE' || party.expires_at < new Date()) {
@@ -45,7 +46,8 @@ export const command: Command = {
           .setColor('#FF6B6B')
           .setTitle('❌ Party Expired')
           .setDescription('This party has expired');
-        return await interaction.editReply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
+        return;
       }
 
       if (party.claimed_count >= party.max_participants) {
@@ -53,7 +55,8 @@ export const command: Command = {
           .setColor('#FF6B6B')
           .setTitle('❌ Party Full')
           .setDescription('This party has reached maximum participants');
-        return await interaction.editReply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
+        return;
       }
 
       // Check if already joined
