@@ -3,7 +3,7 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder, ButtonInteraction, User as DiscordUser } from 'discord.js';
 
 // Platform types
-export type Platform = 'SPOTIFY';
+export type Platform = 'SPOTIFY' | 'AUDIUS';
 
 // Command interface
 export interface Command {
@@ -25,6 +25,12 @@ export interface DatabaseUser {
   spotify_scope?: string;
   spotify_product?: string;
   spotify_country?: string;
+  audius_user_id?: string;
+  audius_handle?: string;
+  audius_name?: string;
+  audius_email?: string;
+  audius_profile_picture?: string;
+  audius_verified?: boolean;
   discord_username?: string;
   tokens_balance: number;
   total_raids_participated: number;
@@ -185,11 +191,17 @@ export interface EnvironmentConfig {
   heliusApiKey: string;
   heliusRpcUrl: string;
   heliusWebhookUrl: string;
-  
+
+  // Audius
+  audiusApiKey: string;
+  audiusAppName: string;
+  audiusLoginRedirectUrl?: string;
+
   // API
   apiPort: number;
   jwtSecret: string;
   allowedOrigins: string[];
+  apiPublicUrl: string;
   
   // Admin
   adminDiscordIds: string[];

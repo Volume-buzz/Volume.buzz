@@ -26,6 +26,12 @@ model User {
   spotify_scope            String?   @map("spotify_scope")
   spotify_product          String?   @map("spotify_product")
   spotify_country          String?   @map("spotify_country")
+  audius_user_id           String?   @map("audius_user_id")
+  audius_handle            String?   @map("audius_handle")
+  audius_name              String?   @map("audius_name")
+  audius_email             String?   @map("audius_email")
+  audius_profile_picture   String?   @map("audius_profile_picture")
+  audius_verified          Boolean   @default(false) @map("audius_verified")
   discord_username         String?   @map("discord_username")
   role                     UserRole  @default(FAN) @map("role")
   tokens_balance           Int       @default(0) @map("tokens_balance")
@@ -111,6 +117,7 @@ model Raid {
 
 enum Platform {
   SPOTIFY
+  AUDIUS
 }
 
 enum RaidStatus {
