@@ -1,19 +1,41 @@
-import {
-  ChatInputCommandInteraction,
-  SlashCommandBuilder,
-  EmbedBuilder,
-} from 'discord.js';
+import { ChatInputCommandInteraction, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { Command } from '../types';
-import { prisma } from '../database/prisma';
+import { apiGet, apiPost, ApiError, SessionContext } from '../lib/apiClient';
+
+interface RaidDetails {
+  id: number;
+  track_title?: string | null;
+  track_artist?: string | null;
+  reward_amount: number;
+  token_mint: string;
+  required_listen_time: number;
+}
+
+interface RaidParticipation {
+  id: number;
+  raid_id: number;
+  qualified: boolean;
+  claimed_reward: boolean;
+  claimed_at?: string | null;
+  total_listen_duration: number;
+  raid: RaidDetails;
+}
+
+interface ClaimResponse {
+  success: boolean;
+  amount: number;
+  token_mint: string;
+  transaction_hash?: string;
+}
 
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName('raid-claim')
-    .setDescription('Claim your tokens from a qualified listening party')
+    .setDescription('Claim your reward from a completed raid')
     .addStringOption(option =>
       option
-        .setName('party-id')
-        .setDescription('The party to claim from')
+        .setName('raid-id')
+        .setDescription('The raid ID to claim')
         .setRequired(true)
     ),
 
@@ -21,108 +43,133 @@ export const command: Command = {
     await interaction.deferReply({ ephemeral: true });
 
     try {
-      const partyId = interaction.options.getString('party-id')!;
-      const userId = interaction.user.id;
+      const raidId = interaction.options.getString('raid-id', true);
+      const sessionContext: SessionContext = {
+        discordId: interaction.user.id,
+        username: interaction.user.username,
+        displayName: interaction.user.globalName ?? interaction.user.displayName ?? undefined,
+        avatarUrl: interaction.user.displayAvatarURL()
+      };
 
-      // Get party and participant
-      const party = await prisma.listeningParty.findUnique({
-        where: { id: partyId },
-      });
+      const participations = await apiGet<RaidParticipation[]>(
+        sessionContext,
+        '/api/raids/mine/list'
+      );
 
-      if (!party) {
+      const participation = participations.find(
+        p => p.raid?.id?.toString() === raidId || p.raid_id?.toString() === raidId
+      );
+
+      if (!participation) {
         const embed = new EmbedBuilder()
           .setColor('#FF6B6B')
-          .setTitle('❌ Party Not Found')
-          .setDescription('This listening party doesn\'t exist');
+          .setTitle('❌ Not Eligible')
+          .setDescription('You did not participate in this raid.');
         await interaction.editReply({ embeds: [embed] });
         return;
       }
 
-      const participant = await prisma.listeningPartyParticipant.findUnique({
-        where: {
-          party_id_discord_id: {
-            party_id: partyId,
-            discord_id: userId,
-          },
-        },
-      });
+      let raid = participation.raid;
 
-      if (!participant) {
-        const embed = new EmbedBuilder()
-          .setColor('#FF6B6B')
-          .setTitle('❌ Not Joined')
-          .setDescription('You haven\'t joined this party');
-        await interaction.editReply({ embeds: [embed] });
-        return;
+      if (!raid) {
+        try {
+          raid = await apiGet<RaidDetails>(
+            sessionContext,
+            `/api/raids/${encodeURIComponent(raidId)}`
+          );
+        } catch {
+          raid = {
+            id: Number(raidId),
+            track_title: undefined,
+            track_artist: undefined,
+            reward_amount: 0,
+            token_mint: 'TOKEN',
+            required_listen_time: 30
+          };
+        }
       }
 
-      // Check if qualified
-      if (!participant.qualified_at) {
+      if (!participation.qualified) {
         const embed = new EmbedBuilder()
           .setColor('#FF6B6B')
           .setTitle('❌ Not Qualified')
-          .setDescription(`You need to listen for 30 seconds to qualify. Current: ${participant.total_listening_duration}s`);
+          .setDescription(
+            `You need to listen for at least ${raid.required_listen_time} seconds.\n` +
+            `Your recorded time: ${participation.total_listen_duration} seconds.`
+          );
         await interaction.editReply({ embeds: [embed] });
         return;
       }
 
-      // Check if already claimed
-      if (participant.claimed_at) {
+      if (participation.claimed_reward) {
         const embed = new EmbedBuilder()
           .setColor('#FF6B6B')
           .setTitle('❌ Already Claimed')
-          .setDescription('You\'ve already claimed tokens from this party');
+          .setDescription('You have already claimed this raid reward.');
         await interaction.editReply({ embeds: [embed] });
         return;
       }
 
-      // Update participant and party
-      const mockTxSignature = 'tx_' + Math.random().toString(36).substr(2, 16);
+      let claimResult: ClaimResponse;
 
-      await Promise.all([
-        prisma.listeningPartyParticipant.update({
-          where: { id: participant.id },
-          data: {
-            claimed_at: new Date(),
-            claim_tx_signature: mockTxSignature,
-          },
-        }),
-        prisma.listeningParty.update({
-          where: { id: partyId },
-          data: {
-            claimed_count: {
-              increment: 1,
-            },
-          },
-        }),
-      ]);
+      try {
+        claimResult = await apiPost<ClaimResponse>(
+          sessionContext,
+          `/api/raids/${encodeURIComponent(raidId)}/claim`,
+          {}
+        );
+      } catch (error) {
+        if (error instanceof ApiError) {
+          const embed = new EmbedBuilder()
+            .setColor('#FF6B6B')
+            .setTitle('❌ Claim Failed')
+            .setDescription(error.message);
+          await interaction.editReply({ embeds: [embed] });
+          return;
+        }
+        throw error;
+      }
 
-      // Success embed
+      const amountValue = Number(claimResult.amount);
+      const amountDisplay = Number.isFinite(amountValue)
+        ? `${amountValue.toLocaleString()} ${claimResult.token_mint}`
+        : `${claimResult.amount} ${claimResult.token_mint}`;
+
       const embed = new EmbedBuilder()
         .setColor('#10B981')
-        .setTitle('✅ Tokens Claimed!')
-        .setDescription('Your reward has been sent to your wallet')
+        .setTitle('✅ Reward Claimed!')
+        .setDescription(
+          `Your reward for **${raid.track_title || 'the raid'}** has been queued for settlement.`
+        )
         .addFields(
           {
             name: '💰 Amount',
-            value: `${(Number(party.tokens_per_participant) / 1e6).toFixed(2)}M tokens`,
+            value: amountDisplay,
           },
           {
-            name: '🔗 Transaction',
-            value: `[View on Explorer](https://explorer.solana.com/tx/${mockTxSignature}?cluster=devnet)`,
+            name: '📈 Listening Time',
+            value: `${participation.total_listen_duration} seconds`,
+            inline: true,
+          },
+          {
+            name: '🎧 Required',
+            value: `${raid.required_listen_time} seconds`,
+            inline: true,
           }
         )
-        .setFooter({ text: 'Check your wallet balance in a few moments' });
+        .setFooter({ text: claimResult.transaction_hash ? `Transaction: ${claimResult.transaction_hash}` : 'Tokens will appear in your wallet shortly.' });
 
       await interaction.editReply({ embeds: [embed] });
     } catch (error) {
-      console.error('Error claiming tokens:', error);
+      console.error('Error claiming raid reward:', error);
       const embed = new EmbedBuilder()
         .setColor('#FF6B6B')
         .setTitle('❌ Error')
-        .setDescription('Failed to claim tokens. Please try again later.');
+        .setDescription('Failed to process the claim. Please try again later.');
 
       await interaction.editReply({ embeds: [embed] });
     }
   },
 };
+
+export default command;

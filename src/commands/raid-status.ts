@@ -1,58 +1,57 @@
-import {
-  ChatInputCommandInteraction,
-  SlashCommandBuilder,
-  EmbedBuilder,
-} from 'discord.js';
+import { ChatInputCommandInteraction, SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { Command } from '../types';
-import { prisma } from '../database/prisma';
+import { apiGet, ApiError, SessionContext } from '../lib/apiClient';
+
+interface RaidParticipation {
+  id: number;
+  qualified: boolean;
+  claimed_reward: boolean;
+  total_listen_duration: number;
+  raid: {
+    id: number;
+    track_title?: string | null;
+    track_artist?: string | null;
+    required_listen_time?: number | null;
+  } | null;
+}
 
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName('raid-status')
-    .setDescription('Check your participation status in active parties'),
+    .setDescription('Check your participation status in active raids'),
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     await interaction.deferReply({ ephemeral: true });
 
     try {
-      const userId = interaction.user.id;
+      const sessionContext: SessionContext = {
+        discordId: interaction.user.id,
+        username: interaction.user.username,
+        displayName: interaction.user.globalName ?? interaction.user.displayName ?? undefined,
+        avatarUrl: interaction.user.displayAvatarURL()
+      };
 
-      // Get all active parties with user's participation
-      const parties = await prisma.listeningParty.findMany({
-        where: {
-          status: 'ACTIVE',
-          expires_at: {
-            gt: new Date(),
-          },
-        },
-        include: {
-          participants: {
-            where: {
-              discord_id: userId,
-            },
-          },
-        },
-      });
-
-      // Filter to only parties user is in
-      const participations = parties.filter((p: any) => p.participants.length > 0);
+      const participations = await apiGet<RaidParticipation[]>(
+        sessionContext,
+        '/api/raids/mine/list'
+      );
 
       if (participations.length === 0) {
         const embed = new EmbedBuilder()
           .setColor('#FBBF24')
           .setTitle('📊 No Active Participations')
-          .setDescription('You haven\'t joined any active parties yet. Use `/raid-list` to find one!');
+          .setDescription('You haven\'t joined any active raids yet. Use `/raid-list` to find one!');
 
         await interaction.editReply({ embeds: [embed] });
         return;
       }
 
-      const embeds = participations.map((party: any) => {
-        const participant = party.participants[0];
-        const duration = participant?.total_listening_duration || 0;
-        const qualified = participant?.qualified_at ? true : false;
-        const claimed = participant?.claimed_at ? true : false;
-        const progress = Math.min(100, Math.round((duration / 30) * 100));
+      const embeds = participations.map((participation) => {
+        const duration = participation.total_listen_duration || 0;
+        const requiredDuration = participation.raid?.required_listen_time ?? 30;
+        const qualified = participation.qualified;
+        const claimed = participation.claimed_reward;
+        const progress = Math.min(100, Math.round((duration / requiredDuration) * 100));
 
         let status = '⏳ In Progress';
         if (claimed) status = '✅ Claimed';
@@ -62,12 +61,12 @@ export const command: Command = {
 
         const embed = new EmbedBuilder()
           .setColor(qualified ? '#10B981' : '#3B82F6')
-          .setTitle(`${party.track_title} by ${party.track_artist || 'Unknown'}`)
+          .setTitle(`${participation.raid?.track_title || 'Unknown Track'} • Raid #${participation.raid?.id ?? participation.id}`)
           .addFields(
             { name: '📊 Status', value: status, inline: true },
             {
               name: '⏱️ Listening Time',
-              value: `${duration}/30 seconds`,
+              value: `${duration}/${requiredDuration} seconds`,
               inline: true,
             },
             {
@@ -80,7 +79,7 @@ export const command: Command = {
         if (qualified && !claimed) {
           embed.addFields({
             name: '🎯 Next Step',
-            value: 'Use `/raid-claim` to get your tokens!',
+            value: 'Use `/raid-claim raid-id:<id>` to receive your reward.',
           });
         }
 
@@ -90,10 +89,14 @@ export const command: Command = {
       await interaction.editReply({ embeds });
     } catch (error) {
       console.error('Error fetching status:', error);
+      const description =
+        error instanceof ApiError
+          ? `API responded with status ${error.status}: ${error.message}`
+          : 'Failed to fetch your participation status.';
       const embed = new EmbedBuilder()
         .setColor('#FF6B6B')
         .setTitle('❌ Error')
-        .setDescription('Failed to fetch your participation status.');
+        .setDescription(description);
 
       await interaction.editReply({ embeds: [embed] });
     }
@@ -106,3 +109,5 @@ function createProgressBar(percent: number): string {
   const bar = '█'.repeat(filled) + '░'.repeat(empty);
   return `${bar} ${percent}%`;
 }
+
+export default command;
