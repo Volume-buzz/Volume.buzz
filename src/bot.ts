@@ -100,11 +100,10 @@ class SpotifyBot {
 
   private loadCommands(): void {
     const commandsPath = path.join(__dirname, 'commands');
-    // In development, load .ts files; in production, load compiled .js files
-    const fileExtension = config.api.nodeEnv === 'development' ? '.ts' : '.js';
-    const commandFiles = fs.readdirSync(commandsPath).filter(file => 
-      file.endsWith(fileExtension) && !file.endsWith('.d.ts')
-    );
+    const commandFiles = fs.readdirSync(commandsPath).filter(file => {
+      const ext = path.extname(file);
+      return (ext === '.ts' || ext === '.js') && !file.endsWith('.d.ts');
+    });
 
     for (const file of commandFiles) {
       const filePath = path.join(commandsPath, file);
@@ -165,10 +164,10 @@ class SpotifyBot {
         await this.handleClaimReward(interaction);
       } else if (customId === 'logout_account') {
         await this.handleLogout(interaction);
-      } else if (customId === 'login_spotify') {
-        await this.handleSpotifyLogin(interaction);
-      } else if (customId === 'logout_spotify') {
-        await this.handleSpotifyLogout(interaction);
+      } else if (customId === 'login_audius') {
+        await this.handleAudiusLogin(interaction);
+      } else if (customId === 'logout_audius') {
+        await this.handleAudiusLogout(interaction);
       } else if (customId === 'export_private_key') {
         await this.handleExportPrivateKey(interaction);
       } else if (customId === 'view_transactions') {
@@ -564,39 +563,43 @@ class SpotifyBot {
     }
   }
 
-  // Removed Audius login - Spotify only
-
-  private async handleSpotifyLogin(interaction: ButtonInteraction): Promise<void> {
+  private async handleAudiusLogin(interaction: ButtonInteraction): Promise<void> {
     await interaction.deferReply({ ephemeral: true });
 
     try {
-      const authUrl = await this.oauthServer.generateAuthUrl(interaction.user.id, 'SPOTIFY');
+      if (!config.audius.apiKey) {
+        const embed = EmbedBuilder.createErrorEmbed(
+          'Audius Not Configured',
+          'Audius integration is unavailable because the API key has not been configured. Please contact an administrator.'
+        );
+        await interaction.editReply({ embeds: [embed] });
+        return;
+      }
+
+      const authUrl = await this.oauthServer.generateAuthUrl(interaction.user.id, 'AUDIUS');
       
       const embed = EmbedBuilder.createSuccessEmbed(
-        'Spotify Login',
-        `🎶 **Click the link below to connect your Spotify account:**\n\n` +
-        `[🔐 **Connect Spotify Account**](${authUrl})\n\n` +
+        'Audius Login',
+        `🎧 **Click the link below to connect your Audius account:**\n\n` +
+        `[🔐 **Connect Audius Account**](${authUrl})\n\n` +
         `**What happens next:**\n` +
-        `1. You'll be redirected to Spotify\n` +
-        `2. Authorize the Discord bot\n` +
-        `3. We'll detect if you have Premium\n` +
-        `4. You'll be redirected back (you can close that tab)\n` +
-        `5. Start participating in Spotify raids!\n\n` +
-        `**Premium vs Free:**\n` +
-        `👑 **Premium** - Access to all raids + enhanced tracking\n` +
-        `🆓 **Free** - Access to most raids (some premium-only excluded)\n\n` +
+        `1. You'll be redirected to Audius\n` +
+        `2. Authorize Volume to view your profile\n` +
+        `3. We\'ll link your Discord and Audius accounts\n` +
+        `4. A confirmation DM will be sent once complete\n` +
+        `5. Start joining raids with your Audius identity!\n\n` +
         `*This link expires in 10 minutes.*`
       );
 
       await interaction.editReply({ embeds: [embed] });
       
-      console.log(`🔗 Generated Spotify OAuth URL for ${interaction.user.tag}`);
+      console.log(`🔗 Generated Audius OAuth URL for ${interaction.user.tag}`);
     } catch (error) {
-      console.error('Error generating Spotify auth URL:', error);
+      console.error('Error generating Audius auth URL:', error);
       
       const embed = EmbedBuilder.createErrorEmbed(
         'Login Error',
-        'Failed to generate Spotify login URL. Please try again.'
+        'Failed to generate Audius login URL. Please try again.'
       );
       
       await interaction.editReply({ embeds: [embed] });
@@ -684,16 +687,16 @@ class SpotifyBot {
   }
 
 
-  private async handleSpotifyLogout(interaction: ButtonInteraction): Promise<void> {
+  private async handleAudiusLogout(interaction: ButtonInteraction): Promise<void> {
     await interaction.deferReply({ ephemeral: true });
 
     try {
       const user = await PrismaDatabase.getUser(interaction.user.id);
       
-      if (!user || !user.spotify_user_id) {
+      if (!user || !user.audius_user_id) {
         const embed = EmbedBuilder.createErrorEmbed(
           'Not Connected',
-          'You don\'t have a Spotify account connected.'
+          'You don\'t have an Audius account connected.'
         );
         await interaction.editReply({ embeds: [embed] });
         return;
@@ -702,22 +705,21 @@ class SpotifyBot {
       await PrismaDatabase.deleteUser(interaction.user.id);
 
       const embed = EmbedBuilder.createSuccessEmbed(
-        'Spotify Disconnected',
-        `🎶 **Spotify account disconnected**\n\n` +
-        `Your account **${user.spotify_display_name}** has been disconnected.\n` +
-        '\n\n' +
-        `Use \`/login\` to reconnect if needed.`
+        'Audius Disconnected',
+        `🎧 **Audius account disconnected**\n\n` +
+        `Your account **${user.audius_name || user.audius_handle}** has been disconnected.\n\n` +
+        `Use \`/login\` anytime to reconnect.`
       );
 
       await interaction.editReply({ embeds: [embed] });
       
-      console.log(`🚪 ${interaction.user.tag} logged out from Spotify (${user.spotify_display_name})`);
+      console.log(`🚪 ${interaction.user.tag} disconnected Audius (${user.audius_handle || user.audius_name})`);
     } catch (error) {
-      console.error('Error handling Spotify logout:', error);
+      console.error('Error handling Audius logout:', error);
       
       const embed = EmbedBuilder.createErrorEmbed(
         'Logout Error',
-        'There was an error logging you out from Spotify. Please try again.'
+        'There was an error disconnecting your Audius account. Please try again.'
       );
       
       await interaction.editReply({ embeds: [embed] });
@@ -730,7 +732,7 @@ class SpotifyBot {
     try {
       const user = await PrismaDatabase.getUser(interaction.user.id);
       
-      if (!user || (!user.spotify_user_id && !user.spotify_user_id)) {
+      if (!user || (!user.spotify_user_id && !user.audius_user_id)) {
         const embed = EmbedBuilder.createErrorEmbed(
           'Not Connected',
           'You don\'t have any accounts connected.'
@@ -874,11 +876,10 @@ class SpotifyBot {
   private async deployCommands(): Promise<void> {
     const commands: any[] = [];
     const commandsPath = path.join(__dirname, 'commands');
-    // In development, deploy .ts files; in production, deploy compiled .js files
-    const fileExtension = config.api.nodeEnv === 'development' ? '.ts' : '.js';
-    const commandFiles = fs.readdirSync(commandsPath).filter(file => 
-      file.endsWith(fileExtension) && !file.endsWith('.d.ts')
-    );
+    const commandFiles = fs.readdirSync(commandsPath).filter(file => {
+      const ext = path.extname(file);
+      return (ext === '.ts' || ext === '.js') && !file.endsWith('.d.ts');
+    });
 
     for (const file of commandFiles) {
       const filePath = path.join(commandsPath, file);
