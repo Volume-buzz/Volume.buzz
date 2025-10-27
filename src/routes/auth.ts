@@ -4,7 +4,6 @@
 
 import { Router, type Router as RouterType } from 'express';
 import RateLimiter from '../middleware/rateLimiter';
-import PrismaDatabase from '../database/prisma';
 import DMService from '../services/dmService';
 import config from '../config/environment';
 
@@ -47,6 +46,50 @@ router.get('/spotify/callback', RateLimiter.oauth(), async (req, res): Promise<v
         </body>
       </html>
     `);
+  }
+});
+
+// AUDIUS OAUTH CALLBACK (returns HTML that posts token payload)
+router.get('/audius/callback', async (req, res): Promise<void> => {
+  try {
+    if (!oauthServer) {
+      res.status(500).send(`
+        <html>
+          <body style="font-family: Arial; text-align: center; padding: 50px; background: #130224; color: white;">
+            <h2>❌ Server Error</h2>
+            <p>OAuth server not properly initialized</p>
+          </body>
+        </html>
+      `);
+      return;
+    }
+
+    await oauthServer.renderAudiusCallbackPage(req, res);
+  } catch (error) {
+    console.error('Error rendering Audius callback page:', error);
+    res.status(500).send(`
+      <html>
+        <body style="font-family: Arial; text-align: center; padding: 50px; background: #130224; color: white;">
+          <h2>❌ Server Error</h2>
+          <p>Failed to load Audius callback. Please retry from Discord.</p>
+        </body>
+      </html>
+    `);
+  }
+});
+
+// AUDIUS OAUTH TOKEN EXCHANGE
+router.post('/audius/token', RateLimiter.oauth(), async (req, res): Promise<void> => {
+  try {
+    if (!oauthServer) {
+      res.status(500).json({ success: false, error: 'OAuth server not initialized' });
+      return;
+    }
+
+    await oauthServer.handleAudiusToken(req, res);
+  } catch (error) {
+    console.error('Error handling Audius token exchange:', error);
+    res.status(500).json({ success: false, error: 'Audius authentication failed. Please retry from Discord.' });
   }
 });
 

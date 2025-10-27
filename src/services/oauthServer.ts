@@ -1,8 +1,3 @@
-/**
- * OAuth Server
- * Handles authentication for Spotify platform
- */
-
 import express, { Request, Response, Router } from 'express';
 import { Server } from 'http';
 import crypto from 'crypto';
@@ -10,10 +5,11 @@ import { User as DiscordUser } from 'discord.js';
 import config from '../config/environment';
 import PrismaDatabase from '../database/prisma';
 import SpotifyAuthService from './spotify/SpotifyAuthService';
+import AudiusAuthService, { AudiusVerifiedProfile } from './audius/AudiusAuthService';
 import WalletService from './wallet';
 
 // Import types
-import { Platform } from '../types/spotify';
+import { Platform } from '../types';
 
 interface OAuthCallbackRequest extends Request {
   query: {
@@ -26,6 +22,7 @@ interface OAuthCallbackRequest extends Request {
 class OAuthServer {
   private bot: any; // Reference to the main bot instance
   private spotifyAuthService: SpotifyAuthService;
+  private audiusAuthService: AudiusAuthService;
   private walletService: WalletService;
   private cleanupInterval: NodeJS.Timeout | null = null;
 
@@ -37,6 +34,12 @@ class OAuthServer {
       clientId: config.spotify.clientId,
       clientSecret: config.spotify.clientSecret,
       redirectUri: config.spotify.redirectUri
+    });
+    this.audiusAuthService = new AudiusAuthService({
+      apiKey: config.audius.apiKey,
+      appName: config.audius.appName,
+      loginRedirectUrl: config.audius.loginRedirectUrl || undefined,
+      apiPublicUrl: config.api.publicUrl
     });
     this.walletService = new WalletService();
 
@@ -104,7 +107,6 @@ class OAuthServer {
       res.status(500).json({ error: 'Failed to initiate Spotify login' });
     }
   }
-
 
   /**
    * Handle Spotify OAuth callback
@@ -265,6 +267,72 @@ class OAuthServer {
     }
   }
 
+  public async renderAudiusCallbackPage(_req: Request, res: Response): Promise<void> {
+    try {
+      res.setHeader('Content-Type', 'text/html');
+      res.send(this.audiusAuthService.getCallbackPageHtml());
+    } catch (error) {
+      console.error('Error rendering Audius callback page:', error);
+      res.status(500).send(`
+        <html>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #130224; color: white;">
+            <h1>❌ Server Error</h1>
+            <p>Failed to render Audius login page. Please retry from Discord.</p>
+          </body>
+        </html>
+      `);
+    }
+  }
+
+  public async handleAudiusToken(req: Request, res: Response): Promise<void> {
+    try {
+      const { state, token } = req.body || {};
+
+      if (typeof state !== 'string' || typeof token !== 'string') {
+        res.status(400).json({ success: false, error: 'Missing authentication payload.' });
+        return;
+      }
+
+      const session = await PrismaDatabase.getOAuthSession(state);
+      if (!session || session.platform !== 'AUDIUS') {
+        await PrismaDatabase.deleteOAuthSession(state);
+        res.status(400).json({ success: false, error: 'Invalid or expired session. Please try again.' });
+        return;
+      }
+
+      if (session.expires_at && session.expires_at < new Date()) {
+        await PrismaDatabase.deleteOAuthSession(state);
+        res.status(400).json({ success: false, error: 'Audius login link expired. Please retry from Discord.' });
+        return;
+      }
+
+      const profile = await this.audiusAuthService.verifyToken(token);
+      const discordUser: DiscordUser = await this.bot.client.users.fetch(session.discord_id);
+
+      await this.audiusAuthService.saveUserProfile(session.discord_id, profile, {
+        discordUsername: discordUser.username
+      });
+
+      const isAdmin = await PrismaDatabase.isAdmin(session.discord_id);
+      try {
+        await this.walletService.createOrGetWallet(session.discord_id, isAdmin);
+      } catch (walletError) {
+        console.warn('Failed to create wallet during Audius login:', walletError);
+      }
+
+      await PrismaDatabase.deleteOAuthSession(state);
+
+      await this.sendAudiusSuccessDM(discordUser, profile);
+
+      console.log(`✅ Audius OAuth successful for user ${session.discord_id} (${profile.handle})`);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error processing Audius OAuth token:', error);
+      res.status(500).json({ success: false, error: 'Failed to complete Audius authentication. Please try again.' });
+    }
+  }
+
   /**
    * Send success DM after Spotify authentication
    */
@@ -314,6 +382,50 @@ class OAuthServer {
     }
   }
 
+  private async sendAudiusSuccessDM(discordUser: DiscordUser, profile: AudiusVerifiedProfile): Promise<void> {
+    try {
+      const isAdmin = await PrismaDatabase.isAdmin(discordUser.id);
+      const wallet = await this.walletService.createOrGetWallet(discordUser.id, isAdmin);
+      const picture = profile.profilePicture || undefined;
+      const pictureUrl =
+        (picture && (picture['1000x1000'] || picture['480x480'] || picture['150x150'] || picture['misc'])) || undefined;
+
+      const embed = {
+        title: '🎧 Audius Account Connected!',
+        description: `Your Audius profile is now linked with Volume.\n\n` +
+          `**Profile:** ${profile.name || profile.handle} ${profile.verified ? '✅ (Verified)' : ''}\n` +
+          `**Handle:** @${profile.handle}\n` +
+          `${profile.email ? `**Email:** ${profile.email}\n` : ''}` +
+          `**Audius ID:** ${profile.userId}\n\n` +
+          `**Solana Wallet Ready**\n` +
+          `\`${wallet.publicKey.substring(0, 8)}...${wallet.publicKey.slice(-4)}\`\n` +
+          `${isAdmin ? '👑 Admin wallet configuration detected' : '🎧 Fan wallet ready for rewards'}\n\n` +
+          `You can now join Audius-enabled raids and earn crypto rewards!`,
+        color: 0x8B5CF6,
+        thumbnail: pictureUrl ? { url: pictureUrl } : undefined,
+        fields: [
+          {
+            name: 'Next Steps',
+            value: '• Use `/account` to view your Audius profile details\n' +
+                   '• Use `/wallet` to view balances and addresses\n' +
+                   '• Join raids from Discord channels to start earning tokens',
+            inline: false
+          }
+        ],
+        footer: {
+          text: 'Audius Integration • Volume Discord Bot'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      const dmChannel = await discordUser.createDM();
+      await dmChannel.send({ embeds: [embed] });
+      console.log(`📨 Sent Audius OAuth success DM to ${discordUser.tag} (@${profile.handle})`);
+    } catch (error) {
+      console.error('Failed to send Audius OAuth success DM:', error);
+    }
+  }
+
 
   /**
    * Generate OAuth URLs for Discord commands
@@ -330,11 +442,13 @@ class OAuthServer {
       platform,
       expiresAt
     });
-    console.log(`🔐 Created OAuth session for Discord user ${discordId}, expires at ${expiresAt.toISOString()}`);
+    console.log(`🔐 Created OAuth session for Discord user ${discordId}, expires at ${expiresAt.toISOString()} (platform: ${platform})`);
     
-    // Generate Spotify OAuth URL using configured redirect URI
-    const spotifyAuthUrl = this.spotifyAuthService.generateAuthUrl(state);
-    return spotifyAuthUrl;
+    if (platform === 'AUDIUS') {
+      return this.audiusAuthService.generateAuthorizeUrl(state);
+    }
+
+    return this.spotifyAuthService.generateAuthUrl(state);
   }
 
   /**
@@ -343,6 +457,11 @@ class OAuthServer {
   start(): void {
     console.log(`🔐 OAuth service initialized`);
     console.log(`🎶 Spotify callback: ${config.spotify.redirectUri}`);
+    if (config.audius.apiKey) {
+      console.log(`🎧 Audius callback: ${this.audiusAuthService.getRedirectUri()}`);
+    } else {
+      console.warn('⚠️ Audius API key not configured; Audius login will be unavailable.');
+    }
   }
 
   /**
