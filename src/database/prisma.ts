@@ -14,13 +14,15 @@ type UserWithWallet = User & {
 
 type RaidWithParticipants = Raid & {
   participants: Array<RaidParticipant & {
-    user: Pick<User, 'spotify_display_name' | 'discord_username'>;
+    user: Pick<User, 'spotify_display_name' | 'discord_username'> &
+      Partial<Pick<User, 'audius_handle' | 'audius_name'>>;
   }>;
 };
 
 type ParticipantWithRaidAndUser = RaidParticipant & {
   raid: Pick<Raid, 'id' | 'track_id' | 'track_title' | 'reward_amount'> | null;
-  user: Pick<User, 'spotify_user_id' | 'spotify_display_name'> | null;
+  user: (Pick<User, 'spotify_user_id' | 'spotify_display_name'> &
+    Partial<Pick<User, 'audius_user_id' | 'audius_handle'>>) | null;
 };
 
 // Allow any return type for these complex Prisma queries to avoid type conflicts
@@ -39,6 +41,12 @@ class PrismaDatabase {
     spotifyUserId?: string;
     spotifyDisplayName?: string;
     spotifyEmail?: string;
+    audiusUserId?: string;
+    audiusHandle?: string;
+    audiusName?: string;
+    audiusEmail?: string;
+    audiusProfilePicture?: string;
+    audiusVerified?: boolean;
     tokensBalance?: number;
     discordUsername?: string;
   }): Promise<User> {
@@ -48,6 +56,12 @@ class PrismaDatabase {
         spotify_user_id: userData.spotifyUserId,
         spotify_display_name: userData.spotifyDisplayName,
         spotify_email: userData.spotifyEmail,
+        audius_user_id: userData.audiusUserId,
+        audius_handle: userData.audiusHandle,
+        audius_name: userData.audiusName,
+        audius_email: userData.audiusEmail,
+        audius_profile_picture: userData.audiusProfilePicture,
+        ...(userData.audiusVerified !== undefined ? { audius_verified: userData.audiusVerified } : {}),
         discord_username: userData.discordUsername
       },
       create: {
@@ -55,6 +69,12 @@ class PrismaDatabase {
         spotify_user_id: userData.spotifyUserId,
         spotify_display_name: userData.spotifyDisplayName,
         spotify_email: userData.spotifyEmail,
+        audius_user_id: userData.audiusUserId,
+        audius_handle: userData.audiusHandle,
+        audius_name: userData.audiusName,
+        audius_email: userData.audiusEmail,
+        audius_profile_picture: userData.audiusProfilePicture,
+        audius_verified: userData.audiusVerified ?? false,
         discord_username: userData.discordUsername,
         tokens_balance: userData.tokensBalance || 0
       }
@@ -88,7 +108,13 @@ class PrismaDatabase {
         spotify_token_expires_at: null,
         spotify_scope: null,
         spotify_product: null,
-        spotify_country: null
+        spotify_country: null,
+        audius_user_id: null,
+        audius_handle: null,
+        audius_name: null,
+        audius_email: null,
+        audius_profile_picture: null,
+        audius_verified: false
       }
     });
   }
@@ -166,6 +192,12 @@ class PrismaDatabase {
     spotifyScope?: string;
     spotifyProduct?: string;
     spotifyCountry?: string;
+    audiusUserId?: string;
+    audiusHandle?: string;
+    audiusName?: string;
+    audiusEmail?: string;
+    audiusProfilePicture?: string;
+    audiusVerified?: boolean;
     discordUsername?: string;
   }): Promise<User | null> {
     try {
@@ -173,6 +205,7 @@ class PrismaDatabase {
         'spotify_user_id' | 'spotify_display_name' | 'spotify_email' | 
         'spotify_is_premium' | 'spotify_access_token' | 'spotify_refresh_token' |
         'spotify_token_expires_at' | 'spotify_scope' | 'spotify_product' | 'spotify_country' |
+        'audius_user_id' | 'audius_handle' | 'audius_name' | 'audius_email' | 'audius_profile_picture' | 'audius_verified' |
         'discord_username'
       >> = {};
       
@@ -186,6 +219,12 @@ class PrismaDatabase {
       if (updates.spotifyScope !== undefined) updateData.spotify_scope = updates.spotifyScope;
       if (updates.spotifyProduct !== undefined) updateData.spotify_product = updates.spotifyProduct;
       if (updates.spotifyCountry !== undefined) updateData.spotify_country = updates.spotifyCountry;
+      if (updates.audiusUserId !== undefined) updateData.audius_user_id = updates.audiusUserId;
+      if (updates.audiusHandle !== undefined) updateData.audius_handle = updates.audiusHandle;
+      if (updates.audiusName !== undefined) updateData.audius_name = updates.audiusName;
+      if (updates.audiusEmail !== undefined) updateData.audius_email = updates.audiusEmail;
+      if (updates.audiusProfilePicture !== undefined) updateData.audius_profile_picture = updates.audiusProfilePicture;
+      if (updates.audiusVerified !== undefined) updateData.audius_verified = updates.audiusVerified;
       if (updates.discordUsername) updateData.discord_username = updates.discordUsername;
 
       // Use upsert to handle both update and create cases
@@ -810,7 +849,7 @@ class PrismaDatabase {
   static async createOAuthSession(sessionData: {
     state: string;
     discordId: string;
-    platform: 'SPOTIFY';
+    platform: 'SPOTIFY' | 'AUDIUS';
     expiresAt: Date;
   }): Promise<OAuthSession> {
     try {
@@ -824,11 +863,11 @@ class PrismaDatabase {
 
       const session = await prisma.oAuthSession.create({
         data: {
-          state: sessionData.state,
-          discord_id: sessionData.discordId,
-          platform: 'SPOTIFY',
-          expires_at: sessionData.expiresAt
-        }
+        state: sessionData.state,
+        discord_id: sessionData.discordId,
+        platform: sessionData.platform,
+        expires_at: sessionData.expiresAt
+      }
       });
       
       console.log(`📝 Created OAuth session for Discord user ${sessionData.discordId} with state ${sessionData.state.substring(0, 8)}...`);
@@ -893,7 +932,7 @@ class PrismaDatabase {
   static async createSessionMapping(sessionData: {
     sessionId: string;
     discordId: string;
-    platform: 'SPOTIFY';
+    platform: 'SPOTIFY' | 'AUDIUS';
     expiresAt: Date;
   }): Promise<OAuthSession> {
     return await prisma.oAuthSession.create({
