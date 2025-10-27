@@ -172,9 +172,9 @@ The dashboard is configured for Railway deployment:
 - `DATABASE_URL` - PostgreSQL connection string
 - `DISCORD_CLIENT_ID` - Discord application client ID
 - `DISCORD_CLIENT_SECRET` - Discord application client secret
-- `SPOTIFY_CLIENT_ID` - Spotify application client ID  
-- `SPOTIFY_CLIENT_SECRET` - Spotify application client secret
-- `SPOTIFY_REDIRECT_URI` - OAuth callback URL (https://yourdomain.com/auth/spotify/callback)
+- `AUDIUS_API_KEY` - Audius developer app client ID used for OAuth login
+- `AUDIUS_APP_NAME` - Application name to send with Audius API requests (e.g. `volume-bot`)
+- `API_PUBLIC_URL` - Publicly reachable URL for the API server (e.g. `https://bot.yourdomain.com`)
 
 #### Bot-Specific
 - `DISCORD_TOKEN` - Discord bot token
@@ -190,6 +190,9 @@ The dashboard is configured for Railway deployment:
 - `NEXTAUTH_URL` - Dashboard URL for OAuth callbacks
 
 #### Optional Configuration
+- `AUDIUS_LOGIN_REDIRECT_URL` - Override the default Audius OAuth callback route
+- `AUDIUS_API_SECRET` - Provide only if you plan to perform authorized write operations via the Audius SDK
+- `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` / `SPOTIFY_REDIRECT_URI` - Only required if Spotify features are re-enabled
 - `SOLANA_NETWORK` - mainnet, devnet, or testnet (default: mainnet)
 - `SOLANA_RPC_URL` - Custom Solana RPC endpoint
 - `NODE_ENV` - Environment (development, production)
@@ -197,10 +200,10 @@ The dashboard is configured for Railway deployment:
 
 ## How It Works
 
-1. **User Authentication**: Users use `/login` to connect their Spotify account
-2. **Raid Creation**: Admins create raids targeting specific Spotify tracks
-3. **User Participation**: Users join raids and listen to the specified track
-4. **Progress Tracking**: Bot monitors user activity via Spotify Web API
+1. **User Authentication**: Users run `/login` to connect their Audius account
+2. **Raid Creation**: Admins create raids targeting supported tracks
+3. **User Participation**: Users join raids and follow the listening instructions
+4. **Progress Tracking**: The bot monitors participation and validates completion
 5. **Reward Distribution**: Qualified users can claim cryptocurrency rewards when raids complete
 
 ## Technical Stack

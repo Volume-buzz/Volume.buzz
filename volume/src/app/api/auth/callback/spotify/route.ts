@@ -31,17 +31,29 @@ export async function GET(request: NextRequest) {
 
     // Validate state parameter using session storage
     const session = authSessions.get(state);
-    const codeVerifier = session?.codeVerifier;
+    let codeVerifier = session?.codeVerifier;
+    const stateCookie = request.cookies.get('spotify_state')?.value;
+    const cookieVerifier = request.cookies.get('spotify_code_verifier')?.value;
+
+    console.log('🍪 State cookie present:', !!stateCookie);
+    console.log('🍪 Code verifier cookie present:', !!cookieVerifier);
+    console.log('🍪 Cookie state matches request:', stateCookie === state);
+
+    if (!codeVerifier && stateCookie === state && cookieVerifier) {
+      console.log('🍪 Falling back to cookie-stored code verifier');
+      codeVerifier = cookieVerifier;
+    }
 
     console.log('💾 Session found for state:', !!session);
     console.log('🔑 Code verifier present:', !!codeVerifier);
     console.log('🔍 Session valid:', !!session && !!codeVerifier);
 
-    if (!session || !codeVerifier) {
+    if (!codeVerifier) {
       console.error('❌ State validation failed');
       console.error('   - Session found:', !!session);
       console.error('   - Received state:', state);
       console.error('   - Code verifier present:', !!codeVerifier);
+      console.error('   - Cookie state matches:', stateCookie === state);
       const appUrl = process.env.APP_URL || request.url;
       return NextResponse.redirect(new URL('/dashboard/spotify?error=state_mismatch', appUrl));
     }
