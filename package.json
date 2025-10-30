@@ -20,7 +20,7 @@
     "deploy": "npm run build && pm2 start ecosystem.config.js",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
-    "db:push": "npx prisma db push",
+    "db:push": "npx prisma db push --accept-data-loss",
     "db:generate": "npx prisma generate",
     "db:studio": "npx prisma studio",
     "postinstall": "npx prisma generate"
