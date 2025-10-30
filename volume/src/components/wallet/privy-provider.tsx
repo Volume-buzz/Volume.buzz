@@ -8,6 +8,10 @@ interface PrivyWalletProviderProps {
   children: ReactNode;
 }
 
+const solanaConnectors = toSolanaWalletConnectors({
+  shouldAutoConnect: true,
+});
+
 export function PrivyWalletProvider({ children }: PrivyWalletProviderProps) {
   return (
     <PrivyProvider
@@ -21,7 +25,7 @@ export function PrivyWalletProvider({ children }: PrivyWalletProviderProps) {
         },
         externalWallets: {
           solana: {
-            connectors: toSolanaWalletConnectors(),
+            connectors: solanaConnectors,
           },
         },
       }}

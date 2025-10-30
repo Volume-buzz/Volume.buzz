@@ -8,7 +8,6 @@ import { useRaid } from '@/contexts/RaidContext';
 import { QueuedTrack } from '@/types/raid';
 import { RAID_PROGRAM_ID, SOLANA_RPC_URL } from '@/lib/raid-program';
 import idl from '@/lib/idl/raid_escrow.json';
-import type { RaidEscrow } from '@/lib/types/raid_escrow';
 
 interface RaidCreationModalProps {
   track: QueuedTrack;
@@ -23,6 +22,17 @@ interface UserToken {
   balance: number;
 }
 
+interface DiscordServer {
+  id: string;
+  name: string;
+}
+
+interface DiscordChannel {
+  id: string;
+  name: string;
+  type: number;
+}
+
 export function RaidCreationModal({ track, platform = 'spotify', onClose }: RaidCreationModalProps) {
   const { user, authenticated, login, logout } = usePrivy();
   const { createRaid } = useRaid();
@@ -35,6 +45,12 @@ export function RaidCreationModal({ track, platform = 'spotify', onClose }: Raid
   const [error, setError] = useState<string>('');
   const [creating, setCreating] = useState(false);
   const [lastRaidCreation, setLastRaidCreation] = useState<number>(0);
+  const [servers, setServers] = useState<DiscordServer[]>([]);
+  const [channels, setChannels] = useState<DiscordChannel[]>([]);
+  const [selectedServerId, setSelectedServerId] = useState<string>('');
+  const [selectedChannelId, setSelectedChannelId] = useState<string>('');
+  const [loadingServers, setLoadingServers] = useState(false);
+  const [loadingChannels, setLoadingChannels] = useState(false);
 
   // Fetch user's tokens
   useEffect(() => {
@@ -79,7 +95,86 @@ export function RaidCreationModal({ track, platform = 'spotify', onClose }: Raid
     fetchUserTokens();
   }, [user?.wallet?.address]);
 
+  // Fetch Discord servers where user is admin
+  useEffect(() => {
+    async function fetchServers() {
+      setLoadingServers(true);
+      try {
+        const res = await fetch('/api/discord/servers', {
+          credentials: 'include',
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Failed to load Discord servers. Reconnect Discord and try again.');
+        }
+
+        const raw = await res.json();
+        const list = Array.isArray(raw) ? raw : raw?.servers ?? [];
+        const normalized = list.map((server: any) => ({
+          id: server.id,
+          name: server.name,
+        }));
+        setServers(normalized);
+        setError(normalized.length === 0 ? 'No Discord servers found where you are an admin. Verify your Discord login and permissions.' : '');
+      } catch (err) {
+        console.error('Failed to fetch Discord servers:', err);
+        setServers([]);
+        setError(err instanceof Error ? err.message : 'Failed to load Discord servers');
+      } finally {
+        setLoadingServers(false);
+      }
+    }
+
+    fetchServers();
+  }, []);
+
+  // Fetch channels whenever server changes
+  useEffect(() => {
+    async function fetchChannels(serverId: string) {
+      setLoadingChannels(true);
+      try {
+        const res = await fetch(`/api/discord/servers/${serverId}/channels`, {
+          credentials: 'include',
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Failed to fetch server channels. Ensure the bot has permissions to post.');
+        }
+
+        const payload = await res.json();
+        const list = (payload.channels || []).filter((channel: any) => channel.type === 0 || channel.type === 5);
+        console.log('Fetched Discord channels for raid creation:', list);
+        setChannels(list);
+        setError(list.length === 0 ? 'No text or announcement channels found. Update channel permissions and try again.' : '');
+      } catch (err) {
+        console.error('Failed to fetch Discord channels:', err);
+        setChannels([]);
+        setError(err instanceof Error ? err.message : 'Failed to load Discord channels');
+      } finally {
+        setLoadingChannels(false);
+      }
+    }
+
+    if (selectedServerId) {
+      const server = servers.find((s) => s.id === selectedServerId);
+      if (!server) {
+        setChannels([]);
+        setSelectedChannelId('');
+        setError('Selected server unavailable. Refresh the page and try again.');
+        return;
+      }
+      fetchChannels(selectedServerId);
+    } else {
+      setChannels([]);
+      setSelectedChannelId('');
+    }
+  }, [selectedServerId, servers]);
+
   const handleCreateRaid = async () => {
+    setError('');
+
     if (!selectedToken) {
       setError('Please select a token');
       return;
@@ -87,6 +182,21 @@ export function RaidCreationModal({ track, platform = 'spotify', onClose }: Raid
 
     if (tokensPerUser <= 0 || maxSeats <= 0) {
       setError('Invalid values');
+      return;
+    }
+
+    if (!selectedServerId) {
+      setError('Select a Discord server to post the raid announcement.');
+      return;
+    }
+
+    if (!servers.find((s) => s.id === selectedServerId)) {
+      setError('Selected server unavailable. Refresh the page and try again.');
+      return;
+    }
+
+    if (!selectedChannelId) {
+      setError('Select a Discord channel where the raid embed should be posted.');
       return;
     }
 
@@ -227,7 +337,47 @@ export function RaidCreationModal({ track, platform = 'spotify', onClose }: Raid
       });
 
       alert(`🎉 Raid created successfully!\n\nView on explorer:\nhttps://explorer.solana.com/tx/${tx}?cluster=devnet`);
-      onClose();
+      try {
+        const tokensPerParticipantLamports = BigInt(Math.round(tokensPerUser * 1e9)).toString();
+        const backendResponse = await fetch('/api/listening-parties', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            track_id: track.id,
+            track_title: track.name,
+            track_artist: track.artist,
+            track_artwork_url: (track as any).artwork ?? '',
+            platform,
+            token_mint: selectedToken,
+            tokens_per_participant: tokensPerParticipantLamports,
+            max_participants: maxSeats,
+            duration_minutes: 30,
+            server_id: selectedServerId,
+            channel_id: selectedChannelId,
+          }),
+        });
+
+        if (!backendResponse.ok) {
+          const data = await backendResponse.json().catch(() => ({}));
+          const message = data.error || 'Raid created on-chain, but failed to notify Discord.';
+          console.error('Failed to notify backend after raid creation:', message);
+          alert(`${message}\n\nYou can retry by opening the raid modal again or posting manually through the bot.`);
+          setError(message);
+        } else {
+          console.log('✅ Backend notified to post raid details to Discord.');
+          setError('');
+          onClose();
+        }
+      } catch (notifyError) {
+        console.error('Failed to notify backend:', notifyError);
+        alert('Raid created on-chain, but we could not post the Discord embed automatically. Try again or post manually.');
+        setError('Raid created on-chain, but failed to notify Discord. Try again from the dashboard.');
+      } finally {
+        setCreating(false);
+      }
 
     } catch (err: any) {
       console.error('❌ Raid creation error:', err);
@@ -315,13 +465,63 @@ export function RaidCreationModal({ track, platform = 'spotify', onClose }: Raid
           <div className="text-sm text-muted-foreground">{track.artist}</div>
         </div>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded text-sm text-red-800 dark:text-red-200">
-            {error}
-          </div>
-        )}
-
         <div className="space-y-4">
+          {/* Discord Server */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Discord Server
+            </label>
+            {loadingServers ? (
+              <div className="text-sm text-muted-foreground">Loading your Discord servers...</div>
+            ) : (
+              <select
+                value={selectedServerId}
+                onChange={(e) => {
+                  setSelectedServerId(e.target.value);
+                  setSelectedChannelId('');
+                }}
+                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
+              >
+                <option value="">Select a server...</option>
+                {servers.map((server) => (
+                  <option key={server.id} value={server.id}>
+                    {server.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {/* Discord Channel */}
+          {selectedServerId && (
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Discord Channel
+              </label>
+              {loadingChannels ? (
+                <div className="text-sm text-muted-foreground">Loading channels...</div>
+              ) : (
+                <select
+                  value={selectedChannelId}
+                  onChange={(e) => setSelectedChannelId(e.target.value)}
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
+                >
+                  <option value="">Select a channel...</option>
+                  {channels.map((channel) => (
+                    <option key={channel.id} value={channel.id}>
+                      #{channel.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {!loadingChannels && channels.length === 0 && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  No eligible text or announcement channels found. Check the bot&apos;s permissions in this server.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Token Selection */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
@@ -385,6 +585,12 @@ export function RaidCreationModal({ track, platform = 'spotify', onClose }: Raid
           )}
         </div>
 
+        {error && (
+          <div className="mt-4 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded text-sm text-red-800 dark:text-red-200">
+            {error}
+          </div>
+        )}
+
         <div className="mt-6 flex gap-3">
           <button
             onClick={onClose}
@@ -394,7 +600,13 @@ export function RaidCreationModal({ track, platform = 'spotify', onClose }: Raid
           </button>
           <button
             onClick={handleCreateRaid}
-            disabled={!selectedToken || loadingTokens || creating}
+            disabled={
+              !selectedToken ||
+              loadingTokens ||
+              creating ||
+              !selectedServerId ||
+              !selectedChannelId
+            }
             className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {creating ? 'Creating Raid...' : 'Create Raid'}

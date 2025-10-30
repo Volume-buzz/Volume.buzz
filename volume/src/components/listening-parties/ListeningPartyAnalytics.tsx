@@ -38,9 +38,7 @@ export function ListeningPartyAnalytics() {
   const fetchAnalytics = async () => {
     try {
       const response = await fetch('/api/listening-parties/artist/my-parties', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -83,7 +81,7 @@ export function ListeningPartyAnalytics() {
   };
 
   useEffect(() => {
-    if (privyUser?.discordId) {
+    if (privyUser?.discord?.username) {
       fetchAnalytics();
 
       // Auto-refresh every 30 seconds if enabled
@@ -92,7 +90,7 @@ export function ListeningPartyAnalytics() {
         return () => clearInterval(interval);
       }
     }
-  }, [privyUser?.discordId, autoRefresh]);
+  }, [privyUser?.discord?.username, autoRefresh]);
 
   if (loading) {
     return (

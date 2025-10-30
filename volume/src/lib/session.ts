@@ -7,6 +7,9 @@ export interface SessionUser {
   email: string;
   name: string;
   image: string;
+  discordAccessToken?: string;
+  discordRefreshToken?: string;
+  discordTokenExpiresAt?: string;
 }
 
 export async function getSession(): Promise<SessionUser | null> {
@@ -27,6 +30,9 @@ export async function getSession(): Promise<SessionUser | null> {
       email: payload.email as string,
       name: payload.name as string,
       image: payload.image as string,
+      discordAccessToken: payload.discordAccessToken as string | undefined,
+      discordRefreshToken: payload.discordRefreshToken as string | undefined,
+      discordTokenExpiresAt: payload.discordTokenExpiresAt as string | undefined,
     };
   } catch (error) {
     console.error('Session verification failed:', error);

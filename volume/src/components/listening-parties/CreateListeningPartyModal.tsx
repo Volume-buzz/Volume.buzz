@@ -16,9 +16,11 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [servers, setServers] = useState<Array<{ id: string; name: string }>>([]);
+  const [channels, setChannels] = useState<Array<{ id: string; name: string }>>([]);
 
   const [formData, setFormData] = useState({
     server_id: '',
+    channel_id: '',
     track_id: '',
     platform: 'audius' as 'audius' | 'spotify',
     tokens_per_participant: '1000000',
@@ -27,33 +29,86 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
   });
 
   useEffect(() => {
-    if (open && privyUser?.discordId) {
+    if (open && privyUser?.discord?.username) {
       fetchDiscordServers();
     }
-  }, [open, privyUser?.discordId]);
+  }, [open, privyUser?.discord?.username]);
 
   const fetchDiscordServers = async () => {
     try {
       const response = await fetch('/api/discord/servers', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
+        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();
-        setServers(data);
+        const normalized = (Array.isArray(data) ? data : data?.servers ?? []).map(
+          (server: any) => ({
+            id: server.id,
+            name: server.name,
+          })
+        );
+        setServers(normalized);
+        setError(normalized.length === 0 ? 'No Discord servers found where you have admin access. Check your Discord login and permissions.' : null);
       }
     } catch (err) {
       console.error('Failed to fetch servers:', err);
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const fetchDiscordChannels = async (serverId: string) => {
+    try {
+      const response = await fetch(`/api/discord/servers/${serverId}/channels`, {
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to fetch channels');
+      }
+
+      const data = await response.json();
+      const textChannels = (data.channels || [])
+        .filter((channel: any) => channel.type === 0)
+        .map((channel: any) => ({
+          id: channel.id,
+          name: channel.name,
+        }));
+
+      setChannels(textChannels);
+      setError(textChannels.length === 0 ? 'No text or announcement channels available. Check channel permissions and try again.' : null);
+    } catch (err) {
+      console.error('Failed to load channels:', err);
+      setChannels([]);
+      setError(
+        err instanceof Error ? err.message : 'Failed to load server channels'
+      );
+    }
+  };
+
+  const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
+
+    if (name === 'server_id') {
+      setFormData(prev => ({
+        ...prev,
+        channel_id: '',
+      }));
+      if (!value) {
+        setChannels([]);
+        return;
+      }
+      const server = servers.find((s) => s.id === value);
+      if (!server) {
+        setChannels([]);
+        setError('Selected server is unavailable. Refresh the page and try again.');
+        return;
+      }
+      await fetchDiscordChannels(value);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,7 +117,8 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
     setError(null);
 
     try {
-      if (!privyUser?.discordId) {
+      const discordId = privyUser?.discord?.subject;
+      if (!discordId) {
         throw new Error('Discord authentication required');
       }
 
@@ -74,16 +130,21 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
         throw new Error('Discord server selection is required');
       }
 
+      if (!formData.channel_id) {
+        throw new Error('Discord channel selection is required');
+      }
+
       // Create listening party via API
       const response = await fetch('/api/listening-parties', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         },
+        credentials: 'include',
         body: JSON.stringify({
-          artist_discord_id: privyUser.discordId,
+          artist_discord_id: discordId,
           server_id: formData.server_id,
+          channel_id: formData.channel_id,
           track_id: formData.track_id,
           platform: formData.platform,
           tokens_per_participant: BigInt(formData.tokens_per_participant).toString(),
@@ -100,6 +161,7 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
       // Reset form and close
       setFormData({
         server_id: '',
+        channel_id: '',
         track_id: '',
         platform: 'audius',
         tokens_per_participant: '1000000',
@@ -133,7 +195,7 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
         </DrawerHeader>
 
         <div className="overflow-y-auto flex-1 px-4 md:px-6 py-4">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form id="create-listening-party-form" onSubmit={handleSubmit} className="space-y-6">
             {/* Discord Server Selection */}
             <div className="space-y-4 pb-4 border-b border-white/10">
               <h3 className="font-semibold text-white text-sm">Discord Server</h3>
@@ -151,6 +213,32 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
                   </option>
                 ))}
               </select>
+
+              {formData.server_id && (
+                <div className="space-y-2">
+                  <label className="text-white/80 text-sm block">Discord Channel</label>
+                  <select
+                    name="channel_id"
+                    value={formData.channel_id}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
+                    disabled={channels.length === 0}
+                    required
+                  >
+                    <option value="" className="bg-slate-900">Select a channel...</option>
+                    {channels.map((channel) => (
+                      <option key={channel.id} value={channel.id} className="bg-slate-900">
+                        #{channel.name}
+                      </option>
+                    ))}
+                  </select>
+                  {channels.length === 0 && (
+                    <p className="text-xs text-white/60">
+                      No channels available yet. Confirm the bot can view and post in at least one text or announcement channel.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Track Information */}
@@ -274,8 +362,14 @@ export function CreateListeningPartyModal({ onSuccess }: CreateListeningPartyMod
 
         <DrawerFooter className="px-4 md:px-6 py-4 border-t border-white/10">
           <Button
-            onClick={handleSubmit}
-            disabled={loading}
+            type="submit"
+            form="create-listening-party-form"
+            disabled={
+              loading ||
+              !formData.server_id ||
+              !formData.channel_id ||
+              !formData.track_id
+            }
             className="w-full bg-primary text-primary-foreground font-semibold"
           >
             {loading ? (
