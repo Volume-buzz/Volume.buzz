@@ -578,6 +578,8 @@ router.post(
       duration_minutes: Joi.number().min(1).required(),
       server_id: Joi.string().optional(),
       channel_id: Joi.string().optional(),
+      raid_id: Joi.string().optional(), // From dashboard when escrow already created
+      raid_escrow_pda: Joi.string().optional(), // From dashboard when escrow already created
     }),
   }),
   async (req: Request, res: Response) => {
@@ -595,6 +597,8 @@ router.post(
         duration_minutes,
         server_id,
         channel_id,
+        raid_id: providedRaidId,
+        raid_escrow_pda: providedEscrowPda,
       } = req.body;
 
       const normalizedPlatform = (typeof platform === 'string' ? platform.toUpperCase() : 'AUDIUS') as 'AUDIUS' | 'SPOTIFY';
@@ -612,10 +616,12 @@ router.post(
       // Generate unique party ID (full format for database)
       const partyId = `${track_id}_${discordId}_${Date.now()}`;
 
-      // Generate short raid ID for PDA derivation (must be <32 bytes)
-      // Format: trackId_timestamp (last 8 digits) to keep it short
-      const timestamp = Date.now().toString().slice(-8);
-      const raidId = `${track_id}_${timestamp}`;
+      // Use provided raid_id from dashboard, or generate new one
+      // If raid_id is provided, it means escrow was already created on-chain
+      const raidId = providedRaidId || (() => {
+        const timestamp = Date.now().toString().slice(-8);
+        return `${track_id}_${timestamp}`;
+      })();
 
       // Calculate expiration time
       const now = new Date();
@@ -644,7 +650,7 @@ router.post(
           // raid_id is used for PDA derivation, must be <32 bytes
           raid_id: raidId,
           // raid_escrow_pda is set when escrow is created via dashboard
-          raid_escrow_pda: null,
+          raid_escrow_pda: providedEscrowPda || null,
           metadata_uri: null,
         },
       });

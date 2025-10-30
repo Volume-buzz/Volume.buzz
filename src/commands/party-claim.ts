@@ -10,6 +10,7 @@ interface Participant {
   discord_id: string;
   qualified_at?: string | null;
   claimed_at?: string | null;
+  claim_tx_signature?: string | null;
   total_listening_duration: number;
 }
 
@@ -120,8 +121,18 @@ export const command: Command = {
         const embed = new EmbedBuilder()
           .setColor('#10B981')
           .setTitle('✅ Already Claimed')
-          .setDescription('You have already claimed this reward!')
-          .setFooter({ text: 'Check your wallet for your tokens.' });
+          .setDescription('You have already claimed your rewards for this party!');
+
+        // Add transaction link if available
+        if (participant.claim_tx_signature) {
+          embed.addFields({
+            name: '🔗 Transaction',
+            value: `[View on Solana Explorer](https://explorer.solana.com/tx/${participant.claim_tx_signature}?cluster=devnet)`,
+            inline: false
+          });
+        }
+
+        embed.setFooter({ text: 'Check your wallet for your tokens.' });
         await interaction.editReply({ embeds: [embed] });
         return;
       }

@@ -43,7 +43,7 @@ function ClaimPageContent() {
   const { signTransaction } = useSignTransaction();
 
   const [status, setStatus] = useState<
-    'loading' | 'not_qualified' | 'waiting_for_auth' | 'ready_to_claim' | 'claiming' | 'success' | 'error'
+    'loading' | 'not_qualified' | 'waiting_for_auth' | 'ready_to_claim' | 'claiming' | 'success' | 'already_claimed' | 'error'
   >('loading');
   const [party, setParty] = useState<PartyData | null>(null);
   const [participant, setParticipant] = useState<ParticipantStatus | null>(null);
@@ -136,7 +136,7 @@ function ClaimPageContent() {
       setParticipant(participantStatus);
 
       if (participantStatus.claimed) {
-        setStatus('success');
+        setStatus('already_claimed');
         setMessage('You have already claimed your rewards for this party!');
         setTxSignature(participantData.claim_tx_signature || '');
       } else if (!participantStatus.qualified) {
@@ -509,15 +509,73 @@ function ClaimPageContent() {
                 </svg>
               </div>
               <h3 className="text-xl font-bold text-white mb-2">Success!</h3>
-              <p className="text-white/70 mb-4">{message}</p>
+              <p className="text-white/70 mb-6">{message}</p>
               {txSignature && (
                 <a
                   href={`https://explorer.solana.com/tx/${txSignature}?cluster=devnet`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-block text-white/60 hover:text-white underline text-sm"
+                  className="inline-flex items-center justify-center gap-2 w-full bg-white/10 hover:bg-white/20 text-white font-medium py-4 px-6 rounded-xl transition-all duration-200"
                 >
-                  View Transaction
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    />
+                  </svg>
+                  View Transaction on Solana Explorer
+                </a>
+              )}
+            </div>
+          )}
+
+          {status === 'already_claimed' && (
+            <div className="text-center py-8">
+              <div className="inline-block p-4 bg-blue-500/20 rounded-full mb-4">
+                <svg
+                  className="w-12 h-12 text-blue-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Already Claimed</h3>
+              <p className="text-white/70 mb-6">{message}</p>
+              {txSignature && (
+                <a
+                  href={`https://explorer.solana.com/tx/${txSignature}?cluster=devnet`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 w-full bg-white/10 hover:bg-white/20 text-white font-medium py-4 px-6 rounded-xl transition-all duration-200"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    />
+                  </svg>
+                  View Transaction on Solana Explorer
                 </a>
               )}
             </div>

@@ -357,6 +357,8 @@ export function RaidCreationModal({ track, platform = 'spotify', onClose }: Raid
             duration_minutes: 30,
             server_id: selectedServerId,
             channel_id: selectedChannelId,
+            raid_id: raidId, // Pass the dashboard-generated raid_id
+            raid_escrow_pda: raidEscrowPDA.toBase58(), // Pass the escrow PDA
           }),
         });
 
