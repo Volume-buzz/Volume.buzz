@@ -810,7 +810,7 @@ function AudiusPageContent() {
 
       // Check if raid exists on-chain
       try {
-        await program.account.raidEscrow.fetch(raidEscrowPDA);
+        await (program.account as any).raidEscrow.fetch(raidEscrowPDA);
       } catch (err) {
         throw new Error('Raid no longer exists on-chain');
       }
@@ -904,7 +904,7 @@ function AudiusPageContent() {
 
       // Check if raid still exists on-chain
       try {
-        await program.account.raidEscrow.fetch(raidEscrowPDA);
+        await (program.account as any).raidEscrow.fetch(raidEscrowPDA);
       } catch (err) {
         // Raid doesn't exist, just clear UI
         console.log('⚠️ Raid already closed or expired, clearing UI only');
@@ -976,7 +976,7 @@ function AudiusPageContent() {
             const program = new Program(idl as any, provider);
 
             try {
-              await program.account.raidEscrow.fetch(raidEscrowPDA);
+              await (program.account as any).raidEscrow.fetch(raidEscrowPDA);
               // Raid still exists, the error was real
               alert(`Failed to close raid: ${errorMsg}`);
             } catch {
@@ -1017,7 +1017,27 @@ function AudiusPageContent() {
             wallet: solanaWallet
           });
           return Transaction.from(result.signedTransaction);
+        },
+        signAllTransactions: async (transactions: any[]) => {
+          const results = [];
+          for (const tx of transactions) {
+            const signed = await signTransaction({
+              transaction: tx.serialize({ requireAllSignatures: false }),
+              wallet: solanaWallet
+            });
+            results.push(Transaction.from(signed.signedTransaction));
+          }
+          return results;
         }
+      };
+    }
+
+    if (typeof window !== 'undefined' && (window as any).solana?.publicKey) {
+      const injectedWallet = (window as any).solana;
+      return {
+        publicKey: new PublicKey(injectedWallet.publicKey.toString()),
+        signTransaction: async (transaction: any) => injectedWallet.signTransaction(transaction),
+        signAllTransactions: async (transactions: any[]) => injectedWallet.signAllTransactions(transactions)
       };
     }
 

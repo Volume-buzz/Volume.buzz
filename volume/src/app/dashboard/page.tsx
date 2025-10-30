@@ -45,9 +45,7 @@ export default function DashboardPage() {
       setError(null);
 
       const response = await fetch('/api/listening-parties/artist/my-parties', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -64,10 +62,10 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    if (privyUser?.discordId) {
+    if (privyUser?.discord?.username) {
       fetchParties();
     }
-  }, [privyUser?.discordId]);
+  }, [privyUser?.discord?.username]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

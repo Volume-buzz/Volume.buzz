@@ -1,7 +1,7 @@
 "use client";
 
 import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { useWallets as useSolanaWallets, useSignTransaction, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
+import { useWallets as useSolanaWallets, useSignTransaction } from '@privy-io/react-auth/solana';
 import { useState } from 'react';
 import { PublicKey, Transaction } from '@solana/web3.js';
 import { PrivyWalletProvider } from '@/components/wallet/privy-provider';
