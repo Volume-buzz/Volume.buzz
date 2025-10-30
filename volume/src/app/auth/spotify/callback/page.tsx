@@ -4,9 +4,11 @@ import React, { useEffect, useState, Suspense } from "react";
 import { motion } from "framer-motion";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
+import { CanvasRevealEffect } from "@/components/forms/auth-form";
 
-const CanvasRevealEffect = dynamic(
-  () => import("@/components/forms/auth-form").then((mod) => ({ default: mod.CanvasRevealEffect })),
+// Use dynamic import for this component to avoid SSR issues
+const DynamicCanvas = dynamic(
+  () => Promise.resolve(CanvasRevealEffect),
   { ssr: false }
 );
 
@@ -118,7 +120,7 @@ function SpotifyCallbackContent() {
       {/* Background Effect */}
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0">
-          <CanvasRevealEffect
+          <DynamicCanvas
             animationSpeed={2}
             containerClassName="bg-black"
             colors={[
@@ -222,16 +224,13 @@ function SpotifyCallbackContent() {
   );
 }
 
-export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
-
 export default function SpotifyCallbackPage() {
   return (
     <Suspense fallback={
       <div className="flex w-full flex-col min-h-screen bg-black relative">
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0">
-            <CanvasRevealEffect
+            <DynamicCanvas
               animationSpeed={2}
               containerClassName="bg-black"
               colors={[

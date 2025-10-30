@@ -122,41 +122,37 @@ class DashboardLogger {
    * Debug level logging
    */
   debug(msg: string, data?: Record<string, unknown>) {
-    this.baseLogger.debug(data, msg);
+    if (data) {
+      this.baseLogger.debug(data, msg);
+    } else {
+      this.baseLogger.debug(msg);
+    }
   }
 
   /**
    * Info level logging
    */
   info(msg: string, data?: Record<string, unknown>) {
-    this.baseLogger.info(data, msg);
-    
-    // Add breadcrumb to Sentry (only on server side)
-    if (typeof window === 'undefined') {
-      Sentry.addBreadcrumb({
-        message: msg,
-        category: 'info',
-        level: 'info',
-        ...(data ? { data } : {}),
-      });
+    if (data) {
+      this.baseLogger.info(data, msg);
+    } else {
+      this.baseLogger.info(msg);
     }
+    
+    // Sentry breadcrumbs handled elsewhere
   }
 
   /**
    * Warning level logging
    */
   warn(msg: string, data?: Record<string, unknown>) {
-    this.baseLogger.warn(data, msg);
-    
-    // Add breadcrumb to Sentry
-    if (typeof window === 'undefined') {
-      Sentry.addBreadcrumb({
-        message: msg,
-        category: 'warning',
-        level: 'warning',
-        ...(data ? { data } : {}),
-      });
+    if (data) {
+      this.baseLogger.warn(data, msg);
+    } else {
+      this.baseLogger.warn(msg);
     }
+    
+    // Sentry breadcrumbs handled elsewhere
   }
 
   /**
@@ -164,7 +160,11 @@ class DashboardLogger {
    */
   error(msg: string, error?: Error | Record<string, unknown>, data?: Record<string, unknown>) {
     if (error instanceof Error) {
-      this.baseLogger.error({ err: error, ...data }, msg);
+      if (data) {
+        this.baseLogger.error({ err: error, ...data }, msg);
+      } else {
+        this.baseLogger.error({ err: error }, msg);
+      }
       
       // Send error to Sentry
       if (typeof window === 'undefined') {
@@ -179,18 +179,12 @@ class DashboardLogger {
           },
         });
       }
-    } else {
+    } else if (error || data) {
       this.baseLogger.error({ ...error, ...data }, msg);
       
-      // Add breadcrumb to Sentry for non-error objects
-      if (typeof window === 'undefined') {
-        Sentry.addBreadcrumb({
-          message: msg,
-          category: 'error',
-          level: 'error',
-          ...(error || data ? { data: { ...(error as Record<string, unknown>), ...(data as Record<string, unknown>) } } : {}),
-        });
-      }
+      // Sentry breadcrumbs handled elsewhere
+    } else {
+      this.baseLogger.error(msg);
     }
   }
 
@@ -199,7 +193,11 @@ class DashboardLogger {
    */
   fatal(msg: string, error?: Error | Record<string, unknown>, data?: Record<string, unknown>) {
     if (error instanceof Error) {
-      this.baseLogger.fatal({ err: error, ...data }, msg);
+      if (data) {
+        this.baseLogger.fatal({ err: error, ...data }, msg);
+      } else {
+        this.baseLogger.fatal({ err: error }, msg);
+      }
       
       // Send fatal error to Sentry
       if (typeof window === 'undefined') {
@@ -215,8 +213,10 @@ class DashboardLogger {
           },
         });
       }
-    } else {
+    } else if (error || data) {
       this.baseLogger.fatal({ ...error, ...data }, msg);
+    } else {
+      this.baseLogger.fatal(msg);
     }
   }
 

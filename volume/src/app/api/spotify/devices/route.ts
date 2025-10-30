@@ -24,16 +24,12 @@ export async function GET(req: NextRequest) {
       const startTime = Date.now();
       
       try {
-        logger.info('Processing Spotify devices request', { endpoint: '/api/spotify/devices' });
+        logger.info('Processing Spotify devices request');
         
         const session = req.cookies.get('session')?.value;
         if (!session) {
-          logger.warn('Unauthorized request - no session cookie', { status: 401 });
-          Sentry.addBreadcrumb({
-            category: 'auth',
-            message: 'Unauthorized request - no session cookie',
-            level: 'warning',
-          });
+          logger.warn('Unauthorized request - no session cookie');
+          // Sentry breadcrumb removed
           return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -56,26 +52,14 @@ export async function GET(req: NextRequest) {
         const data = await res.json();
         const duration = Date.now() - startTime;
         
-        logger.externalAPI('discord-bot', 'GET', '/api/spotify/devices', res.status, { 
-          duration,
-          response_size: JSON.stringify(data).length 
-        });
+        logger.externalAPI('discord-bot', 'GET', '/api/spotify/devices', res.status);
         
-        Sentry.addBreadcrumb({
-          category: 'api',
-          message: `Spotify devices API responded with status ${res.status}`,
-          level: res.status >= 400 ? 'error' : 'info',
-          data: { status: res.status, duration }
-        });
+        // Sentry breadcrumb removed
 
         return NextResponse.json(data, { status: res.status });
       } catch (error) {
         const duration = Date.now() - startTime;
-        logger.error('Spotify devices API error', error as Error, {
-          endpoint: '/api/spotify/devices',
-          duration,
-          status: 500
-        });
+        logger.error('Spotify devices API error', error as Error);
         Sentry.captureException(error, {
           tags: {
             component: 'spotify_devices_api',
