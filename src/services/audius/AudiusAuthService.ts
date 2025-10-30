@@ -102,7 +102,7 @@ export default class AudiusAuthService {
     <style>
       body {
         font-family: "Inter", system-ui, sans-serif;
-        background: radial-gradient(circle at top, #4d1d95, #1f0a3a 60%);
+        background: #121212;
         color: #fff;
         margin: 0;
         min-height: 100vh;
@@ -110,24 +110,71 @@ export default class AudiusAuthService {
         align-items: center;
         justify-content: center;
         padding: 24px;
+        position: relative;
+      }
+      /* Dashed Grid Background */
+      body::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        background-image:
+          linear-gradient(to right, rgba(231, 229, 228, 0.05) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(231, 229, 228, 0.05) 1px, transparent 1px);
+        background-size: 20px 20px;
+        background-position: 0 0, 0 0;
+        mask-image:
+          repeating-linear-gradient(
+            to right,
+            black 0px,
+            black 3px,
+            transparent 3px,
+            transparent 8px
+          ),
+          repeating-linear-gradient(
+            to bottom,
+            black 0px,
+            black 3px,
+            transparent 3px,
+            transparent 8px
+          );
+        -webkit-mask-image:
+          repeating-linear-gradient(
+            to right,
+            black 0px,
+            black 3px,
+            transparent 3px,
+            transparent 8px
+          ),
+          repeating-linear-gradient(
+            to bottom,
+            black 0px,
+            black 3px,
+            transparent 3px,
+            transparent 8px
+          );
+        mask-composite: intersect;
+        -webkit-mask-composite: source-in;
       }
       .card {
-        background: rgba(25, 17, 42, 0.85);
-        border: 1px solid rgba(168, 85, 247, 0.4);
-        border-radius: 24px;
+        background: rgba(27, 27, 27, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
         padding: 36px 40px;
         max-width: 460px;
         width: 100%;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
         text-align: center;
-        backdrop-filter: blur(16px);
+        position: relative;
+        z-index: 1;
       }
       h1 {
         font-size: 1.9rem;
         margin-bottom: 12px;
+        color: #ffffff;
       }
       p {
-        color: rgba(255,255,255,0.75);
+        color: rgba(255,255,255,0.6);
         line-height: 1.6;
       }
       .status {
