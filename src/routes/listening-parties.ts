@@ -55,6 +55,7 @@ router.get('/active', async (req: Request, res: Response) => {
         created_at: true,
         started_at: true,
         expires_at: true,
+        raid_id: true,
         raid_escrow_pda: true,
         artist_discord_id: true,
         server_id: true,
@@ -87,6 +88,7 @@ router.get('/active', async (req: Request, res: Response) => {
           duration_minutes: p.duration_minutes,
         },
         smart_contract: {
+          raid_id: p.raid_id,
           escrow_pda: p.raid_escrow_pda,
         },
         artist_discord_id: p.artist_discord_id,
@@ -228,6 +230,7 @@ router.get('/:id', async (req: Request, res: Response) => {
         available: party.max_participants - party.claimed_count,
       },
       smart_contract: {
+        raid_id: party.raid_id,
         escrow_pda: party.raid_escrow_pda,
         metadata_uri: party.metadata_uri,
       },
@@ -594,7 +597,7 @@ router.post(
         channel_id,
       } = req.body;
 
-      const normalizedPlatform = typeof platform === 'string' ? platform.toUpperCase() : 'AUDIUS';
+      const normalizedPlatform = (typeof platform === 'string' ? platform.toUpperCase() : 'AUDIUS') as 'AUDIUS' | 'SPOTIFY';
       if (!['AUDIUS', 'SPOTIFY'].includes(normalizedPlatform)) {
         return res.status(400).json({ error: 'Invalid platform value' });
       }
@@ -606,15 +609,20 @@ router.post(
           : tokens_per_participant.toString()
       );
 
-      // Generate unique party ID (raid_id format)
+      // Generate unique party ID (full format for database)
       const partyId = `${track_id}_${discordId}_${Date.now()}`;
+
+      // Generate short raid ID for PDA derivation (must be <32 bytes)
+      // Format: trackId_timestamp (last 8 digits) to keep it short
+      const timestamp = Date.now().toString().slice(-8);
+      const raidId = `${track_id}_${timestamp}`;
 
       // Calculate expiration time
       const now = new Date();
       const expiresAt = new Date(now.getTime() + duration_minutes * 60 * 1000);
 
-      // Create listening party
-      const party = await prisma.listeningParty.create({
+      // Create listening party (without escrow initially)
+      let party = await prisma.listeningParty.create({
         data: {
           id: partyId,
           artist_discord_id: discordId,
@@ -633,7 +641,9 @@ router.post(
           expires_at: expiresAt,
           server_id: server_id || null,
           channel_id: channel_id || null,
-          // raid_escrow_pda and metadata_uri would be set after smart contract interaction
+          // raid_id is used for PDA derivation, must be <32 bytes
+          raid_id: raidId,
+          // raid_escrow_pda is set when escrow is created via dashboard
           raid_escrow_pda: null,
           metadata_uri: null,
         },
@@ -682,6 +692,7 @@ router.post(
         },
         status: party.status,
         smart_contract: {
+          raid_id: party.raid_id,
           escrow_pda: party.raid_escrow_pda,
           metadata_uri: party.metadata_uri,
         },
