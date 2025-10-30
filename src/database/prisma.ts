@@ -1,5 +1,6 @@
 import { PrismaClient, User, Admin, OAuthSession, Wallet, Token, ArtistDeposit } from '@prisma/client';
 import { DatabaseUser, UserRole } from '../types';
+import LISTENING_PARTY_CONSTANTS from '../config/listeningPartyConstants';
 
 // Initialize Prisma client with proper configuration
 const prisma = new PrismaClient({
@@ -994,7 +995,48 @@ class PrismaDatabase {
   }
 
   static async getActiveRaids(): Promise<any[]> {
-    throw new Error('DEPRECATED: getActiveRaids - Use GET /api/listening-parties/active instead');
+    const parties = await prisma.listeningParty.findMany({
+      where: {
+        status: 'ACTIVE',
+        expires_at: { gt: new Date() }
+      },
+      include: {
+        participants: {
+          select: {
+            discord_id: true,
+            qualified_at: true
+          }
+        }
+      },
+      orderBy: {
+        expires_at: 'asc'
+      }
+    });
+
+    return parties.map(party => {
+      const participants = party.participants ?? [];
+      const qualifiedCount = participants.filter(participant => participant.qualified_at !== null).length;
+
+      return {
+        id: party.id,
+        track_id: party.track_id,
+        track_title: party.track_title,
+        track_artist: party.track_artist,
+        track_artwork_url: party.track_artwork_url,
+        platform: party.platform,
+        premium_only: false,
+        required_listen_time: LISTENING_PARTY_CONSTANTS.QUALIFYING_THRESHOLD,
+        streams_goal: party.max_participants,
+        current_streams: participants.length,
+        reward_amount: party.tokens_per_participant.toString(),
+        token_mint: party.token_mint,
+        status: party.status,
+        expires_at: party.expires_at,
+        claimed_count: party.claimed_count,
+        qualified_count: qualifiedCount,
+        server_id: party.server_id
+      };
+    });
   }
 
   static async getUserRaids(discordId: string): Promise<any[]> {

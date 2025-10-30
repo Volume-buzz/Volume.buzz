@@ -37,7 +37,7 @@ function ClaimPageContent() {
   const { partyId } = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { ready, authenticated, login, user } = usePrivy();
+  const { ready, authenticated, login, user, connectWallet } = usePrivy();
   const { wallets } = useWallets();
   const { wallets: solanaWallets } = useSolanaWallets();
   const { signTransaction } = useSignTransaction();
@@ -50,6 +50,7 @@ function ClaimPageContent() {
   const [message, setMessage] = useState('');
   const [txSignature, setTxSignature] = useState('');
   const claimAttemptedRef = useRef(false);
+  const walletPromptedRef = useRef(false);
 
   const discordId = searchParams.get('discordId');
 
@@ -70,27 +71,60 @@ function ClaimPageContent() {
 
   // Combined auth check and auto-claim logic
   useEffect(() => {
-    console.log('Auth/Claim check:', { 
-      status, 
-      ready, 
-      authenticated, 
+    console.log('Auth/Claim check:', {
+      status,
+      ready,
+      authenticated,
       solanaWalletsCount: solanaWallets.length,
       participantQualified: participant?.qualified,
       claimAttempted: claimAttemptedRef.current
     });
-    
+
+    // Don't override terminal states
+    if (status === 'success' || status === 'already_claimed' || status === 'error' || status === 'not_qualified') {
+      console.log('🛑 Terminal state reached, not running auth checks');
+      return;
+    }
+
     if (!ready || !participant?.qualified) {
+      walletPromptedRef.current = false;
       return;
     }
 
     // Check requirements
-    if (!authenticated || solanaWallets.length === 0) {
+    if (!authenticated) {
+      walletPromptedRef.current = false;
       if (status !== 'waiting_for_auth') {
         setStatus('waiting_for_auth');
-        setMessage(!authenticated ? 'Please sign in to claim rewards' : 'Please connect a wallet to claim rewards');
+        setMessage('Please sign in to claim rewards');
       }
       return;
     }
+
+    if (solanaWallets.length === 0) {
+      if (status !== 'waiting_for_auth') {
+        setStatus('waiting_for_auth');
+        setMessage('Please connect a wallet to claim rewards');
+      }
+      if (!walletPromptedRef.current && connectWallet) {
+        walletPromptedRef.current = true;
+        const walletPromise = connectWallet({
+          walletList: ['detected_solana_wallets', 'phantom', 'solflare', 'backpack'],
+          chainType: 'solana'
+        });
+
+        // connectWallet can return undefined if modal is already open
+        if (walletPromise && typeof walletPromise.catch === 'function') {
+          walletPromise.catch(error => {
+            console.error('Privy connectWallet error:', error);
+            walletPromptedRef.current = false;
+          });
+        }
+      }
+      return;
+    }
+
+    walletPromptedRef.current = false;
 
     // Ready to claim - update status if needed
     if (status !== 'ready_to_claim' && status !== 'claiming') {
@@ -461,7 +495,23 @@ function ClaimPageContent() {
               <button
                 onClick={() => {
                   console.log('Connect button clicked', { authenticated, solanaWalletsCount: solanaWallets.length });
-                  login(); // Privy should handle wallet creation/connection
+                  if (!authenticated) {
+                    login();
+                  } else if (solanaWallets.length === 0 && connectWallet) {
+                    walletPromptedRef.current = true;
+                    const walletPromise = connectWallet({
+                      walletList: ['detected_solana_wallets', 'phantom', 'solflare', 'backpack'],
+                      chainType: 'solana'
+                    });
+
+                    // connectWallet can return undefined if modal is already open
+                    if (walletPromise && typeof walletPromise.catch === 'function') {
+                      walletPromise.catch(error => {
+                        console.error('Privy connectWallet error:', error);
+                        walletPromptedRef.current = false;
+                      });
+                    }
+                  }
                 }}
                 className="w-full bg-white/10 hover:bg-white/20 text-white font-medium py-4 px-6 rounded-xl transition-all duration-200"
               >

@@ -1,7 +1,7 @@
-import fetch, { Response } from 'node-fetch';
 import jwt from 'jsonwebtoken';
 import PrismaDatabase from '../database/prisma';
 import config from '../config/environment';
+type FetchResponse = globalThis.Response;
 
 export interface SessionContext {
   discordId: string;
@@ -82,7 +82,7 @@ const createSessionToken = async (ctx: SessionContext): Promise<string> => {
   return token;
 };
 
-const parseResponse = async (res: Response) => {
+const parseResponse = async (res: FetchResponse) => {
   const text = await res.text();
   if (!text) {
     return null;
@@ -139,4 +139,3 @@ export const apiGet = async <T>(ctx: SessionContext, path: string): Promise<T> =
 export const apiPost = async <T>(ctx: SessionContext, path: string, body?: unknown): Promise<T> => {
   return request<T>(ctx, path, { method: 'POST', body });
 };
-

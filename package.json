@@ -60,7 +60,6 @@
     "libsodium": "^0.7.15",
     "morgan": "^1.10.1",
     "node-cron": "^3.0.3",
-    "node-fetch": "^3.3.2",
     "pino": "^9.9.2",
     "pino-pretty": "^13.1.1",
     "prisma": "^6.15.0",
