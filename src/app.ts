@@ -55,12 +55,14 @@ class SpotifyApp {
             }
           );
 
-          // Connect OAuth server and Discord client to API server
+          // Connect OAuth server, Discord client, and Party Poster to API server
           this.apiServer!.setOAuthServer(this.bot!.getOAuthServer());
           this.apiServer!.setDiscordClient(this.bot!.client);
-          this.logger.info('OAuth and DM services connected', { 
+          this.apiServer!.setPartyPoster(this.bot!.partyPoster);
+          this.logger.info('OAuth, DM, and Party Poster services connected', {
             oauth_connected: true,
-            dm_service_connected: true 
+            dm_service_connected: true,
+            party_poster_connected: true
           });
 
           this.logger.info('Spotify application started successfully', { 
