@@ -13,6 +13,12 @@ export async function POST(request: NextRequest) {
     const backendBase = process.env.BOT_API_URL || process.env.NEXT_PUBLIC_API_BASE || FALLBACK_BACKEND;
     const payload = await request.json();
 
+    console.log('[Dashboard API] Creating party:', {
+      backendBase,
+      discordId: session.discordId,
+      payload: JSON.stringify(payload).substring(0, 200)
+    });
+
     const backendResponse = await fetch(`${backendBase}/api/listening-parties`, {
       method: 'POST',
       headers: {
@@ -31,6 +37,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (!backendResponse.ok) {
+      console.error('[Dashboard API] Bot API error:', {
+        status: backendResponse.status,
+        error: result,
+        url: `${backendBase}/api/listening-parties`
+      });
       return NextResponse.json(
         result || { error: 'Failed to create listening party' },
         { status: backendResponse.status }
