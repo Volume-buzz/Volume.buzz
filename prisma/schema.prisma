@@ -214,6 +214,7 @@ model ListeningParty {
   platform          Platform @default(SPOTIFY) @map("platform")
 
   // Smart contract
+  raid_id         String? @map("raid_id") // Short ID used for PDA derivation (<32 bytes)
   raid_escrow_pda String? @map("raid_escrow_pda") // Solana PDA address
   metadata_uri    String? @map("metadata_uri") // URI stored on-chain
 
