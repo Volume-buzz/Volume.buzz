@@ -93,9 +93,9 @@ class OAuthServer {
       // Store OAuth session
       await PrismaDatabase.createOAuthSession({
         state,
-        discordId: sessionData.discord_id,
+        discord_id: sessionData.discord_id,
         platform: 'SPOTIFY',
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes
+        expires_at: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes
       });
       
       // Generate Spotify OAuth URL
@@ -438,9 +438,9 @@ class OAuthServer {
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes instead of 10
     await PrismaDatabase.createOAuthSession({
       state,
-      discordId,
+      discord_id: discordId,
       platform,
-      expiresAt
+      expires_at: expiresAt
     });
     console.log(`🔐 Created OAuth session for Discord user ${discordId}, expires at ${expiresAt.toISOString()} (platform: ${platform})`);
     

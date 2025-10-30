@@ -18,8 +18,9 @@ import rewardsRoutes from './routes/rewards';
 // REMOVED: import withdrawalRoutes from './routes/withdrawals'; // Unsafe - to be implemented later
 import webhookRoutes from './routes/webhooks';
 import spotifyRoutes from './routes/spotify';
-import listeningPartiesRoutes from './routes/listening-parties';
-import discordRoutes from './routes/discord';
+import audiusRoutes from './routes/audius';
+import listeningPartiesRoutes, { setPartyPoster } from './routes/listening-parties';
+import discordRoutes, { setDiscordClient as setDiscordRouteClient } from './routes/discord';
 
 // Import OAuth server
 import OAuthServer from './services/oauthServer';
@@ -64,12 +65,21 @@ class ApiServer {
   }
 
   /**
-   * Set the Discord client for DM service
+   * Set the Discord client for DM service and Discord routes
    */
   setDiscordClient(client: any): void {
     this.dmService.setClient(client);
     setDMService(this.dmService);
-    console.log('🤖 Discord client connected to DM service');
+    setDiscordRouteClient(client);
+    console.log('🤖 Discord client connected to DM service and Discord routes');
+  }
+
+  /**
+   * Set the party poster service
+   */
+  setPartyPoster(partyPoster: any): void {
+    setPartyPoster(partyPoster);
+    console.log('🎉 Party poster service connected to API server');
   }
 
   /**
@@ -85,11 +95,24 @@ class ApiServer {
     }));
 
     // CORS configuration
+    const allowlist = config.api.corsOrigins;
+    let corsOrigin: boolean | string[];
+
+    if (config.api.nodeEnv === 'production') {
+      const filtered = allowlist.filter((origin) => origin !== '*');
+      if (filtered.length > 0) {
+        corsOrigin = filtered;
+      } else if (allowlist.includes('*')) {
+        corsOrigin = true;
+      } else {
+        corsOrigin = allowlist;
+      }
+    } else {
+      corsOrigin = allowlist.includes('*') ? true : allowlist;
+    }
+
     this.app.use(cors({
-      // Use explicit allowlist for origins, never use wildcard in production
-      origin: config.api.nodeEnv === 'production' 
-        ? config.api.corsOrigins.filter(origin => origin !== '*')
-        : config.api.corsOrigins.includes('*') ? true : config.api.corsOrigins,
+      origin: corsOrigin,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'helius-signature']
@@ -148,6 +171,7 @@ class ApiServer {
     this.app.use('/api/rewards', rewardsRoutes);
     // REMOVED: this.app.use('/api/withdrawals', withdrawalRoutes); // Unsafe - to be implemented later
     this.app.use('/api/spotify', spotifyRoutes);
+    this.app.use('/api/audius', audiusRoutes);
     this.app.use('/api/webhooks', webhookRoutes);
     this.app.use('/api/listening-parties', listeningPartiesRoutes);
     this.app.use('/api/discord', discordRoutes);

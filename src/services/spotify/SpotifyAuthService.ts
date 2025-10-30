@@ -298,9 +298,9 @@ class SpotifyAuthService {
 
     await PrismaDatabase.createOAuthSession({
       state,
-      discordId,
+      discord_id: discordId,
       platform: 'SPOTIFY',
-      expiresAt
+      expires_at: expiresAt
     });
 
     return state;

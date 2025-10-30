@@ -10,8 +10,18 @@ import { requireAuth } from '../middleware/auth';
 import { prisma } from '../database/prisma';
 import Joi from 'joi';
 import { validate, commonSchemas } from '../middleware/validation';
+import { LISTENING_PARTY_CONSTANTS } from '../config/listeningPartyConstants';
+import type PartyPosterService from '../services/partyPoster';
 
 const router: Router = Router();
+
+// Party poster service (set by bot)
+let partyPoster: PartyPosterService | null = null;
+
+export function setPartyPoster(service: PartyPosterService) {
+  partyPoster = service;
+  console.log('🎉 Party poster service connected to listening parties routes');
+}
 
 // ============================================================================
 // PUBLIC ENDPOINTS (for Discord Bot)
@@ -286,7 +296,14 @@ router.post(
       });
 
       if (existing) {
-        return res.status(400).json({ error: 'User already joined this party' });
+        return res.status(200).json({
+          participant_id: existing.id,
+          party_id: id,
+          discord_id,
+          joined_at: existing.joined_at,
+          qualifying_duration_seconds: LISTENING_PARTY_CONSTANTS.QUALIFYING_THRESHOLD,
+          already_joined: true,
+        });
       }
 
       // Create participant
@@ -305,7 +322,7 @@ router.post(
         party_id: id,
         discord_id,
         joined_at: participant.joined_at,
-        qualifying_duration_seconds: 30, // Configurable threshold
+        qualifying_duration_seconds: LISTENING_PARTY_CONSTANTS.QUALIFYING_THRESHOLD,
       });
     } catch (err) {
       console.error('Error creating participant:', err);
@@ -357,14 +374,13 @@ router.post(
           last_heartbeat_at: new Date(),
           first_heartbeat_at: participant.first_heartbeat_at || new Date(),
           total_listening_duration: is_playing
-            ? participant.total_listening_duration + 10 // Increment by heartbeat interval
+            ? participant.total_listening_duration + LISTENING_PARTY_CONSTANTS.HEARTBEAT_INTERVAL
             : participant.total_listening_duration,
         },
       });
 
-      // Check if qualified (30 seconds default)
-      const QUALIFYING_THRESHOLD = 30; // seconds
-      const qualified = updated.total_listening_duration >= QUALIFYING_THRESHOLD;
+      // Check if qualified
+      const qualified = updated.total_listening_duration >= LISTENING_PARTY_CONSTANTS.QUALIFYING_THRESHOLD;
 
       // Update qualified status
       if (qualified && !participant.qualified_at) {
@@ -381,8 +397,8 @@ router.post(
         qualified: qualified,
         can_claim: qualified && !participant.claimed_at,
         listening_duration: updated.total_listening_duration,
-        required_duration: QUALIFYING_THRESHOLD,
-        progress: `${updated.total_listening_duration}/${QUALIFYING_THRESHOLD}`,
+        required_duration: LISTENING_PARTY_CONSTANTS.QUALIFYING_THRESHOLD,
+        progress: `${updated.total_listening_duration}/${LISTENING_PARTY_CONSTANTS.QUALIFYING_THRESHOLD}`,
         is_playing,
       });
     } catch (err) {
@@ -451,6 +467,35 @@ router.post(
 // ============================================================================
 // ARTIST ENDPOINTS (Requires Authentication)
 // ============================================================================
+
+/**
+ * GET /api/listening-parties/artist/servers
+ * Get Discord servers where the artist is admin and bot is installed
+ */
+router.get('/artist/servers', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const discordId = (req as any).sessionUser.discordId;
+
+    // Get artist's servers from database
+    const servers = await prisma.artistDiscordServer.findMany({
+      where: {
+        artist_discord_id: discordId,
+        bot_installed: true,
+      },
+    });
+
+    return res.json({
+      count: servers.length,
+      servers: servers.map((s) => ({
+        server_id: s.server_id,
+        server_name: s.server_name,
+      })),
+    });
+  } catch (err) {
+    console.error('Error fetching artist servers:', err);
+    return res.status(500).json({ error: 'Failed to fetch servers' });
+  }
+});
 
 /**
  * GET /api/listening-parties/artist/my-parties
@@ -528,6 +573,8 @@ router.post(
       tokens_per_participant: Joi.alternatives().try(Joi.string(), Joi.number()).required(),
       max_participants: Joi.number().min(1).max(10).required(),
       duration_minutes: Joi.number().min(1).required(),
+      server_id: Joi.string().optional(),
+      channel_id: Joi.string().optional(),
     }),
   }),
   async (req: Request, res: Response) => {
@@ -543,7 +590,14 @@ router.post(
         tokens_per_participant,
         max_participants,
         duration_minutes,
+        server_id,
+        channel_id,
       } = req.body;
+
+      const normalizedPlatform = typeof platform === 'string' ? platform.toUpperCase() : 'AUDIUS';
+      if (!['AUDIUS', 'SPOTIFY'].includes(normalizedPlatform)) {
+        return res.status(400).json({ error: 'Invalid platform value' });
+      }
 
       // Convert tokens_per_participant to BigInt
       const tokensPerParticipant = BigInt(
@@ -568,7 +622,7 @@ router.post(
           track_title,
           track_artist: track_artist || '',
           track_artwork_url: track_artwork_url || '',
-          platform,
+          platform: normalizedPlatform,
           token_mint,
           tokens_per_participant: tokensPerParticipant,
           max_participants,
@@ -577,11 +631,29 @@ router.post(
           created_at: now,
           started_at: now,
           expires_at: expiresAt,
+          server_id: server_id || null,
+          channel_id: channel_id || null,
           // raid_escrow_pda and metadata_uri would be set after smart contract interaction
           raid_escrow_pda: null,
           metadata_uri: null,
         },
       });
+
+      // Auto-post to Discord if channel is specified and party poster is available
+      if (partyPoster && party.channel_id) {
+        console.log(`📤 Posting party ${party.id} to Discord channel ${party.channel_id}`);
+
+        // Post asynchronously (don't block response)
+        partyPoster.postPartyToChannel(party.id).then((result) => {
+          if (result.success) {
+            console.log(`✅ Successfully posted party ${party.id} to Discord`);
+          } else {
+            console.error(`❌ Failed to post party ${party.id} to Discord:`, result.error);
+          }
+        }).catch((error) => {
+          console.error(`❌ Error posting party ${party.id} to Discord:`, error);
+        });
+      }
 
       return res.status(201).json({
         id: party.id,
@@ -613,7 +685,7 @@ router.post(
           escrow_pda: party.raid_escrow_pda,
           metadata_uri: party.metadata_uri,
         },
-        message: 'Listening party created. Smart contract initialization pending.',
+        message: 'Listening party created. Posting to Discord...',
       });
     } catch (err) {
       console.error('Error creating listening party:', err);

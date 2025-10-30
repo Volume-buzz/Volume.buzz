@@ -153,7 +153,7 @@ router.post('/:id/claim',
 router.get('/mine/list', requireAuth, async (req: Request, res: Response) => {
   try {
     const items = await PrismaDatabase.getUserRaids((req as any).sessionUser.discordId as string);
-    return res.json(items.map(p => ({
+    return res.json(items.map((p: any) => ({
       id: p.id,
       raid_id: p.raid_id,
       qualified: p.qualified,
@@ -172,7 +172,7 @@ router.get('/mine/list', requireAuth, async (req: Request, res: Response) => {
 router.get('/history/list', requireAuth, async (req: Request, res: Response) => {
   try {
     const items = await PrismaDatabase.getUserRaidHistory((req as any).sessionUser.discordId as string);
-    return res.json(items.map(p => ({
+    return res.json(items.map((p: any) => ({
       id: p.id,
       raid_id: p.raid_id,
       qualified: p.qualified,
