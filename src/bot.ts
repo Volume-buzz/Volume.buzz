@@ -1336,69 +1336,54 @@ class SpotifyBot {
     await interaction.deferReply({ ephemeral: true });
 
     try {
-      const walletService = new WalletService();
-      const jupiterApi = require('./services/jupiterApi').default;
+      // Check if user has connected wallet via Privy
+      const user = await PrismaDatabase.getUser(interaction.user.id);
 
-      // Get or create user wallet
-      const isAdmin = await PrismaDatabase.isAdmin(interaction.user.id);
-      const cryptoWallet = await walletService.createOrGetWallet(interaction.user.id, isAdmin);
-      const balances = await walletService.getWalletBalances(cryptoWallet.publicKey);
+      if (!user || !user.privy_user_id) {
+        const embed = EmbedBuilder.createErrorEmbed(
+          'No Wallet Connected',
+          'You haven\'t connected a wallet yet.\n\nUse `/wallet` to connect your wallet through Privy and start managing your tokens.'
+        );
 
-      // Calculate total SOL equivalent
-      const solPrice = await jupiterApi.getTokenPrice('So11111111111111111111111111111111111111112');
-      let totalSOLEquivalent = balances.sol;
-      
-      const tokenDetails: string[] = [];
-      
-      for (const token of balances.tokens) {
-        const tokenPrice = await jupiterApi.getTokenPrice(token.mint);
-        if (tokenPrice && solPrice) {
-          const tokenValueSOL = (token.amount * tokenPrice) / solPrice;
-          totalSOLEquivalent += tokenValueSOL;
-        }
-        tokenDetails.push(`**${token.symbol}:** ${token.amount.toFixed(2)}`);
+        const button = new ActionRowBuilder<ButtonBuilder>()
+          .addComponents(
+            new ButtonBuilder()
+              .setLabel('💳 Connect Wallet')
+              .setURL(`${config.api.publicUrl || 'http://localhost:3000'}/wallet-connect?discordId=${interaction.user.id}`)
+              .setStyle(ButtonStyle.Link)
+          );
+
+        await interaction.editReply({ embeds: [embed], components: [button] });
+        return;
       }
 
-      const role = isAdmin ? '👑 Super Admin' : '👤 Fan';
+      // User has Privy account - show wallet info
+      const embed = new DiscordEmbedBuilder()
+        .setColor(0x10b981)
+        .setTitle('💳 Your Wallet')
+        .setDescription(
+          '**Wallet Status:** ✅ Connected via Privy\n\n' +
+          'Your wallet is securely connected through Privy. You can view your full wallet details and manage your tokens on the dashboard.\n\n' +
+          '**Quick Actions:**\n' +
+          '• View balances on the dashboard\n' +
+          '• Participate in listening parties\n' +
+          '• Claim rewards from raids'
+        )
+        .setTimestamp();
 
-      const embed = EmbedBuilder.createSuccessEmbed(
-        '💰 Quick Wallet View',
-        `**Address:** \`${cryptoWallet.publicKey}\`\n\n` +
-        `**💳 Token Balances**\n` +
-        `**SOL:** ${balances.sol.toFixed(4)} SOL\n` +
-        `${tokenDetails.length > 0 ? tokenDetails.join('\n') : 'No SPL tokens found'}\n\n` +
-        `**💎 Total Value:** ${totalSOLEquivalent.toFixed(4)} SOL equivalent\n` +
-        `**🔑 Wallet Type:** ${role} Wallet\n` +
-        `**📤 Withdrawal:** ${totalSOLEquivalent >= 1.0 ? '✅ Eligible' : `❌ Need ${(1.0 - totalSOLEquivalent).toFixed(4)} SOL more`}`
-      );
-
-      // Add action buttons
-      const buttons = new ActionRowBuilder<ButtonBuilder>()
+      const button = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(
           new ButtonBuilder()
-            .setCustomId('export_private_key')
-            .setLabel('🔐 Export Private Key')
-            .setStyle(ButtonStyle.Secondary),
-          new ButtonBuilder()
-            .setCustomId('view_transactions')
-            .setLabel('📋 View Transactions')
-            .setStyle(ButtonStyle.Primary)
-        );
-
-      if (totalSOLEquivalent >= 1.0) {
-        buttons.addComponents(
-          new ButtonBuilder()
-            .setURL(`https://discord.com/channels/@me`)
-            .setLabel('💸 Use /withdraw')
+            .setLabel('🌐 Open Dashboard')
+            .setURL(`${config.api.publicUrl || 'http://localhost:3000'}/dashboard`)
             .setStyle(ButtonStyle.Link)
         );
-      }
 
-      await interaction.editReply({ embeds: [embed], components: [buttons] });
+      await interaction.editReply({ embeds: [embed], components: [button] });
 
     } catch (error: any) {
       console.error('Error showing quick wallet:', error);
-      const embed = EmbedBuilder.createErrorEmbed('Wallet Error', `Failed to load wallet: ${error.message}`);
+      const embed = EmbedBuilder.createErrorEmbed('Wallet Error', `Failed to load wallet information: ${error.message}`);
       await interaction.editReply({ embeds: [embed] });
     }
   }
