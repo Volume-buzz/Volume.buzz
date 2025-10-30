@@ -22,6 +22,7 @@ interface PartyData {
     tokens_per_participant: string;
   };
   smart_contract: {
+    raid_id?: string | null;
     escrow_pda: string | null;
   };
 }
@@ -230,11 +231,35 @@ function ClaimPageContent() {
       // Initialize program
       const program = new Program(idl as any, provider);
 
-      const raidId = party!.smart_contract.escrow_pda || partyId as string;
+      // Use the raid_id from smart_contract if available, otherwise try to shorten the party ID
+      // The raid_id is designed to be <32 bytes for PDA derivation
+      const fullPartyId = partyId as string;
+      let raidId: string;
+
+      if (party!.smart_contract.raid_id) {
+        // Use the stored raid_id (this is the correct approach)
+        raidId = party!.smart_contract.raid_id;
+        console.log('✅ Using stored raid_id:', raidId, 'length:', raidId.length);
+      } else {
+        // Fallback: extract from party ID (for old parties without raid_id)
+        console.log('⚠️ No raid_id found, extracting from party ID:', fullPartyId);
+        const parts = fullPartyId.split('_');
+        if (parts.length >= 3) {
+          // Format: {trackId}_{discordId}_{timestamp} -> use {trackId}_{shortTimestamp}
+          const trackId = parts[0];
+          const timestamp = parts[2].slice(-8); // Last 8 digits
+          raidId = `${trackId}_${timestamp}`;
+          console.log('🔄 Extracted raid ID:', raidId, 'length:', raidId.length);
+        } else {
+          // Last resort: truncate
+          raidId = fullPartyId.substring(0, 31);
+          console.warn('⚠️ Had to truncate party ID to:', raidId);
+        }
+      }
 
       setMessage('Deriving program addresses...');
 
-      // Derive PDAs
+      // Derive PDAs using the raid ID
       const [raidEscrowPDA] = PublicKey.findProgramAddressSync(
         [Buffer.from('raid'), Buffer.from(raidId)],
         RAID_PROGRAM_ID
