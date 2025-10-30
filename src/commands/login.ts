@@ -54,7 +54,7 @@ const loginCommand: Command = {
           `🎧 **Audius:** ${user?.audius_name || user?.audius_handle || 'Connected'} ${user?.audius_verified ? '✅' : ''}\n` +
           `👤 **Role:** ${isAdmin ? '👑 Super Admin' : user?.role === 'ARTIST' ? '🎨 Artist' : '👤 Fan'}\n` +
           `💰 **Tokens:** ${user?.tokens_balance || 0}\n` +
-          `🏆 **Raids:** ${user?.total_raids_participated || 0}\n\n` +
+          `🏆 **Parties:** ${user?.total_parties_participated || 0}\n\n` +
           `Your Audius account is already connected!`
         );
 

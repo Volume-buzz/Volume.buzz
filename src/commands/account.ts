@@ -57,8 +57,8 @@ const accountCommand: Command = {
         .setColor(0x8B5CF6)
         .addFields(
           {
-            name: '🏆 Raid Statistics',
-            value: `**Participated:** ${user.total_raids_participated} raids\n` +
+            name: '🏆 Party Statistics',
+            value: `**Participated:** ${user.total_parties_participated} parties\n` +
               `**Claimed:** ${user.total_rewards_claimed} rewards\n` +
               `**Token Balance:** ${user.tokens_balance} tokens`,
             inline: false
@@ -71,9 +71,9 @@ const accountCommand: Command = {
           },
           {
             name: '📊 Success Rate',
-            value: user.total_raids_participated > 0 
-              ? `${Math.round((user.total_rewards_claimed / user.total_raids_participated) * 100)}%`
-              : 'No raids yet',
+            value: user.total_parties_participated > 0
+              ? `${Math.round((user.total_rewards_claimed / user.total_parties_participated) * 100)}%`
+              : 'No parties yet',
             inline: true
           },
           {

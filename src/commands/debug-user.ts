@@ -65,7 +65,7 @@ const debugUserCommand: Command = {
 
       description += `**Token Info:**\n`;
       description += `💰 **Balance:** ${user.tokens_balance} tokens\n`;
-      description += `🎯 **Raids Participated:** ${user.total_raids_participated}\n`;
+      description += `🎯 **Parties Participated:** ${user.total_parties_participated}\n`;
       description += `🏆 **Rewards Claimed:** ${user.total_rewards_claimed}\n`;
       description += `👤 **Role:** ${user.role}\n\n`;
 
