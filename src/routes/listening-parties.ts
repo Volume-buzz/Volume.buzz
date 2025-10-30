@@ -574,7 +574,7 @@ router.post(
       platform: Joi.string().valid('audius', 'spotify').required(),
       token_mint: Joi.string().required(),
       tokens_per_participant: Joi.alternatives().try(Joi.string(), Joi.number()).required(),
-      max_participants: Joi.number().min(1).max(10).required(),
+      max_participants: Joi.number().min(1).max(100).required(),
       duration_minutes: Joi.number().min(1).required(),
       server_id: Joi.string().optional(),
       channel_id: Joi.string().optional(),
