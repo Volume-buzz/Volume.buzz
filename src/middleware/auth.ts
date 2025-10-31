@@ -9,6 +9,9 @@ interface SessionUser {
   email?: string;
   name?: string;
   image?: string;
+  discordAccessToken?: string;
+  discordRefreshToken?: string;
+  discordTokenExpiresAt?: string;
 }
 
 // Extend Express Request interface
@@ -54,7 +57,10 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
       discordId: payload.discordId,
       email: payload.email,
       name: payload.name,
-      image: payload.image
+      image: payload.image,
+      discordAccessToken: payload.discordAccessToken,
+      discordRefreshToken: payload.discordRefreshToken,
+      discordTokenExpiresAt: payload.discordTokenExpiresAt,
     };
     res.locals.sessionUser = req.sessionUser;
     return next();

@@ -187,12 +187,13 @@ class SpotifyTrackingService {
         }
 
         await PrismaDatabase.updateRaidParticipant(
-          session.raidId, 
-          session.userId, 
+          session.raidId,
+          session.userId,
           updateData
         );
 
-        console.log(`🎵 User ${session.userId} listening to Spotify track (${Math.floor(session.totalListenTime)}s/${session.requiredTime}s)`);
+        // SILENCED: High-volume log runs every 2 seconds per user during active listening
+        // console.log(`🎵 User ${session.userId} listening to Spotify track (${Math.floor(session.totalListenTime)}s/${session.requiredTime}s)`);
         
         // Check if user has qualified and stop tracking
         if (session.totalListenTime >= session.requiredTime) {

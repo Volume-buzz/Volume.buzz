@@ -13,7 +13,7 @@ import { Command } from '../types';
 const logoutCommand: Command = {
   data: new SlashCommandBuilder()
     .setName('logout')
-    .setDescription('🚪 Disconnect your Spotify account'),
+    .setDescription('🚪 Disconnect your Audius account'),
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
@@ -30,20 +30,20 @@ const logoutCommand: Command = {
         return;
       }
 
-      const hasSpotify = user.spotify_user_id !== null;
+      const hasAudius = user.audius_user_id !== null;
 
-      if (!hasSpotify) {
+      if (!hasAudius) {
         const embed = EmbedBuilder.createErrorEmbed(
           'No Account Connected',
-          'You don\'t have a Spotify account connected.'
+          'You don\'t have an Audius account connected.'
         );
         await interaction.editReply({ embeds: [embed] });
         return;
       }
 
-      // Show confirmation for Spotify logout
+      // Show confirmation for Audius logout
       let description = '**🔗 Connected Account:**\n\n';
-      description += `✅ **Spotify** - Connected as ${user.spotify_display_name} ${user.spotify_is_premium ? '👑' : '🆓'}\n\n`;
+      description += `✅ **Audius** - Connected as ${user.audius_name || user.audius_handle}\n\n`;
       description += '**⚠️ Warning:** Disconnecting will:\n' +
         '• Remove access to all raids\n' +
         '• Stop progress tracking\n' +
@@ -51,7 +51,7 @@ const logoutCommand: Command = {
         '*Are you sure you want to disconnect?*';
 
       const embed = new DiscordEmbedBuilder()
-        .setTitle('🚪 Disconnect Spotify Account')
+        .setTitle('🚪 Disconnect Audius Account')
         .setDescription(description)
         .setColor(0xFF6B6B)
         .setTimestamp();
@@ -60,7 +60,7 @@ const logoutCommand: Command = {
       const buttons = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(
           new ButtonBuilder()
-            .setCustomId('logout_spotify')
+            .setCustomId('logout_audius')
             .setLabel('🚪 Yes, Disconnect')
             .setStyle(ButtonStyle.Danger),
           new ButtonBuilder()

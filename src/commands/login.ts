@@ -15,7 +15,7 @@ import { createUserLogger } from '../utils/logger';
 const loginCommand: Command = {
   data: new SlashCommandBuilder()
     .setName('login')
-    .setDescription('🔐 Connect your Spotify account to participate in raids'),
+    .setDescription('🔐 Connect your Audius account to participate in raids'),
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     return Sentry.startSpan(
@@ -42,20 +42,20 @@ const loginCommand: Command = {
           logger.discordCommand('login', interaction.user, interaction.guild);
           await interaction.deferReply({ ephemeral: true });
 
-      // Check if user already has Spotify connected
+      // Check if user already has Audius connected
       const user = await PrismaDatabase.getUser(interaction.user.id);
-      const hasSpotify = user?.spotify_user_id !== null && user?.spotify_user_id !== '' && user?.spotify_user_id !== undefined;
+      const hasAudius = user?.audius_user_id !== null && user?.audius_user_id !== '' && user?.audius_user_id !== undefined;
 
-      if (hasSpotify) {
+      if (hasAudius) {
         const isAdmin = await PrismaDatabase.isAdmin(interaction.user.id);
         
         const embed = EmbedBuilder.createInfoEmbed(
           'Already Connected',
-          `🎶 **Spotify:** ${user?.spotify_display_name || 'Connected'} ${user?.spotify_is_premium ? '👑' : '🆓'}\n` +
+          `🎧 **Audius:** ${user?.audius_name || user?.audius_handle || 'Connected'} ${user?.audius_verified ? '✅' : ''}\n` +
           `👤 **Role:** ${isAdmin ? '👑 Super Admin' : user?.role === 'ARTIST' ? '🎨 Artist' : '👤 Fan'}\n` +
           `💰 **Tokens:** ${user?.tokens_balance || 0}\n` +
-          `🏆 **Raids:** ${user?.total_raids_participated || 0}\n\n` +
-          `Your Spotify account is already connected!`
+          `🏆 **Parties:** ${user?.total_parties_participated || 0}\n\n` +
+          `Your Audius account is already connected!`
         );
 
         // Add action buttons
@@ -70,7 +70,7 @@ const loginCommand: Command = {
               .setLabel('💳 View Wallet')
               .setStyle(ButtonStyle.Secondary),
             new ButtonBuilder()
-              .setCustomId('logout_spotify')
+              .setCustomId('logout_audius')
               .setLabel('🚪 Disconnect')
               .setStyle(ButtonStyle.Danger)
           );
@@ -82,28 +82,29 @@ const loginCommand: Command = {
         return;
       }
 
-      // Show Spotify login button
+      // Show Audius login button
       const loginButton = new ButtonBuilder()
-        .setCustomId('login_spotify')
-        .setLabel('🎶 Connect Spotify')
+        .setCustomId('login_audius')
+        .setLabel('🎧 Connect Audius')
         .setStyle(ButtonStyle.Success);
 
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(loginButton);
 
-      const description = '🎶 **Connect your Spotify account to start raiding:**\n\n' +
-        '• Participate in Spotify music raids\n' +
-        '• Earn crypto tokens for listening\n' +
-        '• Premium users get enhanced tracking + embedded player\n' +
-        '• Free users can join most raids\n\n' +
-        '**Account Types:**\n' +
-        '👑 **Premium** - Full access + embedded player\n' +
-        '🆓 **Free** - Basic access with API tracking\n\n' +
+      const description = '🎧 **Connect your Audius account to start raiding:**\n\n' +
+        '• Participate in Audius-powered music raids\n' +
+        '• Earn crypto tokens for supporting artists\n' +
+        '• Verified artists get highlighted inside Discord\n' +
+        '• Fans can join raids and climb the leaderboard\n\n' +
+        '**What you get:**\n' +
+        '🔐 Secure OAuth directly with Audius\n' +
+        '💰 Auto-created wallet for crypto rewards\n' +
+        '🎯 Personalized raid recommendations\n\n' +
         '*Click the button below to get started!*';
 
       const embed = new DiscordEmbedBuilder()
-        .setTitle('🔐 Connect Your Spotify Account')
+        .setTitle('🔐 Connect Your Audius Account')
         .setDescription(description)
-        .setColor(0x1DB954)
+        .setColor(0x8B5CF6)
         .addFields(
           {
             name: '🎯 What are raids?',
@@ -111,17 +112,17 @@ const loginCommand: Command = {
             inline: false
           },
           {
-            name: '💡 Why connect Spotify?',
-            value: 'We track your listening to verify you completed the raid requirements.',
+            name: '💡 Why connect Audius?',
+            value: 'Prove your Audius identity so we can reward you for completing raids.',
             inline: false
           },
           {
             name: '🔒 Privacy & Security',
-            value: 'Your tokens are encrypted and stored securely. We only access listening data during raids.',
+            value: 'Your tokens are encrypted and stored securely. We never receive your Audius password.',
             inline: false
           }
         )
-        .setFooter({ text: 'Spotify Discord Bot • Secure OAuth Integration' })
+        .setFooter({ text: 'Audius Integration • Secure OAuth Flow' })
         .setTimestamp();
 
       await interaction.editReply({ 

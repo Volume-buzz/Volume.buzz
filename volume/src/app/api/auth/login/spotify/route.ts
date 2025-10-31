@@ -23,8 +23,31 @@ export async function GET(_request: NextRequest) {
     const authUrl = SpotifyAuth.generateAuthUrl(state, codeChallenge, 'premium');
     
     console.log('🎯 Redirecting to:', authUrl);
+
+    const response = NextResponse.redirect(authUrl);
+    const secure = process.env.NODE_ENV === 'production';
+
+    response.cookies.set({
+      name: 'spotify_state',
+      value: state,
+      httpOnly: true,
+      sameSite: 'lax',
+      secure,
+      maxAge: 600,
+      path: '/'
+    });
+
+    response.cookies.set({
+      name: 'spotify_code_verifier',
+      value: codeVerifier,
+      httpOnly: true,
+      sameSite: 'lax',
+      secure,
+      maxAge: 600,
+      path: '/'
+    });
     
-    return NextResponse.redirect(authUrl);
+    return response;
   } catch (error) {
     console.error('Spotify login error:', error);
     return NextResponse.json(

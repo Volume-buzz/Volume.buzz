@@ -1,169 +1,263 @@
-import Image from "next/image";
-import { apiGet } from "@/lib/api-client";
+'use client';
 
-interface MeResponse {
-  discord_id: string;
-  role: string;
-  spotify_is_premium: boolean;
-  spotify_is_connected: boolean;
-  name?: string | null;
-  image?: string | null;
-  balances: { tokens_balance: number };
-  wallet: null | { public_key: string; exported_at: string | null };
+import { useEffect, useState } from 'react';
+import Image from 'next/image';
+import { CreateListeningPartyModal } from '@/components/listening-parties/CreateListeningPartyModal';
+import { ListeningPartyAnalytics } from '@/components/listening-parties/ListeningPartyAnalytics';
+import { usePrivy } from '@privy-io/react-auth';
+
+interface ListeningParty {
+  id: string;
+  track: {
+    id: string;
+    title: string;
+    artist: string;
+    artwork: string;
+  };
+  platform: string;
+  status: string;
+  reward: {
+    token_mint: string;
+    tokens_per_participant: string;
+  };
+  capacity: {
+    max: number;
+    claimed: number;
+    participants: number;
+    qualified: number;
+  };
+  timing: {
+    created_at: string;
+    expires_at: string;
+    duration_minutes: number;
+  };
 }
 
-interface ActiveRaid {
-  id: number;
-  track_title?: string | null;
-  track_artist?: string | null;
-  track_artwork_url?: string | null;
-  reward_amount: number;
-  token_mint?: string | null;
-}
+export default function DashboardPage() {
+  const { user: privyUser } = usePrivy();
+  const [parties, setParties] = useState<ListeningParty[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-export default async function DashboardPage() {
+  const fetchParties = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-  // Fetch minimal data for Overview
-  const [me, activeRaids, wallet] = await Promise.all([
-    apiGet<MeResponse>("/api/users/me"),
-    apiGet<ActiveRaid[]>("/api/raids/active"),
-    apiGet<{ public_key: string; balances: { sol: number } }>("/api/wallet/me"),
-  ]);
-  interface MineItem { id: number; qualified: boolean }
-  interface RecentReward { id: string; amount: string; token: { symbol: string }; created_at: string }
-  const [mine, rewards] = await Promise.all([
-    apiGet<MineItem[]>("/api/raids/mine/list"),
-    apiGet<RecentReward[]>("/api/rewards/mine"),
-  ]);
-  const qualifiedCount = mine.filter((p) => p.qualified).length;
+      const response = await fetch('/api/listening-parties/artist/my-parties', {
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch parties');
+      }
+
+      const data = await response.json();
+      setParties(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (privyUser?.discord?.username) {
+      fetchParties();
+    }
+  }, [privyUser?.discord?.username]);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'ACTIVE':
+        return 'bg-green-500/20 text-green-400 border-green-500/50';
+      case 'COMPLETED':
+        return 'bg-blue-500/20 text-blue-400 border-blue-500/50';
+      case 'CANCELLED':
+        return 'bg-red-500/20 text-red-400 border-red-500/50';
+      default:
+        return 'bg-gray-500/20 text-gray-400 border-gray-500/50';
+    }
+  };
+
+  const isExpired = (expiresAt: string) => new Date(expiresAt) < new Date();
+  const timeRemaining = (expiresAt: string) => {
+    const ms = new Date(expiresAt).getTime() - new Date().getTime();
+    if (ms <= 0) return 'Expired';
+    const minutes = Math.floor(ms / 60000);
+    if (minutes < 1) return 'Less than 1 min';
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ${minutes % 60}m`;
+    return `${Math.floor(hours / 24)}d`;
+  };
 
   return (
-    <div className="w-full max-w-full overflow-hidden">
-      <div className="space-y-2">
-        <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-          Welcome to Volume Dashboard
-        </h1>
-        <p className="text-muted-foreground text-base md:text-lg">
-          Hey {me?.name}! Your Discord bot dashboard.
-        </p>
-      </div>
-            
-      <div className="flex items-center space-x-3 md:space-x-4 p-3 md:p-4 bg-muted rounded-lg">
-        {me?.image ? (
-          <Image
-            src={me.image}
-            alt="Profile" 
-            width={40}
-            height={40}
-            className="rounded-full md:w-12 md:h-12"
-            referrerPolicy="no-referrer"
-          />
-        ) : (
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-primary flex items-center justify-center">
-            <i className="fab fa-discord text-white text-lg md:text-xl" />
-          </div>
-        )}
-        <div className="text-left min-w-0 flex-1">
-          <p className="font-medium text-foreground truncate">{me?.name}</p>
-          <p className="text-xs md:text-sm text-muted-foreground truncate">Discord ID: {me?.discord_id}</p>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Artist Control Station</h1>
+          <p className="text-muted-foreground text-sm md:text-base mt-1">
+            Create and manage your listening parties to reward your audience
+          </p>
         </div>
+        <CreateListeningPartyModal onSuccess={fetchParties} />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 pt-4">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <div className="bg-muted rounded-lg p-3 md:p-4">
           <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2 text-sm md:text-base">
-            <i className="fas fa-wallet text-primary" />
-            SOL Balance
+            <i className="hgi-stroke hgi-target text-primary text-lg" />
+            Total Parties
           </h3>
-          <p className="text-xl md:text-2xl text-foreground">{wallet?.balances?.sol?.toFixed(4) ?? '0.0000'} SOL</p>
-          <p className="text-xs text-muted-foreground mt-1">Wallet: {me?.wallet?.public_key ? me.wallet.public_key.slice(0,4)+"..."+me.wallet.public_key.slice(-4) : 'not created'}</p>
+          <p className="text-2xl md:text-3xl font-bold text-foreground">{parties.length}</p>
         </div>
+
         <div className="bg-muted rounded-lg p-3 md:p-4">
           <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2 text-sm md:text-base">
-            <i className="fas fa-music text-primary" />
-            Active Raids
+            <i className="hgi-stroke hgi-trending-up text-primary text-lg" />
+            Active Now
           </h3>
-          <p className="text-xl md:text-2xl text-foreground">{activeRaids?.length ?? 0}</p>
-          <p className="text-xs text-muted-foreground mt-1">Join from the list below</p>
+          <p className="text-2xl md:text-3xl font-bold text-foreground">
+            {parties.filter(p => p.status === 'ACTIVE' && !isExpired(p.timing.expires_at)).length}
+          </p>
         </div>
+
         <div className="bg-muted rounded-lg p-3 md:p-4">
           <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2 text-sm md:text-base">
-            <i className="fas fa-check-circle text-primary" />
-            Qualified Raids
+            <i className="hgi-stroke hgi-users text-primary text-lg" />
+            Total Participants
           </h3>
-          <p className="text-xl md:text-2xl text-foreground">{qualifiedCount}</p>
-          <p className="text-xs text-muted-foreground mt-1">Ready to claim rewards</p>
+          <p className="text-2xl md:text-3xl font-bold text-foreground">
+            {parties.reduce((sum, p) => sum + (p.capacity?.participants || 0), 0)}
+          </p>
         </div>
+
         <div className="bg-muted rounded-lg p-3 md:p-4">
           <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2 text-sm md:text-base">
-            <i className="fab fa-spotify text-primary" />
-            Spotify
+            <i className="hgi-stroke hgi-checkmark-circle-01 text-primary text-lg" />
+            Qualified Users
           </h3>
-          <p className="text-sm md:text-base text-foreground">
-            {me?.spotify_is_connected 
-              ? (me?.spotify_is_premium ? 'Premium connected' : 'Free account connected')
-              : 'Connect for premium perks'
-            }
+          <p className="text-2xl md:text-3xl font-bold text-foreground">
+            {parties.reduce((sum, p) => sum + (p.capacity?.qualified || 0), 0)}
           </p>
         </div>
       </div>
 
-      <div className="text-left pt-4 md:pt-6">
-        <h2 className="text-lg md:text-xl font-semibold text-foreground mb-3">Active Raids</h2>
-        <div className="grid gap-3">
-          {activeRaids?.slice(0,5).map((r) => (
-            <div key={r.id} className="bg-muted rounded-lg p-3 md:p-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  {r.track_artwork_url && (
-                    <Image src={r.track_artwork_url} alt={r.track_title || 'Track'} width={40} height={40} className="rounded flex-shrink-0"/>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-foreground text-sm md:text-base truncate">{r.track_title}</p>
-                    <p className="text-xs text-muted-foreground truncate">{r.track_artist}</p>
+      {/* Parties List */}
+      <div>
+        <h2 className="text-lg md:text-xl font-semibold text-foreground mb-3">Your Listening Parties</h2>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <i className="hgi-stroke hgi-loader-01 text-primary text-3xl animate-spin block mb-2" />
+              <p className="text-muted-foreground">Loading parties...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4">
+            <p className="text-red-400">Error: {error}</p>
+          </div>
+        ) : parties.length === 0 ? (
+          <div className="text-center py-12 bg-muted rounded-lg">
+            <i className="hgi-stroke hgi-music-note-02 text-muted-foreground text-4xl block mb-3" />
+            <p className="text-foreground font-medium mb-1">No listening parties yet</p>
+            <p className="text-muted-foreground text-sm mb-4">Create your first party to get started</p>
+            <CreateListeningPartyModal onSuccess={fetchParties} />
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {parties.map((party) => {
+              const expired = isExpired(party.timing.expires_at);
+              const remaining = timeRemaining(party.timing.expires_at);
+
+              return (
+                <div
+                  key={party.id}
+                  className="bg-muted rounded-lg p-4 border border-white/10 hover:border-white/20 transition-colors"
+                >
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    {/* Track Info */}
+                    <div className="flex items-start gap-3 flex-1">
+                      {party.track?.artwork && (
+                        <Image
+                          src={party.track.artwork}
+                          alt={party.track.title}
+                          width={60}
+                          height={60}
+                          className="rounded flex-shrink-0"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-foreground truncate">{party.track?.title}</p>
+                        <p className="text-sm text-muted-foreground truncate">{party.track?.artist}</p>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(
+                              party.status
+                            )}`}
+                          >
+                            {party.status}
+                          </span>
+                          <span className="text-xs text-muted-foreground">{party.platform}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-shrink-0">
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground mb-0.5">Reward</p>
+                        <p className="text-sm font-semibold text-foreground">
+                          {parseInt(party.reward.tokens_per_participant).toLocaleString()}
+                        </p>
+                      </div>
+
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground mb-0.5">Capacity</p>
+                        <p className="text-sm font-semibold text-foreground">
+                          {party.capacity?.claimed}/{party.capacity?.max}
+                        </p>
+                      </div>
+
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground mb-0.5">Qualified</p>
+                        <p className="text-sm font-semibold text-green-400">{party.capacity?.qualified || 0}</p>
+                      </div>
+
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground mb-0.5">Time Left</p>
+                        <p className={`text-sm font-semibold ${expired ? 'text-red-400' : 'text-foreground'}`}>
+                          {remaining}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4 flex-shrink-0">
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Reward</p>
-                    <p className="font-medium text-foreground text-sm">{r.reward_amount} {r.token_mint}</p>
-                  </div>
-                  <form action={`/api/raids/${r.id}/join`} method="post">
-                    <button className="px-3 py-2 text-sm rounded-md bg-primary text-primary-foreground whitespace-nowrap">Join</button>
-                  </form>
-                </div>
-              </div>
-            </div>
-          ))}
-          {!activeRaids?.length && (
-            <p className="text-sm text-muted-foreground">No active raids right now.</p>
-          )}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      <div className="text-left pt-4 md:pt-6">
-        <h2 className="text-lg md:text-xl font-semibold text-foreground mb-3">Recent Rewards</h2>
-        <div className="grid gap-2">
-          {rewards.slice(0,5).map((r) => (
-            <div key={r.id} className="bg-muted rounded-lg p-3">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div className="text-sm text-foreground font-medium">Reward</div>
-                <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4">
-                  <div className="text-sm text-foreground font-semibold">{r.amount} {r.token.symbol}</div>
-                  <div className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</div>
-                </div>
-              </div>
-            </div>
-          ))}
-          {!rewards.length && (
-            <p className="text-sm text-muted-foreground">No rewards yet.</p>
-          )}
+      {/* Next Steps */}
+      {parties.length === 0 && !loading && (
+        <div className="bg-blue-500/10 border border-blue-500/50 rounded-lg p-4 mt-6">
+          <p className="text-blue-300 text-sm">
+            <span className="font-semibold">Next Steps:</span> Create a listening party above, then Discord users can join via your server's bot commands to listen and earn rewards.
+          </p>
         </div>
-      </div>
+      )}
 
-      <p className="text-xs text-muted-foreground mt-8">
-        Dashboard features ready. Use the sidebar to navigate between pages.
-      </p>
+      {/* Analytics Section */}
+      {parties.length > 0 && (
+        <div className="border-t border-white/10 pt-6">
+          <ListeningPartyAnalytics />
+        </div>
+      )}
     </div>
   );
 }

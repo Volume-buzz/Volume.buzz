@@ -94,12 +94,68 @@ router.post('/:id/join',
   }
 });
 
+// POST /api/raids/:id/claim
+router.post('/:id/claim',
+  requireAuth,
+  validate({
+    params: Joi.object({
+      id: commonSchemas.raidId
+    })
+  }),
+  async (req: Request, res: Response) => {
+    try {
+      const raidId = parseInt(req.params.id, 10);
+      const discordId = req.sessionUser!.discordId;
+
+      const raid = await PrismaDatabase.getRaid(raidId);
+      if (!raid) {
+        return res.status(404).json({ error: 'Raid not found' });
+      }
+
+      const participant = await PrismaDatabase.checkExistingParticipant(raidId, discordId);
+      if (!participant) {
+        return res.status(403).json({ error: 'You did not participate in this raid' });
+      }
+
+      if (!participant.qualified) {
+        return res.status(400).json({ error: 'You have not qualified for this raid' });
+      }
+
+      if (participant.claimed_reward) {
+        return res.status(400).json({ error: 'Reward already claimed' });
+      }
+
+      const rewardAmountRaw = raid.reward_amount ?? 0;
+      const rewardAmount = typeof rewardAmountRaw === 'number'
+        ? rewardAmountRaw
+        : Number(rewardAmountRaw);
+
+      if (!Number.isFinite(rewardAmount) || rewardAmount <= 0) {
+        return res.status(500).json({ error: 'Invalid reward configuration' });
+      }
+
+      await PrismaDatabase.claimReward(raidId, discordId);
+      await PrismaDatabase.updateUserTokens(discordId, rewardAmount);
+
+      return res.json({
+        success: true,
+        amount: rewardAmount,
+        token_mint: raid.token_mint
+      });
+    } catch (err) {
+      console.error('raids/:id/claim error', err);
+      return res.status(500).json({ error: 'Failed to claim raid reward' });
+    }
+  }
+);
+
 // GET /api/raids/mine
 router.get('/mine/list', requireAuth, async (req: Request, res: Response) => {
   try {
     const items = await PrismaDatabase.getUserRaids((req as any).sessionUser.discordId as string);
-    return res.json(items.map(p => ({
+    return res.json(items.map((p: any) => ({
       id: p.id,
+      raid_id: p.raid_id,
       qualified: p.qualified,
       claimed_reward: p.claimed_reward,
       total_listen_duration: p.total_listen_duration,
@@ -116,8 +172,9 @@ router.get('/mine/list', requireAuth, async (req: Request, res: Response) => {
 router.get('/history/list', requireAuth, async (req: Request, res: Response) => {
   try {
     const items = await PrismaDatabase.getUserRaidHistory((req as any).sessionUser.discordId as string);
-    return res.json(items.map(p => ({
+    return res.json(items.map((p: any) => ({
       id: p.id,
+      raid_id: p.raid_id,
       qualified: p.qualified,
       claimed_reward: p.claimed_reward,
       claimed_at: p.claimed_at,

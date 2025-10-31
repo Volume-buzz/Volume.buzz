@@ -22,8 +22,10 @@ import { Command } from './types';
 
 // Services
 import OAuthServer from './services/oauthServer';
-import RaidMonitor from './services/raidMonitor';
-import PrismaDatabase from './database/prisma';
+// import RaidMonitor from './services/raidMonitor'; // DEPRECATED
+import ListeningTracker from './services/listeningTracker';
+import PartyPosterService from './services/partyPoster';
+import PrismaDatabase, { prisma } from './database/prisma';
 import EmbedBuilder from './utils/embedBuilder';
 import WalletService from './services/wallet';
 import SpotifyAuthService from './services/spotify/SpotifyAuthService';
@@ -33,7 +35,9 @@ import config from './config/environment';
 class SpotifyBot {
   public client: Client;
   private oauthServer: OAuthServer;
-  private raidMonitor: RaidMonitor;
+  // private raidMonitor: RaidMonitor; // DEPRECATED - Using ListeningTracker instead
+  private listeningTracker: ListeningTracker;
+  public partyPoster: PartyPosterService;
 
   constructor() {
     this.client = new Client({
@@ -46,9 +50,11 @@ class SpotifyBot {
 
     // Initialize commands collection
     this.client.commands = new Collection<string, Command>();
-    
+
     this.oauthServer = new OAuthServer(this);
-    this.raidMonitor = new RaidMonitor(this.client);
+    // this.raidMonitor = new RaidMonitor(this.client); // DEPRECATED - Using ListeningTracker instead
+    this.listeningTracker = new ListeningTracker(this.client);
+    this.partyPoster = new PartyPosterService(this.client);
 
     this.setupEventHandlers();
     this.loadCommands();
@@ -59,15 +65,21 @@ class SpotifyBot {
       console.log('🤖 Discord bot is ready!');
       console.log(`📱 Logged in as ${this.client.user?.tag}`);
       console.log(`🏠 Serving ${this.client.guilds.cache.size} guild(s)`);
-      
+
       // Initialize admins from environment
       await PrismaDatabase.initializeAdmins();
-      
+
+      // Sync all current guilds to database
+      console.log('🔄 Syncing guilds to database...');
+      for (const [, guild] of this.client.guilds.cache) {
+        await this.syncGuildToDatabase(guild);
+      }
+
       // Start services
       this.oauthServer.start();
-      this.raidMonitor.start();
-      
-      console.log('🎵 Spotify Discord Bot fully operational!');
+      // this.raidMonitor.start(); // DEPRECATED - Using ListeningTracker instead
+
+      console.log('🎵 Listening Party Bot fully operational!');
     });
 
     this.client.on('error', (error: Error) => {
@@ -86,6 +98,22 @@ class SpotifyBot {
       }
     });
 
+    // Guild events - track servers for analytics
+    this.client.on('guildCreate', async (guild: Guild) => {
+      console.log(`🏠 Bot joined new server: ${guild.name} (${guild.id})`);
+      await this.syncGuildToDatabase(guild);
+    });
+
+    this.client.on('guildUpdate', async (_oldGuild: Guild, newGuild: Guild) => {
+      await this.syncGuildToDatabase(newGuild);
+    });
+
+    this.client.on('guildDelete', async (guild: Guild) => {
+      console.log(`👋 Bot removed from server: ${guild.name} (${guild.id})`);
+      // Mark bot as not installed for this server
+      await this.updateGuildBotStatus(guild.id, false);
+    });
+
     // Graceful shutdown
     process.on('SIGINT', () => {
       console.log('\n🛑 Received SIGINT, shutting down gracefully...');
@@ -100,11 +128,10 @@ class SpotifyBot {
 
   private loadCommands(): void {
     const commandsPath = path.join(__dirname, 'commands');
-    // In development, load .ts files; in production, load compiled .js files
-    const fileExtension = config.api.nodeEnv === 'development' ? '.ts' : '.js';
-    const commandFiles = fs.readdirSync(commandsPath).filter(file => 
-      file.endsWith(fileExtension) && !file.endsWith('.d.ts')
-    );
+    const commandFiles = fs.readdirSync(commandsPath).filter(file => {
+      const ext = path.extname(file);
+      return (ext === '.ts' || ext === '.js') && !file.endsWith('.d.ts');
+    });
 
     for (const file of commandFiles) {
       const filePath = path.join(commandsPath, file);
@@ -159,16 +186,24 @@ class SpotifyBot {
     const customId = interaction.customId;
 
     try {
-      if (customId.startsWith('join_raid_')) {
+      // NEW: Listening party buttons
+      if (customId.startsWith('listen_')) {
+        await this.handleListenButton(interaction);
+      } else if (customId.startsWith('claim_')) {
+        await this.handleClaimButton(interaction);
+      } else if (customId === 'disconnect_wallet') {
+        await this.handleDisconnectWallet(interaction);
+      // OLD: Raid buttons (for backwards compatibility)
+      } else if (customId.startsWith('join_raid_')) {
         await this.handleJoinRaid(interaction);
       } else if (customId.startsWith('claim_reward_')) {
         await this.handleClaimReward(interaction);
       } else if (customId === 'logout_account') {
         await this.handleLogout(interaction);
-      } else if (customId === 'login_spotify') {
-        await this.handleSpotifyLogin(interaction);
-      } else if (customId === 'logout_spotify') {
-        await this.handleSpotifyLogout(interaction);
+      } else if (customId === 'login_audius') {
+        await this.handleAudiusLogin(interaction);
+      } else if (customId === 'logout_audius') {
+        await this.handleAudiusLogout(interaction);
       } else if (customId === 'export_private_key') {
         await this.handleExportPrivateKey(interaction);
       } else if (customId === 'view_transactions') {
@@ -203,6 +238,221 @@ class SpotifyBot {
       }
     }
   }
+
+  // ===== NEW LISTENING PARTY BUTTON HANDLERS =====
+
+  private async handleDisconnectWallet(interaction: ButtonInteraction): Promise<void> {
+    await interaction.deferReply({ ephemeral: true });
+
+    const discordId = interaction.user.id;
+
+    try {
+      const axios = (await import('axios')).default;
+      const API_BASE = config.api.publicUrl || 'http://localhost:3001';
+
+      // Call the unlink API
+      await axios.post(`${API_BASE}/api/wallet/unlink`, {
+        discord_id: discordId,
+      });
+
+      const embed = new DiscordEmbedBuilder()
+        .setColor(0x10b981)
+        .setTitle('🔓 Wallet Disconnected')
+        .setDescription('Your wallet has been successfully disconnected.\n\nYou can reconnect anytime using `/wallet`.')
+        .setTimestamp();
+
+      await interaction.editReply({ embeds: [embed] });
+    } catch (error: any) {
+      console.error('Error disconnecting wallet:', error);
+
+      const embed = EmbedBuilder.createErrorEmbed(
+        'Error',
+        'Failed to disconnect wallet. Please try again later.'
+      );
+      await interaction.editReply({ embeds: [embed] });
+    }
+  }
+
+  private async handleListenButton(interaction: ButtonInteraction): Promise<void> {
+    await interaction.deferReply({ ephemeral: true });
+
+    const partyId = interaction.customId.replace('listen_', '');
+    const discordId = interaction.user.id;
+
+    try {
+      // Get user to check Audius account
+      const user = await PrismaDatabase.getUser(discordId);
+      if (!user || !user.audius_user_id) {
+        const embed = EmbedBuilder.createErrorEmbed(
+          'Audius Account Required',
+          'You need to connect your Audius account first.\n\nPlease visit the dashboard to link your Audius account.'
+        );
+        await interaction.editReply({ embeds: [embed] });
+        return;
+      }
+
+      // Fetch party details
+      const axios = (await import('axios')).default;
+      const API_BASE = config.api.publicUrl || 'http://localhost:3001';
+
+      const partyRes = await axios.get(`${API_BASE}/api/listening-parties/${partyId}`);
+      const party = partyRes.data;
+
+      if (!party) {
+        const embed = EmbedBuilder.createErrorEmbed(
+          'Party Not Found',
+          'This listening party no longer exists.'
+        );
+        await interaction.editReply({ embeds: [embed] });
+        return;
+      }
+
+      // Check if party is active
+      if (party.status !== 'ACTIVE' || new Date(party.timing.expires_at) < new Date()) {
+        const embed = EmbedBuilder.createErrorEmbed(
+          'Party Inactive',
+          'This listening party has ended or is no longer active.'
+        );
+        await interaction.editReply({ embeds: [embed] });
+        return;
+      }
+
+      // Join party
+      await axios.post(`${API_BASE}/api/listening-parties/${partyId}/participants`, {
+        discord_id: discordId,
+        discord_handle: interaction.user.username,
+      });
+
+      // Start tracking
+      const result = await this.listeningTracker.startTracking(
+        partyId,
+        discordId,
+        user.audius_user_id,
+        party.track.id,
+        party.track.title
+      );
+
+      if (!result.success) {
+        const embed = EmbedBuilder.createErrorEmbed(
+          'Tracking Error',
+          result.message
+        );
+        await interaction.editReply({ embeds: [embed] });
+        return;
+      }
+
+      const embed = new DiscordEmbedBuilder()
+        .setColor(0x10b981)
+        .setTitle('✅ Listening Tracking Started!')
+        .setDescription(`**${party.track.title}** by ${party.track.artist}\n\nWe're now tracking your listening progress. Make sure you:\n\n1. Click **"Play"** to open the track on Audius\n2. Play the track for at least 30 seconds\n3. Check your DMs for progress updates!`)
+        .setTimestamp();
+
+      await interaction.editReply({ embeds: [embed] });
+    } catch (error: any) {
+      console.error('Error handling listen button:', error);
+
+      const errorMessage = error.response?.data?.error || error.message || 'Unknown error occurred';
+      const embed = EmbedBuilder.createErrorEmbed(
+        'Error',
+        `Failed to start listening: ${errorMessage}`
+      );
+      await interaction.editReply({ embeds: [embed] });
+    }
+  }
+
+  private async handleClaimButton(interaction: ButtonInteraction): Promise<void> {
+    await interaction.deferReply({ ephemeral: true });
+
+    const partyId = interaction.customId.replace('claim_', '');
+    const discordId = interaction.user.id;
+
+    try {
+      const axios = (await import('axios')).default;
+      const API_BASE = config.api.publicUrl || 'http://localhost:3001';
+
+      // Check wallet status
+      const walletRes = await axios.get(`${API_BASE}/api/wallet/status/${discordId}`);
+
+      if (!walletRes.data.connected) {
+        const connectRes = await axios.get(`${API_BASE}/api/wallet/connect-url?discord_id=${discordId}`);
+
+        const embed = new DiscordEmbedBuilder()
+          .setColor(0xf59e0b)
+          .setTitle('🔗 Wallet Required')
+          .setDescription('You need to connect a wallet before claiming rewards.\n\nClick the link below to connect your Solana wallet:')
+          .addFields({
+            name: 'Connect Wallet',
+            value: `[Click here to connect](${connectRes.data.connect_url})`,
+            inline: false,
+          })
+          .setTimestamp();
+
+        await interaction.editReply({ embeds: [embed] });
+        return;
+      }
+
+      // Fetch party and check qualification
+      const partyRes = await axios.get(`${API_BASE}/api/listening-parties/${partyId}`);
+      const party = partyRes.data;
+
+      const participant = party.participants.find((p: any) => p.discord_id === discordId);
+
+      if (!participant) {
+        const embed = EmbedBuilder.createErrorEmbed(
+          'Not a Participant',
+          'You are not a participant in this listening party.'
+        );
+        await interaction.editReply({ embeds: [embed] });
+        return;
+      }
+
+      if (!participant.qualified_at) {
+        const embed = EmbedBuilder.createErrorEmbed(
+          'Not Qualified',
+          `You need to listen for at least 30 seconds to qualify.\n\nCurrent listening time: ${participant.listening_duration || 0}s / 30s`
+        );
+        await interaction.editReply({ embeds: [embed] });
+        return;
+      }
+
+      if (participant.claimed_at) {
+        const embed = EmbedBuilder.createErrorEmbed(
+          'Already Claimed',
+          'You have already claimed rewards for this party!'
+        );
+        await interaction.editReply({ embeds: [embed] });
+        return;
+      }
+
+      // Generate claim URL
+      const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      const claimUrl = `${APP_URL}/claim/${partyId}?discordId=${discordId}`;
+
+      const embed = new DiscordEmbedBuilder()
+        .setColor(0x10b981)
+        .setTitle('🎁 Claim Your Rewards')
+        .setDescription(`You're qualified to claim ${party.reward.tokens_per_participant} tokens!\n\nClick the link below to claim:`)
+        .addFields({
+          name: 'Claim Link',
+          value: `[Click here to claim your rewards](${claimUrl})`,
+          inline: false,
+        })
+        .setTimestamp();
+
+      await interaction.editReply({ embeds: [embed] });
+    } catch (error: any) {
+      console.error('Error handling claim button:', error);
+
+      const errorMessage = error.response?.data?.error || error.message || 'Unknown error occurred';
+      const embed = EmbedBuilder.createErrorEmbed(
+        'Error',
+        `Failed to process claim: ${errorMessage}`
+      );
+      await interaction.editReply({ embeds: [embed] });
+    }
+  }
+
+  // ===== OLD RAID HANDLERS (FOR BACKWARDS COMPATIBILITY) =====
 
   private async handleJoinRaid(interaction: ButtonInteraction): Promise<any> {
     await interaction.deferReply({ ephemeral: true });
@@ -329,7 +579,7 @@ class SpotifyBot {
     await PrismaDatabase.updateUserRaidParticipation(userId);
 
     // Start platform-specific tracking
-    await this.raidMonitor.addParticipant(userId, raidId, platformUserId || undefined);
+    // await this.raidMonitor.addParticipant(userId, raidId, platformUserId || undefined); // DEPRECATED
 
     // Spotify-only messages
     const platformIcon = '🎶';
@@ -564,39 +814,43 @@ class SpotifyBot {
     }
   }
 
-  // Removed Audius login - Spotify only
-
-  private async handleSpotifyLogin(interaction: ButtonInteraction): Promise<void> {
+  private async handleAudiusLogin(interaction: ButtonInteraction): Promise<void> {
     await interaction.deferReply({ ephemeral: true });
 
     try {
-      const authUrl = await this.oauthServer.generateAuthUrl(interaction.user.id, 'SPOTIFY');
+      if (!config.audius.apiKey) {
+        const embed = EmbedBuilder.createErrorEmbed(
+          'Audius Not Configured',
+          'Audius integration is unavailable because the API key has not been configured. Please contact an administrator.'
+        );
+        await interaction.editReply({ embeds: [embed] });
+        return;
+      }
+
+      const authUrl = await this.oauthServer.generateAuthUrl(interaction.user.id, 'AUDIUS');
       
       const embed = EmbedBuilder.createSuccessEmbed(
-        'Spotify Login',
-        `🎶 **Click the link below to connect your Spotify account:**\n\n` +
-        `[🔐 **Connect Spotify Account**](${authUrl})\n\n` +
+        'Audius Login',
+        `🎧 **Click the link below to connect your Audius account:**\n\n` +
+        `[🔐 **Connect Audius Account**](${authUrl})\n\n` +
         `**What happens next:**\n` +
-        `1. You'll be redirected to Spotify\n` +
-        `2. Authorize the Discord bot\n` +
-        `3. We'll detect if you have Premium\n` +
-        `4. You'll be redirected back (you can close that tab)\n` +
-        `5. Start participating in Spotify raids!\n\n` +
-        `**Premium vs Free:**\n` +
-        `👑 **Premium** - Access to all raids + enhanced tracking\n` +
-        `🆓 **Free** - Access to most raids (some premium-only excluded)\n\n` +
+        `1. You'll be redirected to Audius\n` +
+        `2. Authorize Volume to view your profile\n` +
+        `3. We\'ll link your Discord and Audius accounts\n` +
+        `4. A confirmation DM will be sent once complete\n` +
+        `5. Start joining raids with your Audius identity!\n\n` +
         `*This link expires in 10 minutes.*`
       );
 
       await interaction.editReply({ embeds: [embed] });
       
-      console.log(`🔗 Generated Spotify OAuth URL for ${interaction.user.tag}`);
+      console.log(`🔗 Generated Audius OAuth URL for ${interaction.user.tag}`);
     } catch (error) {
-      console.error('Error generating Spotify auth URL:', error);
+      console.error('Error generating Audius auth URL:', error);
       
       const embed = EmbedBuilder.createErrorEmbed(
         'Login Error',
-        'Failed to generate Spotify login URL. Please try again.'
+        'Failed to generate Audius login URL. Please try again.'
       );
       
       await interaction.editReply({ embeds: [embed] });
@@ -684,16 +938,16 @@ class SpotifyBot {
   }
 
 
-  private async handleSpotifyLogout(interaction: ButtonInteraction): Promise<void> {
+  private async handleAudiusLogout(interaction: ButtonInteraction): Promise<void> {
     await interaction.deferReply({ ephemeral: true });
 
     try {
       const user = await PrismaDatabase.getUser(interaction.user.id);
       
-      if (!user || !user.spotify_user_id) {
+      if (!user || !user.audius_user_id) {
         const embed = EmbedBuilder.createErrorEmbed(
           'Not Connected',
-          'You don\'t have a Spotify account connected.'
+          'You don\'t have an Audius account connected.'
         );
         await interaction.editReply({ embeds: [embed] });
         return;
@@ -702,22 +956,21 @@ class SpotifyBot {
       await PrismaDatabase.deleteUser(interaction.user.id);
 
       const embed = EmbedBuilder.createSuccessEmbed(
-        'Spotify Disconnected',
-        `🎶 **Spotify account disconnected**\n\n` +
-        `Your account **${user.spotify_display_name}** has been disconnected.\n` +
-        '\n\n' +
-        `Use \`/login\` to reconnect if needed.`
+        'Audius Disconnected',
+        `🎧 **Audius account disconnected**\n\n` +
+        `Your account **${user.audius_name || user.audius_handle}** has been disconnected.\n\n` +
+        `Use \`/login\` anytime to reconnect.`
       );
 
       await interaction.editReply({ embeds: [embed] });
       
-      console.log(`🚪 ${interaction.user.tag} logged out from Spotify (${user.spotify_display_name})`);
+      console.log(`🚪 ${interaction.user.tag} disconnected Audius (${user.audius_handle || user.audius_name})`);
     } catch (error) {
-      console.error('Error handling Spotify logout:', error);
+      console.error('Error handling Audius logout:', error);
       
       const embed = EmbedBuilder.createErrorEmbed(
         'Logout Error',
-        'There was an error logging you out from Spotify. Please try again.'
+        'There was an error disconnecting your Audius account. Please try again.'
       );
       
       await interaction.editReply({ embeds: [embed] });
@@ -730,7 +983,7 @@ class SpotifyBot {
     try {
       const user = await PrismaDatabase.getUser(interaction.user.id);
       
-      if (!user || (!user.spotify_user_id && !user.spotify_user_id)) {
+      if (!user || (!user.spotify_user_id && !user.audius_user_id)) {
         const embed = EmbedBuilder.createErrorEmbed(
           'Not Connected',
           'You don\'t have any accounts connected.'
@@ -866,19 +1119,20 @@ class SpotifyBot {
 
   /**
    * Get Spotify services from raid monitor
+   * DEPRECATED: RaidMonitor no longer used
    */
   public getSpotifyServices() {
-    return this.raidMonitor.getSpotifyServices();
+    // return this.raidMonitor.getSpotifyServices(); // DEPRECATED
+    return null; // RaidMonitor is deprecated
   }
 
   private async deployCommands(): Promise<void> {
     const commands: any[] = [];
     const commandsPath = path.join(__dirname, 'commands');
-    // In development, deploy .ts files; in production, deploy compiled .js files
-    const fileExtension = config.api.nodeEnv === 'development' ? '.ts' : '.js';
-    const commandFiles = fs.readdirSync(commandsPath).filter(file => 
-      file.endsWith(fileExtension) && !file.endsWith('.d.ts')
-    );
+    const commandFiles = fs.readdirSync(commandsPath).filter(file => {
+      const ext = path.extname(file);
+      return (ext === '.ts' || ext === '.js') && !file.endsWith('.d.ts');
+    });
 
     for (const file of commandFiles) {
       const filePath = path.join(commandsPath, file);
@@ -1046,8 +1300,8 @@ class SpotifyBot {
         `**Role:** ${role}\n\n` +
         `**Connected Platforms:**\n` +
         `🎶 **Spotify:** ${user.spotify_display_name || '❌ Not connected'} ${user.spotify_is_premium ? '👑' : user.spotify_display_name ? '🆓' : ''}\n\n` +
-        `**Raid Statistics:**\n` +
-        `🎯 **Raids Participated:** ${user.total_raids_participated}\n` +
+        `**Party Statistics:**\n` +
+        `🎯 **Parties Participated:** ${user.total_parties_participated}\n` +
         `🏆 **Rewards Claimed:** ${user.total_rewards_claimed}\n` +
         `💰 **Token Balance:** ${user.tokens_balance}\n\n` +
         `**Crypto Wallet:**\n` +
@@ -1082,69 +1336,54 @@ class SpotifyBot {
     await interaction.deferReply({ ephemeral: true });
 
     try {
-      const walletService = new WalletService();
-      const jupiterApi = require('./services/jupiterApi').default;
+      // Check if user has connected wallet via Privy
+      const user = await PrismaDatabase.getUser(interaction.user.id);
 
-      // Get or create user wallet
-      const isAdmin = await PrismaDatabase.isAdmin(interaction.user.id);
-      const cryptoWallet = await walletService.createOrGetWallet(interaction.user.id, isAdmin);
-      const balances = await walletService.getWalletBalances(cryptoWallet.publicKey);
+      if (!user || !user.privy_user_id) {
+        const embed = EmbedBuilder.createErrorEmbed(
+          'No Wallet Connected',
+          'You haven\'t connected a wallet yet.\n\nUse `/wallet` to connect your wallet through Privy and start managing your tokens.'
+        );
 
-      // Calculate total SOL equivalent
-      const solPrice = await jupiterApi.getTokenPrice('So11111111111111111111111111111111111111112');
-      let totalSOLEquivalent = balances.sol;
-      
-      const tokenDetails: string[] = [];
-      
-      for (const token of balances.tokens) {
-        const tokenPrice = await jupiterApi.getTokenPrice(token.mint);
-        if (tokenPrice && solPrice) {
-          const tokenValueSOL = (token.amount * tokenPrice) / solPrice;
-          totalSOLEquivalent += tokenValueSOL;
-        }
-        tokenDetails.push(`**${token.symbol}:** ${token.amount.toFixed(2)}`);
+        const button = new ActionRowBuilder<ButtonBuilder>()
+          .addComponents(
+            new ButtonBuilder()
+              .setLabel('💳 Connect Wallet')
+              .setURL(`${config.api.publicUrl || 'http://localhost:3000'}/wallet-connect?discordId=${interaction.user.id}`)
+              .setStyle(ButtonStyle.Link)
+          );
+
+        await interaction.editReply({ embeds: [embed], components: [button] });
+        return;
       }
 
-      const role = isAdmin ? '👑 Super Admin' : '👤 Fan';
+      // User has Privy account - show wallet info
+      const embed = new DiscordEmbedBuilder()
+        .setColor(0x10b981)
+        .setTitle('💳 Your Wallet')
+        .setDescription(
+          '**Wallet Status:** ✅ Connected via Privy\n\n' +
+          'Your wallet is securely connected through Privy. You can view your full wallet details and manage your tokens on the dashboard.\n\n' +
+          '**Quick Actions:**\n' +
+          '• View balances on the dashboard\n' +
+          '• Participate in listening parties\n' +
+          '• Claim rewards from raids'
+        )
+        .setTimestamp();
 
-      const embed = EmbedBuilder.createSuccessEmbed(
-        '💰 Quick Wallet View',
-        `**Address:** \`${cryptoWallet.publicKey}\`\n\n` +
-        `**💳 Token Balances**\n` +
-        `**SOL:** ${balances.sol.toFixed(4)} SOL\n` +
-        `${tokenDetails.length > 0 ? tokenDetails.join('\n') : 'No SPL tokens found'}\n\n` +
-        `**💎 Total Value:** ${totalSOLEquivalent.toFixed(4)} SOL equivalent\n` +
-        `**🔑 Wallet Type:** ${role} Wallet\n` +
-        `**📤 Withdrawal:** ${totalSOLEquivalent >= 1.0 ? '✅ Eligible' : `❌ Need ${(1.0 - totalSOLEquivalent).toFixed(4)} SOL more`}`
-      );
-
-      // Add action buttons
-      const buttons = new ActionRowBuilder<ButtonBuilder>()
+      const button = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(
           new ButtonBuilder()
-            .setCustomId('export_private_key')
-            .setLabel('🔐 Export Private Key')
-            .setStyle(ButtonStyle.Secondary),
-          new ButtonBuilder()
-            .setCustomId('view_transactions')
-            .setLabel('📋 View Transactions')
-            .setStyle(ButtonStyle.Primary)
-        );
-
-      if (totalSOLEquivalent >= 1.0) {
-        buttons.addComponents(
-          new ButtonBuilder()
-            .setURL(`https://discord.com/channels/@me`)
-            .setLabel('💸 Use /withdraw')
+            .setLabel('🌐 Open Dashboard')
+            .setURL(`${config.api.publicUrl || 'http://localhost:3000'}/dashboard`)
             .setStyle(ButtonStyle.Link)
         );
-      }
 
-      await interaction.editReply({ embeds: [embed], components: [buttons] });
+      await interaction.editReply({ embeds: [embed], components: [button] });
 
     } catch (error: any) {
       console.error('Error showing quick wallet:', error);
-      const embed = EmbedBuilder.createErrorEmbed('Wallet Error', `Failed to load wallet: ${error.message}`);
+      const embed = EmbedBuilder.createErrorEmbed('Wallet Error', `Failed to load wallet information: ${error.message}`);
       await interaction.editReply({ embeds: [embed] });
     }
   }
@@ -1161,20 +1400,78 @@ class SpotifyBot {
     return this.oauthServer;
   }
 
+  /**
+   * Sync a Discord guild to the database for analytics
+   */
+  private async syncGuildToDatabase(guild: Guild): Promise<void> {
+    try {
+      // Get all admin members in the guild
+      const members = await guild.members.fetch();
+      const admins = members.filter(member =>
+        member.permissions.has('Administrator') || member.permissions.has('ManageGuild')
+      );
+
+      // Upsert records for each admin
+      for (const [, member] of admins) {
+        await prisma.artistDiscordServer.upsert({
+          where: {
+            artist_discord_id_server_id: {
+              artist_discord_id: member.user.id,
+              server_id: guild.id,
+            },
+          },
+          update: {
+            server_name: guild.name,
+            bot_installed: true,
+            updated_at: new Date(),
+          },
+          create: {
+            artist_discord_id: member.user.id,
+            server_id: guild.id,
+            server_name: guild.name,
+            bot_installed: true,
+          },
+        });
+      }
+
+      console.log(`✅ Synced guild ${guild.name} with ${admins.size} admins to database`);
+    } catch (error) {
+      console.error(`❌ Error syncing guild ${guild.id} to database:`, error);
+    }
+  }
+
+  /**
+   * Update bot installation status for a guild
+   */
+  private async updateGuildBotStatus(guildId: string, botInstalled: boolean): Promise<void> {
+    try {
+      await prisma.artistDiscordServer.updateMany({
+        where: { server_id: guildId },
+        data: {
+          bot_installed: botInstalled,
+          updated_at: new Date(),
+        },
+      });
+      console.log(`✅ Updated bot status for guild ${guildId}: ${botInstalled}`);
+    } catch (error) {
+      console.error(`❌ Error updating guild bot status:`, error);
+    }
+  }
+
   public async shutdown(): Promise<void> {
     console.log('🔄 Shutting down services...');
-    
+
     try {
-      this.raidMonitor.stop();
+      // this.raidMonitor.stop(); // DEPRECATED
       this.oauthServer.stop();
       await PrismaDatabase.disconnect();
       this.client.destroy();
-      
+
       console.log('✅ Shutdown complete');
     } catch (error) {
       console.error('❌ Error during shutdown:', error);
     }
-    
+
     process.exit(0);
   }
 }

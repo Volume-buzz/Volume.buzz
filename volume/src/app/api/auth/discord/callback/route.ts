@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { DiscordAuth } from '@/lib/discord-auth';
-import { PrismaClient } from '@prisma/client';
-
+import { prisma } from '@/lib/prisma';
 import { SignJWT } from 'jose';
-
-const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,13 +22,14 @@ export async function GET(request: NextRequest) {
 
     // Exchange code for tokens
     const tokens = await DiscordAuth.exchangeCodeForTokens(code);
+    const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000);
     
     // Get Discord user info
     const discordUser = await DiscordAuth.getDiscordUser(tokens.access_token);
     
     // Find or create user in database
     let user = await prisma.user.findUnique({
-      where: { discord_id: discordUser.id }
+      where: { discord_id: discordUser.id },
     });
 
     if (!user) {
@@ -45,9 +43,12 @@ export async function GET(request: NextRequest) {
           image: DiscordAuth.getAvatarUrl(discordUser),
           discord_username: discordUser.username,
           tokens_balance: 0,
-          total_raids_participated: 0,
+          total_parties_participated: 0,
           total_rewards_claimed: 0,
-        }
+          discord_access_token: tokens.access_token,
+          discord_refresh_token: tokens.refresh_token,
+          discord_token_expires_at: tokenExpiresAt,
+        },
       });
     } else {
       // Update existing user
@@ -59,7 +60,10 @@ export async function GET(request: NextRequest) {
           emailVerified: discordUser.verified,
           image: DiscordAuth.getAvatarUrl(discordUser),
           discord_username: discordUser.username,
-        }
+          discord_access_token: tokens.access_token,
+          discord_refresh_token: tokens.refresh_token,
+          discord_token_expires_at: tokenExpiresAt,
+        },
       });
     }
 
@@ -70,7 +74,10 @@ export async function GET(request: NextRequest) {
       discordId: user.discord_id,
       email: user.email,
       name: user.name,
-      image: user.image 
+      image: user.image,
+      discordAccessToken: tokens.access_token,
+      discordRefreshToken: tokens.refresh_token,
+      discordTokenExpiresAt: tokenExpiresAt.toISOString(),
     })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()

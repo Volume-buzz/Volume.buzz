@@ -27,7 +27,7 @@ export class DiscordAuth {
       client_id: DISCORD_CLIENT_ID,
       redirect_uri: DISCORD_REDIRECT_URI,
       response_type: 'code',
-      scope: 'identify email',
+      scope: 'identify email guilds',
       state: state || crypto.randomUUID(),
     });
 
@@ -46,6 +46,7 @@ export class DiscordAuth {
         grant_type: 'authorization_code',
         code,
         redirect_uri: DISCORD_REDIRECT_URI,
+        scope: 'identify email guilds',
       }),
     });
 

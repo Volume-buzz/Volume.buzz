@@ -24,39 +24,41 @@ const accountCommand: Command = {
       if (!user) {
         const embed = EmbedBuilder.createErrorEmbed(
           'Account Not Found',
-          'You haven\'t connected your Spotify account yet!\n\nUse `/login` to connect your account and start earning tokens.'
+          'You haven\'t connected your Audius account yet!\n\nUse `/login` to connect your account and start earning tokens.'
         );
         await interaction.editReply({ embeds: [embed] });
         return;
       }
 
-      const hasSpotify = user.spotify_user_id !== null;
+      const hasAudius = user.audius_user_id !== null;
 
-      if (!hasSpotify) {
+      if (!hasAudius) {
         const embed = EmbedBuilder.createErrorEmbed(
           'No Account Connected',
-          'You haven\'t connected your Spotify account yet!\n\nUse `/login` to connect your Spotify account and start earning tokens.'
+          'You haven\'t connected your Audius account yet!\n\nUse `/login` to link Audius and start earning tokens.'
         );
         await interaction.editReply({ embeds: [embed] });
         return;
       }
 
       // Build account status description
-      const premiumStatus = user.spotify_is_premium ? '👑 Premium' : '🆓 Free';
+      const audiusDisplay = user.audius_name || user.audius_handle || 'Audius User';
+      const verifiedStatus = user.audius_verified ? '✅ Verified' : '🎵 Community Member';
+      const audiusLink = user.audius_handle ? `https://audius.co/${user.audius_handle}` : null;
       let description = `👤 **Discord:** ${interaction.user.displayName}\n\n` +
         `**🔗 Connected Account:**\n` +
-        `✅ **Spotify** - ${user.spotify_display_name} (${premiumStatus})\n` +
-        `   └ ${user.spotify_email}\n`;
+        `✅ **Audius** - ${audiusDisplay} (${verifiedStatus})\n` +
+        `${user.audius_email ? `   └ ${user.audius_email}\n` : ''}` +
+        (audiusLink ? `   └ [View on Audius](${audiusLink})\n` : '');
 
       const embed = new DiscordEmbedBuilder()
         .setTitle('👤 Your Account')
         .setDescription(description)
-        .setColor(0x1DB954)
-        .setThumbnail(interaction.user.displayAvatarURL({ size: 256 }))
+        .setColor(0x8B5CF6)
         .addFields(
           {
-            name: '🏆 Raid Statistics',
-            value: `**Participated:** ${user.total_raids_participated} raids\n` +
+            name: '🏆 Party Statistics',
+            value: `**Participated:** ${user.total_parties_participated} parties\n` +
               `**Claimed:** ${user.total_rewards_claimed} rewards\n` +
               `**Token Balance:** ${user.tokens_balance} tokens`,
             inline: false
@@ -69,16 +71,16 @@ const accountCommand: Command = {
           },
           {
             name: '📊 Success Rate',
-            value: user.total_raids_participated > 0 
-              ? `${Math.round((user.total_rewards_claimed / user.total_raids_participated) * 100)}%`
-              : 'No raids yet',
+            value: user.total_parties_participated > 0
+              ? `${Math.round((user.total_rewards_claimed / user.total_parties_participated) * 100)}%`
+              : 'No parties yet',
             inline: true
           },
           {
-            name: '🎶 Spotify Features',
-            value: user.spotify_is_premium 
-              ? '👑 Premium - Enhanced tracking + embedded player'
-              : '🆓 Free - Basic tracking via Currently Playing API',
+            name: '🎧 Audius Profile',
+            value: user.audius_verified 
+              ? '✅ Verified creator on Audius'
+              : '🎵 Linked community account',
             inline: false
           }
         )
@@ -88,9 +90,10 @@ const accountCommand: Command = {
           iconURL: interaction.user.displayAvatarURL()
         });
 
-      // Add Spotify profile picture if available
-      if (user.spotify_is_premium) {
-        embed.setThumbnail('https://cdn.discordapp.com/attachments/123/456/spotify-premium-icon.png');
+      // Use Audius profile image if available, otherwise Discord avatar
+      const profilePicture = user.audius_profile_picture || interaction.user.displayAvatarURL({ size: 256 });
+      if (profilePicture) {
+        embed.setThumbnail(profilePicture);
       }
 
       // Create action buttons
@@ -105,8 +108,8 @@ const accountCommand: Command = {
 
       buttons.push(
         new ButtonBuilder()
-          .setCustomId('logout_spotify')
-          .setLabel('🚪 Disconnect Spotify')
+          .setCustomId('logout_audius')
+          .setLabel('🚪 Disconnect Audius')
           .setStyle(ButtonStyle.Danger)
       );
 

@@ -47,7 +47,17 @@ const config = {
   spotify: {
     clientId: process.env.SPOTIFY_CLIENT_ID || '',
     clientSecret: process.env.SPOTIFY_CLIENT_SECRET || '',
-    redirectUri: process.env.SPOTIFY_REDIRECT_URI || 'http://localhost:3001/api/auth/callback/spotify'
+    redirectUri: process.env.SPOTIFY_SERVER_REDIRECT_URI 
+      || process.env.SPOTIFY_REDIRECT_URI 
+      || 'http://localhost:3001/api/auth/callback/spotify',
+  },
+
+  // Audius
+  audius: {
+    apiKey: process.env.AUDIUS_API_KEY || '',
+    apiSecret: process.env.AUDIUS_API_SECRET || '',
+    appName: process.env.AUDIUS_APP_NAME || 'volume-bot',
+    loginRedirectUrl: process.env.AUDIUS_LOGIN_REDIRECT_URL || '',
   },
 
   // Solana
@@ -91,7 +101,8 @@ const config = {
   api: {
     port: parseNumber(process.env.PORT, 3000),
     nodeEnv: (process.env.NODE_ENV as 'development' | 'production' | 'test') || 'development',
-    corsOrigins: parseList(process.env.ALLOWED_ORIGINS || '*')
+    corsOrigins: parseList(process.env.ALLOWED_ORIGINS || '*'),
+    publicUrl: process.env.API_PUBLIC_URL || `http://localhost:${parseNumber(process.env.PORT, 3000)}`
   },
 
   // Bot Settings
@@ -162,10 +173,16 @@ export const environment: EnvironmentConfig = {
   heliusRpcUrl: config.helius.rpcUrl,
   heliusWebhookUrl: config.helius.webhookUrl,
 
+  // Audius
+  audiusApiKey: config.audius.apiKey,
+  audiusAppName: config.audius.appName,
+  audiusLoginRedirectUrl: config.audius.loginRedirectUrl,
+
   // API
   apiPort: config.api.port,
   jwtSecret: config.security.jwtSecret,
   allowedOrigins: config.api.corsOrigins,
+  apiPublicUrl: config.api.publicUrl,
 
   // Admin
   adminDiscordIds: config.superAdmins.ids,
@@ -205,6 +222,10 @@ if (config.api.nodeEnv === 'production') {
   if (!config.helius.webhookSecret) {
     console.warn('⚠️  HELIUS_WEBHOOK_SECRET not set in production');
   }
+}
+
+if (!config.audius.apiKey) {
+  console.warn('⚠️  Audius API key not configured. Audius login will be disabled.');
 }
 
 console.log(`✅ Environment loaded: ${config.api.nodeEnv}`);
