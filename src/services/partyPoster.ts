@@ -51,6 +51,16 @@ export class PartyPosterService {
       const expiresAt = new Date(party.expires_at);
       const minutesRemaining = Math.floor((expiresAt.getTime() - now.getTime()) / 60000);
 
+      // Helper function to slugify text for URLs
+      const slugify = (text: string): string => {
+        return text
+          .toLowerCase()
+          .trim()
+          .replace(/[^\w\s-]/g, '')
+          .replace(/\s+/g, '-')
+          .replace(/-+/g, '-');
+      };
+
       // Build embed
       const embed = new EmbedBuilder()
         .setColor(0x7c3aed)
@@ -59,7 +69,7 @@ export class PartyPosterService {
         .addFields(
           {
             name: 'Reward',
-            value: `${party.tokens_per_participant.toString()} tokens`,
+            value: `${(party.tokens_per_participant / BigInt('1000000000')).toString()} tokens`,
             inline: true,
           },
           {
@@ -84,7 +94,7 @@ export class PartyPosterService {
       // Build buttons
       const trackUrl =
         party.platform === 'AUDIUS'
-          ? `https://audius.co/tracks/${party.track_id}`
+          ? `https://audius.co/${slugify(party.track_artist)}/${slugify(party.track_title)}`
           : `https://open.spotify.com/track/${party.track_id}`;
 
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(

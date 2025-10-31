@@ -350,6 +350,7 @@ export function RaidCreationModal({ track, platform = 'spotify', onClose }: Raid
             track_title: track.name,
             track_artist: track.artist,
             track_artwork_url: (track as any).artwork ?? '',
+            track_permalink: (track as any).permalink ?? '',
             platform,
             token_mint: selectedToken,
             tokens_per_participant: tokensPerParticipantLamports,

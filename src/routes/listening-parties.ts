@@ -571,6 +571,7 @@ router.post(
       track_title: Joi.string().required(),
       track_artist: Joi.string().optional(),
       track_artwork_url: Joi.string().optional(),
+      track_permalink: Joi.string().optional(), // For Audius track URL construction
       platform: Joi.string().valid('audius', 'spotify').required(),
       token_mint: Joi.string().required(),
       tokens_per_participant: Joi.alternatives().try(Joi.string(), Joi.number()).required(),
@@ -590,6 +591,7 @@ router.post(
         track_title,
         track_artist,
         track_artwork_url,
+        track_permalink,
         platform,
         token_mint,
         tokens_per_participant,
