@@ -94,7 +94,7 @@ export class PartyPosterService {
       // Build buttons
       const trackUrl =
         party.platform === 'AUDIUS'
-          ? `https://audius.co/${slugify(party.track_artist)}/${slugify(party.track_title)}`
+          ? `https://audius.co/${slugify(party.track_artist || 'artist')}/${slugify(party.track_title || 'track')}`
           : `https://open.spotify.com/track/${party.track_id}`;
 
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
