@@ -52,7 +52,15 @@ export class PartyPosterService {
       const minutesRemaining = Math.floor((expiresAt.getTime() - now.getTime()) / 60000);
 
       // Helper function to slugify text for URLs
-      const slugify = (text: string): string => {
+      // For artist (handle), preserve camelCase; for tracks, use lowercase
+      const slugifyArtist = (text: string): string => {
+        return text
+          .trim()
+          .replace(/[^\w\s-]/g, '')
+          .replace(/\s+/g, '');
+      };
+
+      const slugifyTrack = (text: string): string => {
         return text
           .toLowerCase()
           .trim()
@@ -94,7 +102,7 @@ export class PartyPosterService {
       // Build buttons
       const trackUrl =
         party.platform === 'AUDIUS'
-          ? `https://audius.co/${slugify(party.track_artist || 'artist')}/${slugify(party.track_title || 'track')}`
+          ? `https://audius.co/${slugifyArtist(party.track_artist || 'artist')}/${slugifyTrack(party.track_title || 'track')}`
           : `https://open.spotify.com/track/${party.track_id}`;
 
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
